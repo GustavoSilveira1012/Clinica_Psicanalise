@@ -102,11 +102,19 @@ CREATE TABLE IF NOT EXISTS payments (
 CREATE TABLE IF NOT EXISTS availability (
 	id BIGSERIAL PRIMARY KEY,
 	psychoanalyst_id BIGINT NOT NULL,
-	day_of_week INTEGER NOT NULL,
+	day_of_week VARCHAR(20) NOT NULL,
 	start_time TIME NOT NULL,
 	end_time TIME NOT NULL,
 	active BOOLEAN NOT NULL DEFAULT TRUE,
+	created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	CONSTRAINT fk_availability_psychoanalyst FOREIGN KEY (psychoanalyst_id) REFERENCES psychoanalysts(id) ON DELETE CASCADE,
-	CONSTRAINT check_day_of_week CHECK (day_of_week BETWEEN 0 AND 6),
 	CONSTRAINT check_availability_time CHECK (end_time > start_time)
 );
+
+-- Compatibilidade com instalações anteriores da tabela availability.
+ALTER TABLE public.availability
+	ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE public.availability
+	ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;

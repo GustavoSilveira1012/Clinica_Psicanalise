@@ -106,4 +106,20 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.CONFLICT)
                 .body(response);
         }
+
+        @ExceptionHandler(InvalidAvailabilityException.class)
+        public ResponseEntity<Map<String, Object>> handleInvalidAvailability(
+                InvalidAvailabilityException exception
+        ) {
+        Map<String, Object> response = new HashMap<>();
+
+        response.put("timestamp", LocalDateTime.now());
+        response.put("status", 400);
+        response.put("error", "Bad Request");
+        response.put("message", exception.getMessage());
+
+        return ResponseEntity
+                .badRequest()
+                .body(response);
+        }
 }
