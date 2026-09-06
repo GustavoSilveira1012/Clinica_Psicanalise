@@ -2,6 +2,7 @@ package com.psicogest.psicogest.controller;
 
 import com.psicogest.psicogest.dto.appointment.*;
 import com.psicogest.psicogest.service.AppointmentService;
+import com.psicogest.psicogest.service.AppointmentSeriesOperationService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -15,12 +16,16 @@ import java.util.List;
 public class AppointmentController {
 
     private final AppointmentService appointmentService;
+    private final AppointmentSeriesOperationService seriesOperationService;
 
     public AppointmentController(
-            AppointmentService appointmentService
+            AppointmentService appointmentService,
+            AppointmentSeriesOperationService seriesOperationService
     ) {
         this.appointmentService =
                 appointmentService;
+        this.seriesOperationService =
+                seriesOperationService;
     }
 
     @PostMapping
@@ -124,6 +129,42 @@ public AppointmentResponseDTO noShow(
     return appointmentService.markNoShow(
             psychoanalystId,
             appointmentId
+    );
+}
+
+@PatchMapping(
+        "/{appointmentId}/series/cancel"
+)
+public List<AppointmentResponseDTO>
+cancelSeriesScope(
+        @PathVariable Long psychoanalystId,
+        @PathVariable Long appointmentId,
+        @Valid
+        @RequestBody RecurringAppointmentCancelDTO dto
+) {
+
+    return seriesOperationService.cancel(
+            psychoanalystId,
+            appointmentId,
+            dto
+    );
+}
+
+@PostMapping(
+        "/{appointmentId}/series/reschedule"
+)
+public List<AppointmentResponseDTO>
+rescheduleSeriesScope(
+        @PathVariable Long psychoanalystId,
+        @PathVariable Long appointmentId,
+        @Valid
+        @RequestBody RecurringAppointmentRescheduleDTO dto
+) {
+
+    return seriesOperationService.reschedule(
+            psychoanalystId,
+            appointmentId,
+            dto
     );
 }
 

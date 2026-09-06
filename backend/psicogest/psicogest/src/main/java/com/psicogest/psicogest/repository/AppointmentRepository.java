@@ -47,6 +47,23 @@ findByAppointmentSeriesIdAndOccurrenceNumberGreaterThanEqualOrderByOccurrenceNum
             UUID recurringGroupId
     );
 
+    List<Appointment>
+findByAppointmentSeriesIdOrderByOccurrenceNumberAsc1(
+        UUID appointmentSeriesId
+);
+
+List<Appointment>
+findByAppointmentSeriesIdAndOccurrenceNumberGreaterThanEqualOrderByOccurrenceNumberAsc1(
+        UUID appointmentSeriesId,
+        Integer occurrenceNumber
+);
+
+Optional<Appointment>
+findByIdAndPsychoanalystIdAndAppointmentSeriesIsNotNull(
+        Long appointmentId,
+        Long psychoanalystId
+);
+
     @Query("""
             SELECT a
             FROM Appointment a
