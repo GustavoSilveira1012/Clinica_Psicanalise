@@ -91,6 +91,42 @@ public class AppointmentController {
         );
     }
 
+    @PatchMapping("/{appointmentId}/confirm")
+public AppointmentResponseDTO confirm(
+        @PathVariable Long psychoanalystId,
+        @PathVariable Long appointmentId
+) {
+
+    return appointmentService.confirm(
+            psychoanalystId,
+            appointmentId
+    );
+}
+
+@PatchMapping("/{appointmentId}/complete")
+public AppointmentResponseDTO complete(
+        @PathVariable Long psychoanalystId,
+        @PathVariable Long appointmentId
+) {
+
+    return appointmentService.complete(
+            psychoanalystId,
+            appointmentId
+    );
+}
+
+@PatchMapping("/{appointmentId}/no-show")
+public AppointmentResponseDTO noShow(
+        @PathVariable Long psychoanalystId,
+        @PathVariable Long appointmentId
+) {
+
+    return appointmentService.markNoShow(
+            psychoanalystId,
+            appointmentId
+    );
+}
+
     @PostMapping("/{appointmentId}/reschedule")
     @ResponseStatus(HttpStatus.CREATED)
     public AppointmentResponseDTO reschedule(

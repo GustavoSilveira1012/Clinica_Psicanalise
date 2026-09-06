@@ -1,13 +1,17 @@
 package com.psicogest.psicogest.service;
 
 import com.psicogest.psicogest.dto.appointment.*;
+import com.psicogest.psicogest.domain.appointment.AppointmentPersistenceExceptionTranslator;
+import com.psicogest.psicogest.domain.appointment.AppointmentStateMachine;
 import com.psicogest.psicogest.exception.InvalidAvailabilityException;
+import com.psicogest.psicogest.exception.InvalidAppointmentTransitionException;
 import com.psicogest.psicogest.exception.ResourceNotFoundException;
 import com.psicogest.psicogest.exception.ScheduleConflictException;
 import com.psicogest.psicogest.model.entity.*;
 import com.psicogest.psicogest.model.enums.AppointmentStatus;
 import com.psicogest.psicogest.model.enums.MembershipStatus;
 import com.psicogest.psicogest.repository.*;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +32,9 @@ public class AppointmentService {
 
     private final AppointmentRepository appointmentRepository;
 
+    private final AppointmentPersistenceExceptionTranslator
+    persistenceExceptionTranslator;
+
     private final PatientRepository patientRepository;
 
     private final PsychoanalystRepository psychoanalystRepository;
@@ -36,12 +43,17 @@ public class AppointmentService {
 
     private final ScheduleAvailabilityService scheduleAvailabilityService;
 
+    private final AppointmentStateMachine stateMachine;
+
     public AppointmentService(
             AppointmentRepository appointmentRepository,
             PatientRepository patientRepository,
             PsychoanalystRepository psychoanalystRepository,
             ClinicMembershipRepository membershipRepository,
-            ScheduleAvailabilityService scheduleAvailabilityService
+            ScheduleAvailabilityService scheduleAvailabilityService,
+            AppointmentStateMachine stateMachine,
+            AppointmentPersistenceExceptionTranslator
+                    persistenceExceptionTranslator
     ) {
 
         this.appointmentRepository =
@@ -58,6 +70,12 @@ public class AppointmentService {
 
         this.scheduleAvailabilityService =
                 scheduleAvailabilityService;
+
+        this.stateMachine =
+                stateMachine;
+
+        this.persistenceExceptionTranslator =
+                persistenceExceptionTranslator;
     }
 
     @Transactional
@@ -120,7 +138,7 @@ public class AppointmentService {
                         .build();
 
         return toResponseDTO(
-                appointmentRepository.save(
+                saveSafely(
                         appointment
                 )
         );
@@ -172,52 +190,125 @@ public class AppointmentService {
                         appointmentId
                 );
 
-        if (
-                appointment.getStatus()
-                        == AppointmentStatus.CANCELLED
-        ) {
+        LocalDateTime now = LocalDateTime.now();
 
-            throw new ScheduleConflictException(
-                    "A consulta já está cancelada"
+        if (!now.isBefore(appointment.getScheduledStart())) {
+            throw new InvalidAppointmentTransitionException(
+                    "A consulta não pode ser cancelada após o horário de início"
             );
         }
 
-        if (
-                appointment.getStatus()
-                        == AppointmentStatus.COMPLETED
-        ) {
-
-            throw new ScheduleConflictException(
-                    "Uma consulta concluída não pode ser cancelada"
-            );
-        }
-
-        if (
-                appointment.getStatus()
-                        == AppointmentStatus.RESCHEDULED
-        ) {
-
-            throw new ScheduleConflictException(
-                    "Esta consulta já foi reagendada"
-            );
-        }
-
-        appointment.setStatus(
+        transition(
+                appointment,
                 AppointmentStatus.CANCELLED
         );
 
-        appointment.setCancelledAt(
-                LocalDateTime.now()
-        );
+        appointment.setCancelledAt(now);
 
         appointment.setCancellationReason(
                 dto.reason().trim()
         );
 
         return toResponseDTO(
-                appointmentRepository.save(
+                saveSafely(
                         appointment
                 )
+        );
+    }
+
+    @Transactional
+    public AppointmentResponseDTO confirm(
+            Long psychoanalystId,
+            Long appointmentId
+    ) {
+
+        Appointment appointment =
+                findAppointment(
+                        psychoanalystId,
+                        appointmentId
+                );
+
+        LocalDateTime now = LocalDateTime.now();
+
+        if (!now.isBefore(appointment.getScheduledStart())) {
+            throw new InvalidAppointmentTransitionException(
+                    "Não é possível confirmar uma consulta que já iniciou"
+            );
+        }
+
+        transition(
+                appointment,
+                AppointmentStatus.CONFIRMED
+        );
+
+        appointment.setConfirmedAt(now);
+
+        return toResponseDTO(
+                saveSafely(appointment)
+        );
+    }
+
+    @Transactional
+    public AppointmentResponseDTO complete(
+            Long psychoanalystId,
+            Long appointmentId
+    ) {
+
+        Appointment appointment =
+                findAppointment(
+                        psychoanalystId,
+                        appointmentId
+                );
+
+        LocalDateTime now = LocalDateTime.now();
+
+        if (now.isBefore(appointment.getScheduledEnd())) {
+            throw new InvalidAppointmentTransitionException(
+                    "A consulta só pode ser concluída após o horário previsto de término"
+            );
+        }
+
+        transition(
+                appointment,
+                AppointmentStatus.COMPLETED
+        );
+
+        appointment.setCompletedAt(now);
+
+        return toResponseDTO(
+                saveSafely(appointment)
+        );
+    }
+
+    @Transactional
+    public AppointmentResponseDTO markNoShow(
+            Long psychoanalystId,
+            Long appointmentId
+    ) {
+
+        Appointment appointment =
+                findAppointment(
+                        psychoanalystId,
+                        appointmentId
+                );
+
+        LocalDateTime now = LocalDateTime.now();
+
+        if (now.isBefore(appointment.getScheduledEnd())) {
+            throw new InvalidAppointmentTransitionException(
+                    "A ausência só pode ser registrada após o término previsto da consulta"
+            );
+        }
+
+        transition(
+                appointment,
+                AppointmentStatus.NO_SHOW
+        );
+
+        appointment.setNoShowAt(now);
+
+        return toResponseDTO(
+                saveSafely(appointment)
         );
     }
 
@@ -234,9 +325,13 @@ public class AppointmentService {
                         appointmentId
                 );
 
-        validateCanReschedule(
-                original
-        );
+        LocalDateTime now = LocalDateTime.now();
+
+        if (!now.isBefore(original.getScheduledStart())) {
+            throw new InvalidAppointmentTransitionException(
+                    "Não é possível reagendar uma consulta que já iniciou"
+            );
+        }
 
         validateDateTime(
                 dto.scheduledStart(),
@@ -259,9 +354,12 @@ public class AppointmentService {
         /*
          * Nunca sobrescrevemos o registro original.
          */
-        original.setStatus(
+        transition(
+                original,
                 AppointmentStatus.RESCHEDULED
         );
+
+        original.setRescheduledAt(now);
 
         appointmentRepository.save(
                 original
@@ -298,11 +396,10 @@ public class AppointmentService {
                         )
                         .build();
 
-        return toResponseDTO(
-                appointmentRepository.save(
-                        newAppointment
-                )
-        );
+        Appointment saved =
+                saveSafely(newAppointment);
+
+        return toResponseDTO(saved);
     }
 
     @Transactional
@@ -413,8 +510,9 @@ public class AppointmentService {
                         })
                         .toList();
 
-        return appointmentRepository
-                .saveAll(appointments)
+        return saveAllSafely(
+                appointments
+        )
                 .stream()
                 .map(this::toResponseDTO)
                 .toList();
@@ -468,6 +566,51 @@ public class AppointmentService {
             );
         }
     }
+
+        private Appointment saveSafely(
+                        Appointment appointment
+        ) {
+
+                try {
+
+                        return appointmentRepository
+                                        .saveAndFlush(appointment);
+
+                } catch (DataIntegrityViolationException exception) {
+
+                        throw persistenceExceptionTranslator
+                                        .translate(exception);
+                }
+        }
+
+        private List<Appointment> saveAllSafely(
+                        List<Appointment> appointments
+        ) {
+
+                try {
+
+                        return appointmentRepository
+                                        .saveAllAndFlush(appointments);
+
+                } catch (DataIntegrityViolationException exception) {
+
+                        throw persistenceExceptionTranslator
+                                        .translate(exception);
+                }
+        }
+
+        private void transition(
+                        Appointment appointment,
+                        AppointmentStatus target
+        ) {
+
+                stateMachine.validateTransition(
+                                appointment.getStatus(),
+                                target
+                );
+
+                appointment.setStatus(target);
+        }
 
     private ClinicMembership resolveMembership(
             Long psychoanalystId,
@@ -535,41 +678,6 @@ public class AppointmentService {
 
             throw new InvalidAvailabilityException(
                     "A consulta deve começar e terminar no mesmo dia"
-            );
-        }
-    }
-
-    private void validateCanReschedule(
-            Appointment appointment
-    ) {
-
-        if (
-                appointment.getStatus()
-                        == AppointmentStatus.CANCELLED
-        ) {
-
-            throw new ScheduleConflictException(
-                    "Consulta cancelada não pode ser reagendada"
-            );
-        }
-
-        if (
-                appointment.getStatus()
-                        == AppointmentStatus.COMPLETED
-        ) {
-
-            throw new ScheduleConflictException(
-                    "Consulta concluída não pode ser reagendada"
-            );
-        }
-
-        if (
-                appointment.getStatus()
-                        == AppointmentStatus.RESCHEDULED
-        ) {
-
-            throw new ScheduleConflictException(
-                    "A consulta já foi reagendada"
             );
         }
     }
@@ -676,7 +784,15 @@ public class AppointmentService {
 
                 appointment.getCancellationReason(),
 
-                appointment.getCancelledAt()
+                appointment.getCancelledAt(),
+
+                appointment.getConfirmedAt(),
+
+                appointment.getCompletedAt(),
+
+                appointment.getNoShowAt(),
+
+                appointment.getRescheduledAt()
         );
     }
 }
