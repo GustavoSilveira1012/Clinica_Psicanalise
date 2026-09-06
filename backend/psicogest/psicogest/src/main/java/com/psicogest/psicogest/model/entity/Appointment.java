@@ -51,6 +51,13 @@ public class Appointment {
         @JoinColumn(name = "original_appointment_id")
         private Appointment originalAppointment;
 
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "appointment_series_id")
+        private AppointmentSeries appointmentSeries;
+
+        @Column(name = "occurrence_number")
+        private Integer occurrenceNumber;
+
         @Column(name = "recurring_group_id")
         private UUID recurringGroupId;
 

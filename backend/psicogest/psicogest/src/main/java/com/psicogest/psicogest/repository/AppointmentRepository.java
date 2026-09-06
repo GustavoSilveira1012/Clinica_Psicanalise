@@ -27,6 +27,17 @@ public interface AppointmentRepository
     );
 
     List<Appointment>
+findByAppointmentSeriesIdOrderByOccurrenceNumberAsc(
+        UUID appointmentSeriesId
+);
+
+List<Appointment>
+findByAppointmentSeriesIdAndOccurrenceNumberGreaterThanEqualOrderByOccurrenceNumberAsc(
+        UUID appointmentSeriesId,
+        Integer occurrenceNumber
+);
+
+    List<Appointment>
     findByPatientIdOrderByScheduledStartDesc(
             Long patientId
     );

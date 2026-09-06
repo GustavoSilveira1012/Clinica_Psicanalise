@@ -156,4 +156,40 @@ public class GlobalExceptionHandler {
                                 .status(HttpStatus.CONFLICT)
                                 .body(response);
         }
+
+        @ExceptionHandler(
+        InvalidAppointmentSeriesException.class
+)
+public ResponseEntity<Map<String, Object>>
+handleInvalidAppointmentSeries(
+        InvalidAppointmentSeriesException exception
+) {
+
+    Map<String, Object> response =
+            new HashMap<>();
+
+    response.put(
+            "timestamp",
+            LocalDateTime.now()
+    );
+
+    response.put(
+            "status",
+            400
+    );
+
+    response.put(
+            "error",
+            "Bad Request"
+    );
+
+    response.put(
+            "message",
+            exception.getMessage()
+    );
+
+    return ResponseEntity
+            .badRequest()
+            .body(response);
+}
 }
