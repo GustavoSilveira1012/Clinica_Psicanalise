@@ -9,7 +9,6 @@ import com.psicogest.psicogest.exception.ResourceNotFoundException;
 import com.psicogest.psicogest.exception.ScheduleConflictException;
 import com.psicogest.psicogest.model.entity.*;
 import com.psicogest.psicogest.model.enums.AppointmentStatus;
-import com.psicogest.psicogest.model.enums.MembershipStatus;
 import com.psicogest.psicogest.repository.*;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -41,6 +40,8 @@ public class AppointmentService {
 
     private final ClinicMembershipRepository membershipRepository;
 
+        private final ClinicMembershipPeriodRepository membershipPeriodRepository;
+
     private final ScheduleAvailabilityService scheduleAvailabilityService;
 
     private final AppointmentStateMachine stateMachine;
@@ -50,6 +51,7 @@ public class AppointmentService {
             PatientRepository patientRepository,
             PsychoanalystRepository psychoanalystRepository,
             ClinicMembershipRepository membershipRepository,
+            ClinicMembershipPeriodRepository membershipPeriodRepository,
             ScheduleAvailabilityService scheduleAvailabilityService,
             AppointmentStateMachine stateMachine,
             AppointmentPersistenceExceptionTranslator
@@ -67,6 +69,9 @@ public class AppointmentService {
 
         this.membershipRepository =
                 membershipRepository;
+
+        this.membershipPeriodRepository =
+                membershipPeriodRepository;
 
         this.scheduleAvailabilityService =
                 scheduleAvailabilityService;
@@ -102,7 +107,8 @@ public class AppointmentService {
         ClinicMembership membership =
                 resolveMembership(
                         psychoanalystId,
-                        dto.clinicMembershipId()
+                        dto.clinicMembershipId(),
+                        dto.scheduledStart()
                 );
 
         validateSchedule(
@@ -424,7 +430,8 @@ public class AppointmentService {
         ClinicMembership membership =
                 resolveMembership(
                         psychoanalystId,
-                        dto.clinicMembershipId()
+                        dto.clinicMembershipId(),
+                        dto.firstScheduledStart()
                 );
 
         /*
@@ -605,7 +612,8 @@ public class AppointmentService {
 
     private ClinicMembership resolveMembership(
             Long psychoanalystId,
-            Long membershipId
+            Long membershipId,
+            LocalDateTime appointmentStart
     ) {
 
         if (membershipId == null) {
@@ -624,13 +632,15 @@ public class AppointmentService {
                                 )
                         );
 
-        if (
-                membership.getStatus()
-                        != MembershipStatus.ACTIVE
-        ) {
+        boolean validPeriod = membershipPeriodRepository.isActiveAt(
+                membershipId,
+                appointmentStart
+        );
+
+        if (!validPeriod) {
 
             throw new ScheduleConflictException(
-                    "O vínculo do psicanalista com esta clínica não está ativo"
+                    "O psicanalista não possui vínculo ativo com esta clínica na data da consulta"
             );
         }
 

@@ -6,9 +6,12 @@ import com.psicogest.psicogest.exception.MembershipAlreadyExistsException;
 import com.psicogest.psicogest.exception.ResourceNotFoundException;
 import com.psicogest.psicogest.model.entity.Clinic;
 import com.psicogest.psicogest.model.entity.ClinicMembership;
+import com.psicogest.psicogest.model.entity.ClinicMembershipPeriod;
 import com.psicogest.psicogest.model.entity.Psychoanalyst;
+import com.psicogest.psicogest.model.enums.ClinicMembershipPeriodStatus;
 import com.psicogest.psicogest.model.enums.MembershipStatus;
 import com.psicogest.psicogest.repository.ClinicMembershipRepository;
+import com.psicogest.psicogest.repository.ClinicMembershipPeriodRepository;
 import com.psicogest.psicogest.repository.ClinicRepository;
 import com.psicogest.psicogest.repository.PsychoanalystRepository;
 import org.springframework.stereotype.Service;
@@ -20,15 +23,18 @@ import java.util.List;
 public class ClinicMembershipService {
 
     private final ClinicMembershipRepository membershipRepository;
+        private final ClinicMembershipPeriodRepository periodRepository;
     private final ClinicRepository clinicRepository;
     private final PsychoanalystRepository psychoanalystRepository;
 
     public ClinicMembershipService(
             ClinicMembershipRepository membershipRepository,
+                        ClinicMembershipPeriodRepository periodRepository,
             ClinicRepository clinicRepository,
             PsychoanalystRepository psychoanalystRepository
     ) {
         this.membershipRepository = membershipRepository;
+                this.periodRepository = periodRepository;
         this.clinicRepository = clinicRepository;
         this.psychoanalystRepository = psychoanalystRepository;
     }
@@ -74,6 +80,15 @@ public class ClinicMembershipService {
 
         ClinicMembership savedMembership =
                 membershipRepository.save(membership);
+
+        ClinicMembershipPeriod firstPeriod =
+                ClinicMembershipPeriod.builder()
+                        .membership(savedMembership)
+                        .status(ClinicMembershipPeriodStatus.ACTIVE)
+                        .startedAt(java.time.LocalDateTime.now())
+                        .build();
+
+        periodRepository.save(firstPeriod);
 
         return toResponseDTO(savedMembership);
     }

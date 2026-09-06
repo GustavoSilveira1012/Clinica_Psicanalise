@@ -229,4 +229,41 @@ handleTherapeuticRelationshipConflict(
             .status(HttpStatus.CONFLICT)
             .body(response);
 }
+
+@ExceptionHandler({
+        InvalidClinicMembershipPeriodTransitionException.class,
+        ClinicMembershipPeriodConflictException.class
+})
+public ResponseEntity<Map<String, Object>>
+handleClinicMembershipPeriodConflict(
+        RuntimeException exception
+) {
+
+    Map<String, Object> response =
+            new HashMap<>();
+
+    response.put(
+            "timestamp",
+            LocalDateTime.now()
+    );
+
+    response.put(
+            "status",
+            HttpStatus.CONFLICT.value()
+    );
+
+    response.put(
+            "error",
+            "Conflict"
+    );
+
+    response.put(
+            "message",
+            exception.getMessage()
+    );
+
+    return ResponseEntity
+            .status(HttpStatus.CONFLICT)
+            .body(response);
+}
 }
