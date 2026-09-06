@@ -11,7 +11,6 @@ import java.util.List;
         "/patients/{patientId}/therapeutic-relationships"
 )
 public class PatientRelationshipController {
-
     private final TherapeuticRelationshipService
             relationshipService;
 
