@@ -192,4 +192,41 @@ handleInvalidAppointmentSeries(
             .badRequest()
             .body(response);
 }
+
+@ExceptionHandler({
+        InvalidTherapeuticRelationshipTransitionException.class,
+        TherapeuticRelationshipConflictException.class
+})
+public ResponseEntity<Map<String, Object>>
+handleTherapeuticRelationshipConflict(
+        RuntimeException exception
+) {
+
+    Map<String, Object> response =
+            new HashMap<>();
+
+    response.put(
+            "timestamp",
+            LocalDateTime.now()
+    );
+
+    response.put(
+            "status",
+            HttpStatus.CONFLICT.value()
+    );
+
+    response.put(
+            "error",
+            "Conflict"
+    );
+
+    response.put(
+            "message",
+            exception.getMessage()
+    );
+
+    return ResponseEntity
+            .status(HttpStatus.CONFLICT)
+            .body(response);
+}
 }
