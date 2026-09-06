@@ -26,6 +26,7 @@ public class Clinic implements DeactivatableEntity {
     private String cnpj;
 
     @Column(nullable = false)
+    @Builder.Default
     private Boolean active = true;
 
     @Column(name = "deactivated_at")

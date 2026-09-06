@@ -35,6 +35,7 @@ public class Psychoanalyst implements DeactivatableEntity {
     private String phone;
 
     @Column(nullable = false)
+    @Builder.Default
     private Boolean active = true;
 
     @Column(name = "deactivated_at")

@@ -1,5 +1,7 @@
 package com.psicogest.psicogest.service;
 
+import com.psicogest.psicogest.domain.lifecycle.LifecycleManager;
+import com.psicogest.psicogest.dto.common.DeactivateDTO;
 import com.psicogest.psicogest.dto.clinic.ClinicCreateDTO;
 import com.psicogest.psicogest.dto.clinic.ClinicResponseDTO;
 import com.psicogest.psicogest.exception.CnpjAlreadyExistsException;
@@ -7,6 +9,7 @@ import com.psicogest.psicogest.exception.ResourceNotFoundException;
 import com.psicogest.psicogest.model.entity.Clinic;
 import com.psicogest.psicogest.repository.ClinicRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -14,9 +17,14 @@ import java.util.List;
 public class ClinicService {
 
     private final ClinicRepository clinicRepository;
+    private final LifecycleManager lifecycleManager;
 
-    public ClinicService(ClinicRepository clinicRepository) {
+    public ClinicService(
+            ClinicRepository clinicRepository,
+            LifecycleManager lifecycleManager
+    ) {
         this.clinicRepository = clinicRepository;
+        this.lifecycleManager = lifecycleManager;
     }
 
     public ClinicResponseDTO create(ClinicCreateDTO dto) {
@@ -42,7 +50,7 @@ public class ClinicService {
 
     public List<ClinicResponseDTO> findAll() {
 
-        return clinicRepository.findAll()
+        return clinicRepository.findByActiveTrue()
                 .stream()
                 .map(this::toResponseDTO)
                 .toList();
@@ -53,6 +61,20 @@ public class ClinicService {
         Clinic clinic = findClinicById(id);
 
         return toResponseDTO(clinic);
+    }
+
+    @Transactional
+    public ClinicResponseDTO deactivate(Long clinicId, DeactivateDTO dto) {
+        Clinic clinic = findClinicById(clinicId);
+        lifecycleManager.deactivate(clinic, dto.reason());
+        return toResponseDTO(clinicRepository.save(clinic));
+    }
+
+    @Transactional
+    public ClinicResponseDTO reactivate(Long clinicId) {
+        Clinic clinic = findClinicById(clinicId);
+        lifecycleManager.reactivate(clinic);
+        return toResponseDTO(clinicRepository.save(clinic));
     }
 
     private Clinic findClinicById(Long id) {

@@ -36,6 +36,7 @@ public class Availability implements DeactivatableEntity {
     private LocalTime endTime;
 
     @Column(nullable = false)
+    @Builder.Default
     private Boolean active = true;
 
     @Column(name = "deactivated_at")

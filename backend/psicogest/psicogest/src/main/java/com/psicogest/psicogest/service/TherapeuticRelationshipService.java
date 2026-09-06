@@ -52,6 +52,18 @@ public class TherapeuticRelationshipService {
                 Psychoanalyst psychoanalyst = findPsychoanalyst(psychoanalystId);
                 Patient patient = findPatient(dto.patientId());
 
+                if (Boolean.FALSE.equals(patient.getActive())) {
+                    throw new EntityLifecycleException(
+                            "Paciente desativado não pode iniciar novo vínculo terapêutico"
+                    );
+                }
+
+                if (Boolean.FALSE.equals(psychoanalyst.getActive())) {
+                    throw new EntityLifecycleException(
+                            "Psicanalista desativado não pode iniciar novo vínculo terapêutico"
+                    );
+                }
+
                 if (relationshipRepository
                                 .existsByPatientIdAndPsychoanalystIdAndStatusIn(
                                                 dto.patientId(),

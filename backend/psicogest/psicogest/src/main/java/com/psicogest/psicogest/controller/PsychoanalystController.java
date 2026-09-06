@@ -2,6 +2,7 @@ package com.psicogest.psicogest.controller;
 
 import com.psicogest.psicogest.dto.psychoanalyst.PsychoanalystCreateDTO;
 import com.psicogest.psicogest.dto.psychoanalyst.PsychoanalystResponseDTO;
+import com.psicogest.psicogest.dto.common.DeactivateDTO;
 import com.psicogest.psicogest.service.PsychoanalystService;
 
 import jakarta.validation.Valid;
@@ -41,5 +42,17 @@ public class PsychoanalystController {
             @PathVariable Long id) {
 
         return psychoanalystService.findById(id);
+    }
+
+    @PatchMapping("/{id}/deactivate")
+    public PsychoanalystResponseDTO deactivate(
+            @PathVariable Long id,
+            @Valid @RequestBody DeactivateDTO dto) {
+        return psychoanalystService.deactivate(id, dto);
+    }
+
+    @PatchMapping("/{id}/reactivate")
+    public PsychoanalystResponseDTO reactivate(@PathVariable Long id) {
+        return psychoanalystService.reactivate(id);
     }
 }

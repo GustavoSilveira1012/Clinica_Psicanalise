@@ -2,6 +2,7 @@ package com.psicogest.psicogest.controller;
 
 import com.psicogest.psicogest.dto.patient.PatientCreateDTO;
 import com.psicogest.psicogest.dto.patient.PatientResponseDTO;
+import com.psicogest.psicogest.dto.common.DeactivateDTO;
 import com.psicogest.psicogest.service.PatientService;
 
 import jakarta.validation.Valid;
@@ -39,5 +40,17 @@ public class PatientController {
             @PathVariable Long id) {
 
         return patientService.findById(id);
+    }
+
+    @PatchMapping("/{id}/deactivate")
+    public PatientResponseDTO deactivate(
+            @PathVariable Long id,
+            @Valid @RequestBody DeactivateDTO dto) {
+        return patientService.deactivate(id, dto);
+    }
+
+    @PatchMapping("/{id}/reactivate")
+    public PatientResponseDTO reactivate(@PathVariable Long id) {
+        return patientService.reactivate(id);
     }
 }

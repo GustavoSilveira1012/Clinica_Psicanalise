@@ -31,6 +31,7 @@ public class Patient implements DeactivatableEntity {
     private LocalDate birthDate;
 
     @Column(nullable = false)
+    @Builder.Default
     private Boolean active = true;
 
     @Column(name = "deactivated_at")

@@ -5,6 +5,7 @@ import com.psicogest.psicogest.domain.appointment.AppointmentPersistenceExceptio
 import com.psicogest.psicogest.domain.appointment.AppointmentStateMachine;
 import com.psicogest.psicogest.exception.InvalidAvailabilityException;
 import com.psicogest.psicogest.exception.InvalidAppointmentTransitionException;
+import com.psicogest.psicogest.exception.EntityLifecycleException;
 import com.psicogest.psicogest.exception.ResourceNotFoundException;
 import com.psicogest.psicogest.exception.ScheduleConflictException;
 import com.psicogest.psicogest.model.entity.*;
@@ -17,7 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.UUID;
 
 @Service
 public class AppointmentService {
@@ -80,9 +80,17 @@ public class AppointmentService {
 
                 Psychoanalyst psychoanalyst = findPsychoanalyst(
                                 psychoanalystId);
+                    if (Boolean.FALSE.equals(psychoanalyst.getActive())) {
+                            throw new EntityLifecycleException(
+                                            "Não é possível agendar com um psicanalista desativado");
+                    }
 
                 Patient patient = findPatient(
                                 dto.patientId());
+                    if (Boolean.FALSE.equals(patient.getActive())) {
+                            throw new EntityLifecycleException(
+                                            "Não é possível criar uma consulta para um paciente desativado");
+                    }
 
                 ClinicMembership membership = resolveMembership(
                                 psychoanalystId,
@@ -334,8 +342,18 @@ public class AppointmentService {
                 Psychoanalyst psychoanalyst = findPsychoanalyst(
                                 psychoanalystId);
 
+                if (Boolean.FALSE.equals(psychoanalyst.getActive())) {
+                        throw new EntityLifecycleException(
+                                        "Não é possível agendar com um psicanalista desativado");
+                }
+
                 Patient patient = findPatient(
                                 dto.patientId());
+
+                if (Boolean.FALSE.equals(patient.getActive())) {
+                        throw new EntityLifecycleException(
+                                        "Não é possível criar uma consulta para um paciente desativado");
+                }
 
                 ClinicMembership membership = resolveMembership(
                                 psychoanalystId,
@@ -502,6 +520,13 @@ public class AppointmentService {
                                                 psychoanalystId)
                                 .orElseThrow(() -> new ResourceNotFoundException(
                                                 "Vínculo com clínica não encontrado"));
+
+                        Clinic clinic = membership.getClinic();
+
+                        if (Boolean.FALSE.equals(clinic.getActive())) {
+                                throw new EntityLifecycleException(
+                                                "A clínica está desativada");
+                        }
 
                 boolean validPeriod = membershipPeriodRepository.isActiveAt(
                                 membershipId,

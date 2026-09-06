@@ -1,19 +1,26 @@
 package com.psicogest.psicogest.service;
 
+import com.psicogest.psicogest.domain.lifecycle.LifecycleManager;
+import com.psicogest.psicogest.dto.common.DeactivateDTO;
 import com.psicogest.psicogest.dto.psychoanalyst.PsychoanalystCreateDTO;
 import com.psicogest.psicogest.dto.psychoanalyst.PsychoanalystResponseDTO;
 import com.psicogest.psicogest.exception.EmailAlreadyExistsException;
+import com.psicogest.psicogest.exception.EntityLifecycleException;
 import com.psicogest.psicogest.exception.ResourceNotFoundException;
 import com.psicogest.psicogest.model.entity.Psychoanalyst;
 import com.psicogest.psicogest.model.entity.User;
 import com.psicogest.psicogest.model.enums.UserRole;
+import com.psicogest.psicogest.model.enums.AppointmentStatus;
 import com.psicogest.psicogest.repository.PsychoanalystRepository;
+import com.psicogest.psicogest.repository.AppointmentRepository;
 import com.psicogest.psicogest.repository.UserRepository;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.time.LocalDateTime;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class PsychoanalystService {
@@ -21,14 +28,20 @@ public class PsychoanalystService {
         private final PsychoanalystRepository psychoanalystRepository;
         private final UserRepository userRepository;
         private final PasswordEncoder passwordEncoder;
+        private final LifecycleManager lifecycleManager;
+        private final AppointmentRepository appointmentRepository;
 
         public PsychoanalystService(
                         PsychoanalystRepository psychoanalystRepository,
                         UserRepository userRepository,
-                        PasswordEncoder passwordEncoder) {
+                        PasswordEncoder passwordEncoder,
+                        LifecycleManager lifecycleManager,
+                        AppointmentRepository appointmentRepository) {
                 this.psychoanalystRepository = psychoanalystRepository;
                 this.userRepository = userRepository;
                 this.passwordEncoder = passwordEncoder;
+                this.lifecycleManager = lifecycleManager;
+                this.appointmentRepository = appointmentRepository;
         }
 
         public PsychoanalystResponseDTO create(
@@ -66,7 +79,7 @@ public class PsychoanalystService {
 
         public List<PsychoanalystResponseDTO> findAll() {
 
-                return psychoanalystRepository.findAll()
+                return psychoanalystRepository.findByActiveTrue()
                                 .stream()
                                 .map(this::toResponseDTO)
                                 .toList();
@@ -80,6 +93,39 @@ public class PsychoanalystService {
                                                                 + id));
 
                 return toResponseDTO(psychoanalyst);
+        }
+
+        @Transactional
+        public PsychoanalystResponseDTO deactivate(
+                        Long psychoanalystId,
+                        DeactivateDTO dto) {
+                Psychoanalyst psychoanalyst = findPsychoanalystById(psychoanalystId);
+                boolean hasFutureAppointments = appointmentRepository
+                                .existsByPsychoanalystIdAndStatusInAndScheduledStartAfter(
+                                                psychoanalystId,
+                                                java.util.EnumSet.of(
+                                                                AppointmentStatus.SCHEDULED,
+                                                                AppointmentStatus.CONFIRMED),
+                                                LocalDateTime.now());
+                if (hasFutureAppointments) {
+                        throw new EntityLifecycleException(
+                                        "O psicanalista possui consultas futuras. Resolva a agenda antes da desativação.");
+                }
+                lifecycleManager.deactivate(psychoanalyst, dto.reason());
+                return toResponseDTO(psychoanalystRepository.save(psychoanalyst));
+        }
+
+        @Transactional
+        public PsychoanalystResponseDTO reactivate(Long psychoanalystId) {
+                Psychoanalyst psychoanalyst = findPsychoanalystById(psychoanalystId);
+                lifecycleManager.reactivate(psychoanalyst);
+                return toResponseDTO(psychoanalystRepository.save(psychoanalyst));
+        }
+
+        private Psychoanalyst findPsychoanalystById(Long psychoanalystId) {
+                return psychoanalystRepository.findById(psychoanalystId)
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "Psicanalista não encontrado com o ID: " + psychoanalystId));
         }
 
         private PsychoanalystResponseDTO toResponseDTO(

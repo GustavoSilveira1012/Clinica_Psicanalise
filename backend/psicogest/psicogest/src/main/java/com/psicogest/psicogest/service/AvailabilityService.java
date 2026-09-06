@@ -1,5 +1,7 @@
 package com.psicogest.psicogest.service;
 
+import com.psicogest.psicogest.domain.lifecycle.LifecycleManager;
+import com.psicogest.psicogest.dto.common.DeactivateDTO;
 import com.psicogest.psicogest.dto.availability.AvailabilityCreateDTO;
 import com.psicogest.psicogest.dto.availability.AvailabilityResponseDTO;
 import com.psicogest.psicogest.dto.availability.AvailabilityUpdateDTO;
@@ -22,12 +24,15 @@ public class AvailabilityService {
 
         private final AvailabilityRepository availabilityRepository;
         private final PsychoanalystRepository psychoanalystRepository;
+        private final LifecycleManager lifecycleManager;
 
         public AvailabilityService(
                         AvailabilityRepository availabilityRepository,
-                        PsychoanalystRepository psychoanalystRepository) {
+                        PsychoanalystRepository psychoanalystRepository,
+                        LifecycleManager lifecycleManager) {
                 this.availabilityRepository = availabilityRepository;
                 this.psychoanalystRepository = psychoanalystRepository;
+                this.lifecycleManager = lifecycleManager;
         }
 
         @Transactional
@@ -72,9 +77,13 @@ public class AvailabilityService {
                                 .toList();
         }
 
-        public AvailabilityResponseDTO findById(Long id) {
+        public AvailabilityResponseDTO findById(
+                        Long psychoanalystId,
+                        Long availabilityId) {
 
-                Availability availability = findAvailabilityById(id, id);
+                Availability availability = findAvailabilityById(
+                                psychoanalystId,
+                                availabilityId);
 
                 return toResponseDTO(availability);
         }
@@ -110,13 +119,33 @@ public class AvailabilityService {
         }
 
         @Transactional
-        public void delete(Long psychoanalystId, Long availabilityId) {
-
+        public AvailabilityResponseDTO deactivate(
+                        Long psychoanalystId,
+                        Long availabilityId,
+                        DeactivateDTO dto) {
                 Availability availability = findAvailabilityById(
                                 psychoanalystId,
                                 availabilityId);
+                lifecycleManager.deactivate(availability, dto.reason());
+                return toResponseDTO(availabilityRepository.save(availability));
+        }
 
-                availabilityRepository.delete(availability);
+        @Transactional
+        public AvailabilityResponseDTO reactivate(
+                        Long psychoanalystId,
+                        Long availabilityId) {
+                Availability availability = findAvailabilityById(
+                                psychoanalystId,
+                                availabilityId);
+                validateOverlap(
+                                psychoanalystId,
+                                availability.getDayOfWeek(),
+                                availability.getStartTime(),
+                                availability.getEndTime(),
+                                availabilityId,
+                                true);
+                lifecycleManager.reactivate(availability);
+                return toResponseDTO(availabilityRepository.save(availability));
         }
 
         private Psychoanalyst findPsychoanalystById(
@@ -198,8 +227,4 @@ public class AvailabilityService {
                 }
         }
 
-        public AvailabilityResponseDTO findById(Long psychoanalystId, Long availabilityId) {
-                // TODO Auto-generated method stub
-                throw new UnsupportedOperationException("Unimplemented method 'findById'");
-        }
 }

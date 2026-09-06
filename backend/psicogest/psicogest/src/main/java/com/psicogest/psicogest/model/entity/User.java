@@ -3,7 +3,6 @@ package com.psicogest.psicogest.model.entity;
 import com.psicogest.psicogest.domain.lifecycle.DeactivatableEntity;
 import com.psicogest.psicogest.model.enums.UserRole;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotNull;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;

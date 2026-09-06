@@ -2,6 +2,7 @@ package com.psicogest.psicogest.controller;
 
 import com.psicogest.psicogest.dto.clinic.ClinicCreateDTO;
 import com.psicogest.psicogest.dto.clinic.ClinicResponseDTO;
+import com.psicogest.psicogest.dto.common.DeactivateDTO;
 import com.psicogest.psicogest.service.ClinicService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -33,5 +34,17 @@ public class ClinicController {
     public ClinicResponseDTO findById(
             @PathVariable Long id) {
         return clinicService.findById(id);
+    }
+
+    @PatchMapping("/{id}/deactivate")
+    public ClinicResponseDTO deactivate(
+            @PathVariable Long id,
+            @Valid @RequestBody DeactivateDTO dto) {
+        return clinicService.deactivate(id, dto);
+    }
+
+    @PatchMapping("/{id}/reactivate")
+    public ClinicResponseDTO reactivate(@PathVariable Long id) {
+        return clinicService.reactivate(id);
     }
 }

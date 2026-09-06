@@ -3,6 +3,7 @@ package com.psicogest.psicogest.controller;
 import com.psicogest.psicogest.dto.availability.AvailabilityCreateDTO;
 import com.psicogest.psicogest.dto.availability.AvailabilityResponseDTO;
 import com.psicogest.psicogest.dto.availability.AvailabilityUpdateDTO;
+import com.psicogest.psicogest.dto.common.DeactivateDTO;
 import com.psicogest.psicogest.service.AvailabilityService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -62,13 +63,22 @@ public class AvailabilityController {
                                 dto);
         }
 
-        @DeleteMapping("/{availabilityId}")
-        @ResponseStatus(HttpStatus.NO_CONTENT)
-        public void delete(
+        @PatchMapping("/{availabilityId}/deactivate")
+        public AvailabilityResponseDTO deactivate(
+                        @PathVariable Long psychoanalystId,
+                        @PathVariable Long availabilityId,
+                        @Valid @RequestBody DeactivateDTO dto) {
+                return availabilityService.deactivate(
+                                psychoanalystId,
+                                availabilityId,
+                                dto);
+        }
+
+        @PatchMapping("/{availabilityId}/reactivate")
+        public AvailabilityResponseDTO reactivate(
                         @PathVariable Long psychoanalystId,
                         @PathVariable Long availabilityId) {
-
-                availabilityService.delete(
+                return availabilityService.reactivate(
                                 psychoanalystId,
                                 availabilityId);
         }
