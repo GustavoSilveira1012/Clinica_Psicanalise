@@ -4,12 +4,11 @@ import java.time.LocalDate;
 
 public record PatientResponseDTO(
 
-        Long id,
-        String name,
-        String email,
-        String phone,
-        LocalDate birthDate,
-        Boolean active
-) {
-    
+                Long id,
+                String name,
+                String email,
+                String phone,
+                LocalDate birthDate,
+                Boolean active) {
+
 }

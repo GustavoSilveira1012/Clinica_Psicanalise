@@ -10,128 +10,99 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class AppointmentStateMachineTest {
 
-    private final AppointmentStateMachine stateMachine =
-            new AppointmentStateMachine();
+        private final AppointmentStateMachine stateMachine = new AppointmentStateMachine();
 
-    @Test
-    void shouldAllowScheduledToConfirmed() {
+        @Test
+        void shouldAllowScheduledToConfirmed() {
 
-        assertDoesNotThrow(
-                () ->
-                        stateMachine.validateTransition(
-                                AppointmentStatus.SCHEDULED,
-                                AppointmentStatus.CONFIRMED
-                        )
-        );
-    }
+                assertDoesNotThrow(
+                                () -> stateMachine.validateTransition(
+                                                AppointmentStatus.SCHEDULED,
+                                                AppointmentStatus.CONFIRMED));
+        }
 
-    @Test
-    void shouldAllowScheduledToCancelled() {
+        @Test
+        void shouldAllowScheduledToCancelled() {
 
-        assertDoesNotThrow(
-                () ->
-                        stateMachine.validateTransition(
-                                AppointmentStatus.SCHEDULED,
-                                AppointmentStatus.CANCELLED
-                        )
-        );
-    }
+                assertDoesNotThrow(
+                                () -> stateMachine.validateTransition(
+                                                AppointmentStatus.SCHEDULED,
+                                                AppointmentStatus.CANCELLED));
+        }
 
-    @Test
-    void shouldAllowConfirmedToCompleted() {
+        @Test
+        void shouldAllowConfirmedToCompleted() {
 
-        assertDoesNotThrow(
-                () ->
-                        stateMachine.validateTransition(
-                                AppointmentStatus.CONFIRMED,
-                                AppointmentStatus.COMPLETED
-                        )
-        );
-    }
+                assertDoesNotThrow(
+                                () -> stateMachine.validateTransition(
+                                                AppointmentStatus.CONFIRMED,
+                                                AppointmentStatus.COMPLETED));
+        }
 
-    @Test
-    void shouldAllowScheduledToCompleted() {
+        @Test
+        void shouldAllowScheduledToCompleted() {
 
-        assertDoesNotThrow(
-                () ->
-                        stateMachine.validateTransition(
-                                AppointmentStatus.SCHEDULED,
-                                AppointmentStatus.COMPLETED
-                        )
-        );
-    }
+                assertDoesNotThrow(
+                                () -> stateMachine.validateTransition(
+                                                AppointmentStatus.SCHEDULED,
+                                                AppointmentStatus.COMPLETED));
+        }
 
-    @Test
-    void shouldRejectCompletedToScheduled() {
+        @Test
+        void shouldRejectCompletedToScheduled() {
 
-        assertThrows(
-                InvalidAppointmentTransitionException.class,
-                () ->
-                        stateMachine.validateTransition(
-                                AppointmentStatus.COMPLETED,
-                                AppointmentStatus.SCHEDULED
-                        )
-        );
-    }
+                assertThrows(
+                                InvalidAppointmentTransitionException.class,
+                                () -> stateMachine.validateTransition(
+                                                AppointmentStatus.COMPLETED,
+                                                AppointmentStatus.SCHEDULED));
+        }
 
-    @Test
-    void shouldRejectCancelledToConfirmed() {
+        @Test
+        void shouldRejectCancelledToConfirmed() {
 
-        assertThrows(
-                InvalidAppointmentTransitionException.class,
-                () ->
-                        stateMachine.validateTransition(
-                                AppointmentStatus.CANCELLED,
-                                AppointmentStatus.CONFIRMED
-                        )
-        );
-    }
+                assertThrows(
+                                InvalidAppointmentTransitionException.class,
+                                () -> stateMachine.validateTransition(
+                                                AppointmentStatus.CANCELLED,
+                                                AppointmentStatus.CONFIRMED));
+        }
 
-    @Test
-    void shouldRejectRescheduledToScheduled() {
+        @Test
+        void shouldRejectRescheduledToScheduled() {
 
-        assertThrows(
-                InvalidAppointmentTransitionException.class,
-                () ->
-                        stateMachine.validateTransition(
-                                AppointmentStatus.RESCHEDULED,
-                                AppointmentStatus.SCHEDULED
-                        )
-        );
-    }
+                assertThrows(
+                                InvalidAppointmentTransitionException.class,
+                                () -> stateMachine.validateTransition(
+                                                AppointmentStatus.RESCHEDULED,
+                                                AppointmentStatus.SCHEDULED));
+        }
 
-    @Test
-    void shouldRejectSameStatus() {
+        @Test
+        void shouldRejectSameStatus() {
 
-        assertThrows(
-                InvalidAppointmentTransitionException.class,
-                () ->
-                        stateMachine.validateTransition(
-                                AppointmentStatus.SCHEDULED,
-                                AppointmentStatus.SCHEDULED
-                        )
-        );
-    }
+                assertThrows(
+                                InvalidAppointmentTransitionException.class,
+                                () -> stateMachine.validateTransition(
+                                                AppointmentStatus.SCHEDULED,
+                                                AppointmentStatus.SCHEDULED));
+        }
 
-    @Test
-    void completedShouldBeTerminal() {
+        @Test
+        void completedShouldBeTerminal() {
 
-        assertFalse(
-                stateMachine.canTransition(
-                        AppointmentStatus.COMPLETED,
-                        AppointmentStatus.CONFIRMED
-                )
-        );
-    }
+                assertFalse(
+                                stateMachine.canTransition(
+                                                AppointmentStatus.COMPLETED,
+                                                AppointmentStatus.CONFIRMED));
+        }
 
-    @Test
-    void cancelledShouldBeTerminal() {
+        @Test
+        void cancelledShouldBeTerminal() {
 
-        assertFalse(
-                stateMachine.canTransition(
-                        AppointmentStatus.CANCELLED,
-                        AppointmentStatus.SCHEDULED
-                )
-        );
-    }
+                assertFalse(
+                                stateMachine.canTransition(
+                                                AppointmentStatus.CANCELLED,
+                                                AppointmentStatus.SCHEDULED));
+        }
 }

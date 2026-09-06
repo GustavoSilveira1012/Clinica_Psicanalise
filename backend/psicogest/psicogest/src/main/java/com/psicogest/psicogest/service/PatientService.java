@@ -18,85 +18,77 @@ import java.util.List;
 @Service
 public class PatientService {
 
-    private final PatientRepository patientRepository;
-    private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
+        private final PatientRepository patientRepository;
+        private final UserRepository userRepository;
+        private final PasswordEncoder passwordEncoder;
 
-    public PatientService(
-            PatientRepository patientRepository,
-            UserRepository userRepository,
-            PasswordEncoder passwordEncoder
-    ) {
-        this.patientRepository = patientRepository;
-        this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
-    }
-
-    public PatientResponseDTO create(PatientCreateDTO dto) {
-
-        if (userRepository.existsByEmail(dto.email())) {
-
-            throw new EmailAlreadyExistsException(
-                    "Já existe um usuário cadastrado com este e-mail"
-            );
+        public PatientService(
+                        PatientRepository patientRepository,
+                        UserRepository userRepository,
+                        PasswordEncoder passwordEncoder) {
+                this.patientRepository = patientRepository;
+                this.userRepository = userRepository;
+                this.passwordEncoder = passwordEncoder;
         }
 
-        User user = User.builder()
-                .name(dto.name())
-                .email(dto.email())
-                .passwordHash(
-                        passwordEncoder.encode(dto.password())
-                )
-                .role(UserRole.PATIENT)
-                .active(true)
-                .build();
+        public PatientResponseDTO create(PatientCreateDTO dto) {
 
-        User savedUser = userRepository.save(user);
+                if (userRepository.existsByEmail(dto.email())) {
 
-        Patient patient = Patient.builder()
-                .user(savedUser)
-                .phone(dto.phone())
-                .birthDate(dto.birthDate())
-                .build();
+                        throw new EmailAlreadyExistsException(
+                                        "Já existe um usuário cadastrado com este e-mail");
+                }
 
-        Patient savedPatient = patientRepository.save(patient);
+                User user = User.builder()
+                                .name(dto.name())
+                                .email(dto.email())
+                                .passwordHash(
+                                                passwordEncoder.encode(dto.password()))
+                                .role(UserRole.PATIENT)
+                                .active(true)
+                                .build();
 
-        return toResponseDTO(savedPatient);
-    }
+                User savedUser = userRepository.save(user);
 
-    public List<PatientResponseDTO> findAll() {
+                Patient patient = Patient.builder()
+                                .user(savedUser)
+                                .phone(dto.phone())
+                                .birthDate(dto.birthDate())
+                                .build();
 
-        return patientRepository.findAll()
-                .stream()
-                .map(this::toResponseDTO)
-                .toList();
-    }
+                Patient savedPatient = patientRepository.save(patient);
 
-    public PatientResponseDTO findById(Long id) {
+                return toResponseDTO(savedPatient);
+        }
 
-        Patient patient = patientRepository.findById(id)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Paciente não encontrado com o ID: " + id
-                        )
-                );
+        public List<PatientResponseDTO> findAll() {
 
-        return toResponseDTO(patient);
-    }
+                return patientRepository.findAll()
+                                .stream()
+                                .map(this::toResponseDTO)
+                                .toList();
+        }
 
-    private PatientResponseDTO toResponseDTO(
-            Patient patient
-    ) {
+        public PatientResponseDTO findById(Long id) {
 
-        User user = patient.getUser();
+                Patient patient = patientRepository.findById(id)
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "Paciente não encontrado com o ID: " + id));
 
-        return new PatientResponseDTO(
-                patient.getId(),
-                user.getName(),
-                user.getEmail(),
-                patient.getPhone(),
-                patient.getBirthDate(),
-                user.getActive()
-        );
-    }
-}   
+                return toResponseDTO(patient);
+        }
+
+        private PatientResponseDTO toResponseDTO(
+                        Patient patient) {
+
+                User user = patient.getUser();
+
+                return new PatientResponseDTO(
+                                patient.getId(),
+                                user.getName(),
+                                user.getEmail(),
+                                patient.getPhone(),
+                                patient.getBirthDate(),
+                                user.getActive());
+        }
+}

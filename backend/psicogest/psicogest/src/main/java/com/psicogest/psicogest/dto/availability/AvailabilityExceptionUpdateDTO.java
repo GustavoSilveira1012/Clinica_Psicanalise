@@ -9,21 +9,15 @@ import java.time.LocalTime;
 
 public record AvailabilityExceptionUpdateDTO(
 
-        @NotNull(message = "Data é obrigatória")
-        LocalDate date,
+                @NotNull(message = "Data é obrigatória") LocalDate date,
 
-        @NotNull(message = "Tipo da exceção é obrigatório")
-        AvailabilityExceptionType type,
+                @NotNull(message = "Tipo da exceção é obrigatório") AvailabilityExceptionType type,
 
-        LocalTime startTime,
+                LocalTime startTime,
 
-        LocalTime endTime,
+                LocalTime endTime,
 
-        @Size(
-                max = 255,
-                message = "Motivo deve possuir no máximo 255 caracteres"
-        )
-        String reason
+                @Size(max = 255, message = "Motivo deve possuir no máximo 255 caracteres") String reason
 
 ) {
 }

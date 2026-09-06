@@ -13,69 +13,61 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface AppointmentRepository
-        extends JpaRepository<Appointment, Long> {
+    extends JpaRepository<Appointment, Long> {
 
-    Optional<Appointment>
-    findByIdAndPsychoanalystId(
-            Long appointmentId,
-            Long psychoanalystId
-    );
+  Optional<Appointment> findByIdAndPsychoanalystId(
+      Long appointmentId,
+      Long psychoanalystId);
 
-    List<Appointment>
-    findByPsychoanalystIdOrderByScheduledStartAsc(
-            Long psychoanalystId
-    );
+  List<Appointment> findByPsychoanalystIdOrderByScheduledStartAsc(
+      Long psychoanalystId);
 
-    List<Appointment>
-findByAppointmentSeriesIdOrderByOccurrenceNumberAsc(
-        UUID appointmentSeriesId
-);
+  List<Appointment> findByAppointmentSeriesIdOrderByOccurrenceNumberAsc(
+      UUID appointmentSeriesId);
 
-List<Appointment>
-findByAppointmentSeriesIdAndOccurrenceNumberGreaterThanEqualOrderByOccurrenceNumberAsc(
-        UUID appointmentSeriesId,
-        Integer occurrenceNumber
-);
+  List<Appointment> findByAppointmentSeriesIdAndOccurrenceNumberGreaterThanEqualOrderByOccurrenceNumberAsc(
+      UUID appointmentSeriesId,
+      Integer occurrenceNumber);
 
-    List<Appointment>
-    findByPatientIdOrderByScheduledStartDesc(
-            Long patientId
-    );
+  boolean existsByPatientIdAndStatusInAndScheduledStartAfter(
+      Long patientId,
+      java.util.Collection<AppointmentStatus> statuses,
+      LocalDateTime instant);
 
-Optional<Appointment>
-findByIdAndPsychoanalystIdAndAppointmentSeriesIsNotNull(
-        Long appointmentId,
-        Long psychoanalystId
-);
+  boolean existsByPsychoanalystIdAndStatusInAndScheduledStartAfter(
+      Long psychoanalystId,
+      java.util.Collection<AppointmentStatus> statuses,
+      LocalDateTime instant);
 
-    @Query("""
-            SELECT a
-            FROM Appointment a
-            WHERE a.psychoanalyst.id = :psychoanalystId
+  List<Appointment> findByPatientIdOrderByScheduledStartDesc(
+      Long patientId);
 
-              AND a.status IN :statuses
+  Optional<Appointment> findByIdAndPsychoanalystIdAndAppointmentSeriesIsNotNull(
+      Long appointmentId,
+      Long psychoanalystId);
 
-              AND a.scheduledStart < :requestedEnd
+  @Query("""
+      SELECT a
+      FROM Appointment a
+      WHERE a.psychoanalyst.id = :psychoanalystId
 
-              AND a.scheduledEnd > :requestedStart
+        AND a.status IN :statuses
 
-              AND (:ignoredAppointmentId IS NULL
-                   OR a.id <> :ignoredAppointmentId)
-            """)
-    List<Appointment> findConflicts(
-            @Param("psychoanalystId")
-            Long psychoanalystId,
+        AND a.scheduledStart < :requestedEnd
 
-            @Param("requestedStart")
-            LocalDateTime requestedStart,
+        AND a.scheduledEnd > :requestedStart
 
-            @Param("requestedEnd")
-            LocalDateTime requestedEnd,
+        AND (:ignoredAppointmentId IS NULL
+             OR a.id <> :ignoredAppointmentId)
+      """)
+  List<Appointment> findConflicts(
+      @Param("psychoanalystId") Long psychoanalystId,
 
-            @Param("statuses")
-            Collection<AppointmentStatus> statuses,
+      @Param("requestedStart") LocalDateTime requestedStart,
 
-            @Param("ignoredAppointmentId")
-            Long ignoredAppointmentId
-    );
+      @Param("requestedEnd") LocalDateTime requestedEnd,
+
+      @Param("statuses") Collection<AppointmentStatus> statuses,
+
+      @Param("ignoredAppointmentId") Long ignoredAppointmentId);
 }

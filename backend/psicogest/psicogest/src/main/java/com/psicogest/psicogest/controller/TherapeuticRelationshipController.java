@@ -9,96 +9,76 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping(
-        "/psychoanalysts/{psychoanalystId}/therapeutic-relationships"
-)
+@RequestMapping("/psychoanalysts/{psychoanalystId}/therapeutic-relationships")
 public class TherapeuticRelationshipController {
 
-    private final TherapeuticRelationshipService
-            relationshipService;
+        private final TherapeuticRelationshipService relationshipService;
 
-    public TherapeuticRelationshipController(
-            TherapeuticRelationshipService relationshipService
-    ) {
+        public TherapeuticRelationshipController(
+                        TherapeuticRelationshipService relationshipService) {
 
-        this.relationshipService =
-                relationshipService;
-    }
+                this.relationshipService = relationshipService;
+        }
 
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public TherapeuticRelationshipResponseDTO create(
-            @PathVariable Long psychoanalystId,
-            @Valid
-            @RequestBody TherapeuticRelationshipCreateDTO dto
-    ) {
+        @PostMapping
+        @ResponseStatus(HttpStatus.CREATED)
+        public TherapeuticRelationshipResponseDTO create(
+                        @PathVariable Long psychoanalystId,
+                        @Valid @RequestBody TherapeuticRelationshipCreateDTO dto) {
 
-        return relationshipService.create(
-                psychoanalystId,
-                dto
-        );
-    }
+                return relationshipService.create(
+                                psychoanalystId,
+                                dto);
+        }
 
-    @GetMapping
-    public List<TherapeuticRelationshipResponseDTO>
-    findByPsychoanalyst(
-            @PathVariable Long psychoanalystId
-    ) {
+        @GetMapping
+        public List<TherapeuticRelationshipResponseDTO> findByPsychoanalyst(
+                        @PathVariable Long psychoanalystId) {
 
-        return relationshipService
-                .findByPsychoanalyst(
-                        psychoanalystId
-                );
-    }
+                return relationshipService
+                                .findByPsychoanalyst(
+                                                psychoanalystId);
+        }
 
-    @PatchMapping("/{relationshipId}/suspend")
-    public TherapeuticRelationshipResponseDTO suspend(
-            @PathVariable Long psychoanalystId,
-            @PathVariable Long relationshipId
-    ) {
+        @PatchMapping("/{relationshipId}/suspend")
+        public TherapeuticRelationshipResponseDTO suspend(
+                        @PathVariable Long psychoanalystId,
+                        @PathVariable Long relationshipId) {
 
-        return relationshipService.suspend(
-                psychoanalystId,
-                relationshipId
-        );
-    }
+                return relationshipService.suspend(
+                                psychoanalystId,
+                                relationshipId);
+        }
 
-    @PatchMapping("/{relationshipId}/resume")
-    public TherapeuticRelationshipResponseDTO resume(
-            @PathVariable Long psychoanalystId,
-            @PathVariable Long relationshipId
-    ) {
+        @PatchMapping("/{relationshipId}/resume")
+        public TherapeuticRelationshipResponseDTO resume(
+                        @PathVariable Long psychoanalystId,
+                        @PathVariable Long relationshipId) {
 
-        return relationshipService.resume(
-                psychoanalystId,
-                relationshipId
-        );
-    }
+                return relationshipService.resume(
+                                psychoanalystId,
+                                relationshipId);
+        }
 
-    @PatchMapping("/{relationshipId}/primary")
-    public TherapeuticRelationshipResponseDTO makePrimary(
-            @PathVariable Long psychoanalystId,
-            @PathVariable Long relationshipId
-    ) {
+        @PatchMapping("/{relationshipId}/primary")
+        public TherapeuticRelationshipResponseDTO makePrimary(
+                        @PathVariable Long psychoanalystId,
+                        @PathVariable Long relationshipId) {
 
-        return relationshipService.makePrimary(
-                psychoanalystId,
-                relationshipId
-        );
-    }
+                return relationshipService.makePrimary(
+                                psychoanalystId,
+                                relationshipId);
+        }
 
-    @PatchMapping("/{relationshipId}/end")
-    public TherapeuticRelationshipResponseDTO end(
-            @PathVariable Long psychoanalystId,
-            @PathVariable Long relationshipId,
-            @Valid
-            @RequestBody TherapeuticRelationshipEndDTO dto
-    ) {
+        @PatchMapping("/{relationshipId}/end")
+        public TherapeuticRelationshipResponseDTO end(
+                        @PathVariable Long psychoanalystId,
+                        @PathVariable Long relationshipId,
+                        @Valid @RequestBody TherapeuticRelationshipEndDTO dto) {
 
-        return relationshipService.end(
-                psychoanalystId,
-                relationshipId,
-                dto
-        );
-    }
+                return relationshipService.end(
+                                psychoanalystId,
+                                relationshipId,
+                                dto);
+        }
 }

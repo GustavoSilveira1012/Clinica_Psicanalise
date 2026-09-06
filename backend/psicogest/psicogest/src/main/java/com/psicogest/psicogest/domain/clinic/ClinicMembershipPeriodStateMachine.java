@@ -9,27 +9,22 @@ public class ClinicMembershipPeriodStateMachine {
 
     public void validateTransition(
             ClinicMembershipPeriodStatus current,
-            ClinicMembershipPeriodStatus target
-    ) {
+            ClinicMembershipPeriodStatus target) {
 
         if (current == null || target == null) {
 
             throw new InvalidClinicMembershipPeriodTransitionException(
-                    "Status do período de vínculo inválido"
-            );
+                    "Status do período de vínculo inválido");
         }
 
         if (current == target) {
 
             throw new InvalidClinicMembershipPeriodTransitionException(
-                    "O período já possui o status " + current
-            );
+                    "O período já possui o status " + current);
         }
 
-        if (
-                current == ClinicMembershipPeriodStatus.ACTIVE
-                && target == ClinicMembershipPeriodStatus.ENDED
-        ) {
+        if (current == ClinicMembershipPeriodStatus.ACTIVE
+                && target == ClinicMembershipPeriodStatus.ENDED) {
             return;
         }
 
@@ -37,7 +32,6 @@ public class ClinicMembershipPeriodStateMachine {
                 "Não é permitido alterar o período de "
                         + current
                         + " para "
-                        + target
-        );
+                        + target);
     }
 }

@@ -4,8 +4,7 @@ public class InvalidAppointmentSeriesException
         extends RuntimeException {
 
     public InvalidAppointmentSeriesException(
-            String message
-    ) {
+            String message) {
         super(message);
     }
 }

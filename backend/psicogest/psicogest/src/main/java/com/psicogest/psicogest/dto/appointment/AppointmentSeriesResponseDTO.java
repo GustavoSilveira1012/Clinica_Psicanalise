@@ -7,39 +7,39 @@ import java.util.UUID;
 
 public record AppointmentSeriesResponseDTO(
 
-        UUID id,
+                UUID id,
 
-        UUID previousSeriesId,
+                UUID previousSeriesId,
 
-        LocalDateTime supersededAt,
+                LocalDateTime supersededAt,
 
-        LocalDate supersededFrom,
+                LocalDate supersededFrom,
 
-        Long patientId,
-        String patientName,
+                Long patientId,
+                String patientName,
 
-        Long psychoanalystId,
-        String psychoanalystName,
+                Long psychoanalystId,
+                String psychoanalystName,
 
-        Long clinicMembershipId,
+                Long clinicMembershipId,
 
-        RecurrenceFrequency frequency,
+                RecurrenceFrequency frequency,
 
-        Integer recurrenceInterval,
+                Integer recurrenceInterval,
 
-        DayOfWeek dayOfWeek,
+                DayOfWeek dayOfWeek,
 
-        LocalTime startTime,
+                LocalTime startTime,
 
-        Integer durationMinutes,
+                Integer durationMinutes,
 
-        LocalDate startsOn,
+                LocalDate startsOn,
 
-        LocalDate endsOn,
+                LocalDate endsOn,
 
-        Integer totalOccurrences,
+                Integer totalOccurrences,
 
-        AppointmentSeriesStatus status
+                AppointmentSeriesStatus status
 
 ) {
 }

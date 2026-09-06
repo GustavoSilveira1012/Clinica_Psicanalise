@@ -1,5 +1,6 @@
 package com.psicogest.psicogest.model.entity;
 
+import com.psicogest.psicogest.domain.lifecycle.DeactivatableEntity;
 import com.psicogest.psicogest.model.enums.UserRole;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
@@ -16,8 +17,8 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class User {
-    
+public class User implements DeactivatableEntity {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -38,6 +39,15 @@ public class User {
 
     @Column(nullable = false)
     private Boolean active;
+
+    @Column(name = "deactivated_at")
+    private LocalDateTime deactivatedAt;
+
+    @Column(name = "deactivation_reason", length = 255)
+    private String deactivationReason;
+
+    @Column(name = "reactivated_at")
+    private LocalDateTime reactivatedAt;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;

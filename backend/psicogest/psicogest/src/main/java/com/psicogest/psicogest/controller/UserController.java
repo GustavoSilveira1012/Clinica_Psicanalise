@@ -30,8 +30,7 @@ public class UserController {
 
     @GetMapping("/{id}")
     public UserResponseDTO findById(
-            @PathVariable Long id
-    ) {
+            @PathVariable Long id) {
 
         return userService.findById(id);
     }
@@ -39,8 +38,7 @@ public class UserController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public UserResponseDTO create(
-            @Valid @RequestBody UserCreateDTO dto
-    ) {
+            @Valid @RequestBody UserCreateDTO dto) {
 
         return userService.create(dto);
     }
@@ -48,8 +46,7 @@ public class UserController {
     @PutMapping("/{id}")
     public UserResponseDTO update(
             @PathVariable Long id,
-            @Valid @RequestBody UserUpdateDTO dto
-    ) {
+            @Valid @RequestBody UserUpdateDTO dto) {
 
         return userService.update(id, dto);
     }
@@ -57,8 +54,7 @@ public class UserController {
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(
-            @PathVariable Long id
-    ) {
+            @PathVariable Long id) {
 
         userService.delete(id);
     }

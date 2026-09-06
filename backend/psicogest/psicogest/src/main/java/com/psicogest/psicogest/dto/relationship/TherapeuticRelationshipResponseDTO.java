@@ -6,25 +6,25 @@ import java.time.LocalDateTime;
 
 public record TherapeuticRelationshipResponseDTO(
 
-        Long id,
+                Long id,
 
-        Long patientId,
+                Long patientId,
 
-        String patientName,
+                String patientName,
 
-        Long psychoanalystId,
+                Long psychoanalystId,
 
-        String psychoanalystName,
+                String psychoanalystName,
 
-        TherapeuticRelationshipStatus status,
+                TherapeuticRelationshipStatus status,
 
-        Boolean primary,
+                Boolean primary,
 
-        LocalDateTime startedAt,
+                LocalDateTime startedAt,
 
-        LocalDateTime endedAt,
+                LocalDateTime endedAt,
 
-        String endReason
+                String endReason
 
 ) {
 }

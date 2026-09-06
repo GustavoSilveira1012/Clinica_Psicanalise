@@ -8,47 +8,47 @@ import java.util.UUID;
 
 public record AppointmentResponseDTO(
 
-                Long id,
+        Long id,
 
-                Long patientId,
+        Long patientId,
 
-                String patientName,
+        String patientName,
 
-                Long psychoanalystId,
+        Long psychoanalystId,
 
-                String psychoanalystName,
+        String psychoanalystName,
 
-                Long clinicMembershipId,
+        Long clinicMembershipId,
 
-                Long clinicId,
+        Long clinicId,
 
-                String clinicName,
+        String clinicName,
 
-                Long originalAppointmentId,
+        Long originalAppointmentId,
 
-                UUID appointmentSeriesId,
+        UUID appointmentSeriesId,
 
-                Integer occurrenceNumber,
+        Integer occurrenceNumber,
 
-                LocalDateTime scheduledStart,
+        LocalDateTime scheduledStart,
 
-                LocalDateTime scheduledEnd,
+        LocalDateTime scheduledEnd,
 
-                AppointmentStatus status,
+        AppointmentStatus status,
 
-                AppointmentType appointmentType,
+        AppointmentType appointmentType,
 
-                String cancellationReason,
+        String cancellationReason,
 
-                LocalDateTime cancelledAt,
+        LocalDateTime cancelledAt,
 
-                LocalDateTime confirmedAt,
+        LocalDateTime confirmedAt,
 
-                LocalDateTime completedAt,
+        LocalDateTime completedAt,
 
-                LocalDateTime noShowAt,
+        LocalDateTime noShowAt,
 
-                LocalDateTime rescheduledAt
+        LocalDateTime rescheduledAt
 
 ) {
 }

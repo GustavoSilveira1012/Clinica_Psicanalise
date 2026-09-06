@@ -1,9 +1,9 @@
 package com.psicogest.psicogest.exception;
 
-public class InvalidTherapeuticRelationshipTransitionException
+public class EntityLifecycleException
         extends RuntimeException {
 
-    public InvalidTherapeuticRelationshipTransitionException(
+    public EntityLifecycleException(
             String message) {
         super(message);
     }

@@ -4,19 +4,19 @@ import java.time.DayOfWeek;
 import java.time.LocalTime;
 
 import jakarta.transaction.Transactional;
+
 @Transactional
 public record AvailabilityResponseDTO(
 
-        Long id,
+                Long id,
 
-        Long psychoanalystId,
+                Long psychoanalystId,
 
-        DayOfWeek dayOfWeek,
+                DayOfWeek dayOfWeek,
 
-        LocalTime startTime,
+                LocalTime startTime,
 
-        LocalTime endTime,
+                LocalTime endTime,
 
-        Boolean active
-) {
+                Boolean active) {
 }

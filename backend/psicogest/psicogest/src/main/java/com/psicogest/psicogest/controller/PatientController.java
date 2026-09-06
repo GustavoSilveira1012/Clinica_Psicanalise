@@ -23,8 +23,7 @@ public class PatientController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public PatientResponseDTO create(
-            @Valid @RequestBody PatientCreateDTO dto
-    ) {
+            @Valid @RequestBody PatientCreateDTO dto) {
 
         return patientService.create(dto);
     }
@@ -37,8 +36,7 @@ public class PatientController {
 
     @GetMapping("/{id}")
     public PatientResponseDTO findById(
-            @PathVariable Long id
-    ) {
+            @PathVariable Long id) {
 
         return patientService.findById(id);
     }

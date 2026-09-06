@@ -17,325 +17,261 @@ import java.util.UUID;
 @Service
 public class AppointmentSeriesService {
 
-    private final AppointmentSeriesRepository seriesRepository;
+        private final AppointmentSeriesRepository seriesRepository;
 
-    private final AppointmentRepository appointmentRepository;
+        private final AppointmentRepository appointmentRepository;
 
-    private final PatientRepository patientRepository;
+        private final PatientRepository patientRepository;
 
-    private final PsychoanalystRepository psychoanalystRepository;
+        private final PsychoanalystRepository psychoanalystRepository;
 
-    private final ClinicMembershipRepository membershipRepository;
+        private final ClinicMembershipRepository membershipRepository;
 
-    private final ScheduleAvailabilityService scheduleAvailabilityService;
+        private final ScheduleAvailabilityService scheduleAvailabilityService;
 
-    public AppointmentSeriesService(
-            AppointmentSeriesRepository seriesRepository,
-            AppointmentRepository appointmentRepository,
-            PatientRepository patientRepository,
-            PsychoanalystRepository psychoanalystRepository,
-            ClinicMembershipRepository membershipRepository,
-            ScheduleAvailabilityService scheduleAvailabilityService
-    ) {
+        public AppointmentSeriesService(
+                        AppointmentSeriesRepository seriesRepository,
+                        AppointmentRepository appointmentRepository,
+                        PatientRepository patientRepository,
+                        PsychoanalystRepository psychoanalystRepository,
+                        ClinicMembershipRepository membershipRepository,
+                        ScheduleAvailabilityService scheduleAvailabilityService) {
 
-        this.seriesRepository =
-                seriesRepository;
+                this.seriesRepository = seriesRepository;
 
-        this.appointmentRepository =
-                appointmentRepository;
+                this.appointmentRepository = appointmentRepository;
 
-        this.patientRepository =
-                patientRepository;
+                this.patientRepository = patientRepository;
 
-        this.psychoanalystRepository =
-                psychoanalystRepository;
+                this.psychoanalystRepository = psychoanalystRepository;
 
-        this.membershipRepository =
-                membershipRepository;
+                this.membershipRepository = membershipRepository;
 
-        this.scheduleAvailabilityService =
-                scheduleAvailabilityService;
-    }
-
-    @Transactional
-    public AppointmentSeriesResponseDTO create(
-            Long psychoanalystId,
-            AppointmentSeriesCreateDTO dto
-    ) {
-
-        validateSeriesDefinition(dto);
-
-        Psychoanalyst psychoanalyst =
-                findPsychoanalyst(
-                        psychoanalystId
-                );
-
-        Patient patient =
-                findPatient(
-                        dto.patientId()
-                );
-
-        ClinicMembership membership =
-                resolveMembership(
-                        psychoanalystId,
-                        dto.clinicMembershipId()
-                );
-
-        int interval =
-                dto.recurrenceInterval() != null
-                        ? dto.recurrenceInterval()
-                        : 1;
-
-        DayOfWeek dayOfWeek =
-                dto.startsOn().getDayOfWeek();
-
-        List<LocalDate> dates =
-                generateDates(
-                        dto.startsOn(),
-                        dto.endsOn(),
-                        dto.totalOccurrences(),
-                        interval
-                );
-
-        LocalTime endTime =
-                dto.startTime()
-                        .plusMinutes(
-                                dto.durationMinutes()
-                        );
-
-        /*
-         * Primeiro validamos absolutamente tudo.
-         */
-        for (LocalDate date : dates) {
-
-            validateSchedule(
-                    psychoanalystId,
-                    date,
-                    dto.startTime(),
-                    endTime
-            );
-
-            validateAppointmentConflict(
-                    psychoanalystId,
-                    date,
-                    dto.startTime(),
-                    endTime
-            );
+                this.scheduleAvailabilityService = scheduleAvailabilityService;
         }
 
-        UUID seriesId =
-                UUID.randomUUID();
+        @Transactional
+        public AppointmentSeriesResponseDTO create(
+                        Long psychoanalystId,
+                        AppointmentSeriesCreateDTO dto) {
 
-        AppointmentSeries series =
-                AppointmentSeries.builder()
+                validateSeriesDefinition(dto);
 
-                        .id(seriesId)
+                Psychoanalyst psychoanalyst = findPsychoanalyst(
+                                psychoanalystId);
 
-                        .patient(patient)
+                Patient patient = findPatient(
+                                dto.patientId());
 
-                        .psychoanalyst(
-                                psychoanalyst
-                        )
+                ClinicMembership membership = resolveMembership(
+                                psychoanalystId,
+                                dto.clinicMembershipId());
 
-                        .clinicMembership(
-                                membership
-                        )
+                int interval = dto.recurrenceInterval() != null
+                                ? dto.recurrenceInterval()
+                                : 1;
 
-                        .frequency(
-                                dto.frequency()
-                        )
+                DayOfWeek dayOfWeek = dto.startsOn().getDayOfWeek();
 
-                        .recurrenceInterval(
-                                interval
-                        )
+                List<LocalDate> dates = generateDates(
+                                dto.startsOn(),
+                                dto.endsOn(),
+                                dto.totalOccurrences(),
+                                interval);
 
-                        .dayOfWeek(
-                                dayOfWeek
-                        )
+                LocalTime endTime = dto.startTime()
+                                .plusMinutes(
+                                                dto.durationMinutes());
 
-                        .startTime(
-                                dto.startTime()
-                        )
+                /*
+                 * Primeiro validamos absolutamente tudo.
+                 */
+                for (LocalDate date : dates) {
 
-                        .durationMinutes(
-                                dto.durationMinutes()
-                        )
+                        validateSchedule(
+                                        psychoanalystId,
+                                        date,
+                                        dto.startTime(),
+                                        endTime);
 
-                        .startsOn(
-                                dto.startsOn()
-                        )
+                        validateAppointmentConflict(
+                                        psychoanalystId,
+                                        date,
+                                        dto.startTime(),
+                                        endTime);
+                }
 
-                        .endsOn(
-                                dates
-                                        .get(
-                                                dates.size() - 1
-                                        )
-                        )
+                UUID seriesId = UUID.randomUUID();
 
-                        .totalOccurrences(
-                                dates.size()
-                        )
+                AppointmentSeries series = AppointmentSeries.builder()
 
-                        .status(
-                                AppointmentSeriesStatus.ACTIVE
-                        )
+                                .id(seriesId)
 
-                        .build();
+                                .patient(patient)
 
-        AppointmentSeries savedSeries =
-                seriesRepository.save(series);
+                                .psychoanalyst(
+                                                psychoanalyst)
 
-        List<Appointment> appointments =
-                new ArrayList<>();
+                                .clinicMembership(
+                                                membership)
 
-        int occurrence = 1;
+                                .frequency(
+                                                dto.frequency())
 
-        for (LocalDate date : dates) {
+                                .recurrenceInterval(
+                                                interval)
 
-            LocalDateTime start =
-                    LocalDateTime.of(
-                            date,
-                            dto.startTime()
-                    );
+                                .dayOfWeek(
+                                                dayOfWeek)
 
-            LocalDateTime end =
-                    start.plusMinutes(
-                            dto.durationMinutes()
-                    );
+                                .startTime(
+                                                dto.startTime())
 
-            Appointment appointment =
-                    Appointment.builder()
+                                .durationMinutes(
+                                                dto.durationMinutes())
 
-                            .patient(patient)
+                                .startsOn(
+                                                dto.startsOn())
 
-                            .psychoanalyst(
-                                    psychoanalyst
-                            )
+                                .endsOn(
+                                                dates
+                                                                .get(
+                                                                                dates.size() - 1))
 
-                            .clinicMembership(
-                                    membership
-                            )
+                                .totalOccurrences(
+                                                dates.size())
 
-                            .appointmentSeries(
-                                    savedSeries
-                            )
+                                .status(
+                                                AppointmentSeriesStatus.ACTIVE)
 
-                            .occurrenceNumber(
-                                    occurrence++
-                            )
+                                .build();
 
-                            .scheduledStart(
-                                    start
-                            )
+                AppointmentSeries savedSeries = seriesRepository.save(series);
 
-                            .scheduledEnd(
-                                    end
-                            )
+                List<Appointment> appointments = new ArrayList<>();
 
-                            .appointmentType(
-                                    dto.appointmentType()
-                            )
+                int occurrence = 1;
 
-                            .status(
-                                    AppointmentStatus.SCHEDULED
-                            )
+                for (LocalDate date : dates) {
 
-                            .build();
+                        LocalDateTime start = LocalDateTime.of(
+                                        date,
+                                        dto.startTime());
 
-            appointments.add(
-                    appointment
-            );
+                        LocalDateTime end = start.plusMinutes(
+                                        dto.durationMinutes());
+
+                        Appointment appointment = Appointment.builder()
+
+                                        .patient(patient)
+
+                                        .psychoanalyst(
+                                                        psychoanalyst)
+
+                                        .clinicMembership(
+                                                        membership)
+
+                                        .appointmentSeries(
+                                                        savedSeries)
+
+                                        .occurrenceNumber(
+                                                        occurrence++)
+
+                                        .scheduledStart(
+                                                        start)
+
+                                        .scheduledEnd(
+                                                        end)
+
+                                        .appointmentType(
+                                                        dto.appointmentType())
+
+                                        .status(
+                                                        AppointmentStatus.SCHEDULED)
+
+                                        .build();
+
+                        appointments.add(
+                                        appointment);
+                }
+
+                /*
+                 * saveAllAndFlush força o banco
+                 * a aplicar a exclusion constraint.
+                 */
+                appointmentRepository
+                                .saveAllAndFlush(
+                                                appointments);
+
+                return toResponseDTO(
+                                savedSeries);
         }
 
-        /*
-         * saveAllAndFlush força o banco
-         * a aplicar a exclusion constraint.
-         */
-        appointmentRepository
-                .saveAllAndFlush(
-                        appointments
-                );
+        private void validateSeriesDefinition(AppointmentSeriesCreateDTO dto) {
+                if (dto == null) {
+                        throw new InvalidAppointmentSeriesException(
+                                        "A definição da série de consultas é obrigatória.");
+                }
 
-        return toResponseDTO(
-                savedSeries
-        );
-    }
+                if (dto.patientId() == null
+                                || dto.frequency() == null
+                                || dto.startsOn() == null
+                                || dto.startTime() == null
+                                || dto.durationMinutes() == null
+                                || dto.appointmentType() == null) {
+                        throw new InvalidAppointmentSeriesException(
+                                        "Os campos obrigatórios da série de consultas devem ser informados.");
+                }
 
-    private void validateSeriesDefinition(AppointmentSeriesCreateDTO dto) {
-        if (dto == null) {
-            throw new InvalidAppointmentSeriesException(
-                    "A definição da série de consultas é obrigatória."
-            );
-        }
+                boolean hasEndDate = dto.endsOn() != null;
+                boolean hasOccurrenceCount = dto.totalOccurrences() != null;
 
-        if (dto.patientId() == null
-                || dto.frequency() == null
-                || dto.startsOn() == null
-                || dto.startTime() == null
-                || dto.durationMinutes() == null
-                || dto.appointmentType() == null) {
-            throw new InvalidAppointmentSeriesException(
-                    "Os campos obrigatórios da série de consultas devem ser informados."
-            );
-        }
-
-        boolean hasEndDate = dto.endsOn() != null;
-        boolean hasOccurrenceCount = dto.totalOccurrences() != null;
-
-        if (hasEndDate == hasOccurrenceCount) {
-            throw new InvalidAppointmentSeriesException(
-                                        "Informe totalOccurrences ou endsOn, mas não ambos"
-            );
-        }
+                if (hasEndDate == hasOccurrenceCount) {
+                        throw new InvalidAppointmentSeriesException(
+                                        "Informe totalOccurrences ou endsOn, mas não ambos");
+                }
 
                 if (dto.startsOn().isBefore(LocalDate.now())) {
                         throw new InvalidAppointmentSeriesException(
-                                        "A série não pode começar no passado"
-                        );
+                                        "A série não pode começar no passado");
                 }
 
-        if (hasEndDate && dto.endsOn().isBefore(dto.startsOn())) {
-            throw new InvalidAppointmentSeriesException(
-                                        "A data final não pode ser anterior à data inicial"
-            );
-        }
+                if (hasEndDate && dto.endsOn().isBefore(dto.startsOn())) {
+                        throw new InvalidAppointmentSeriesException(
+                                        "A data final não pode ser anterior à data inicial");
+                }
 
                 if (dto.frequency() != RecurrenceFrequency.WEEKLY) {
                         throw new InvalidAppointmentSeriesException(
-                                        "Apenas recorrência semanal está disponível atualmente"
-                        );
+                                        "Apenas recorrência semanal está disponível atualmente");
                 }
 
-        int interval = dto.recurrenceInterval() != null
-                ? dto.recurrenceInterval()
-                : 1;
+                int interval = dto.recurrenceInterval() != null
+                                ? dto.recurrenceInterval()
+                                : 1;
 
-        if (interval < 1 || interval > 12) {
-            throw new InvalidAppointmentSeriesException(
-                    "O intervalo de recorrência deve estar entre 1 e 12."
-            );
-        }
+                if (interval < 1 || interval > 12) {
+                        throw new InvalidAppointmentSeriesException(
+                                        "O intervalo de recorrência deve estar entre 1 e 12.");
+                }
 
-        if (dto.durationMinutes() < 10 || dto.durationMinutes() > 480) {
-            throw new InvalidAppointmentSeriesException(
-                    "A duração deve estar entre 10 e 480 minutos."
-            );
-        }
+                if (dto.durationMinutes() < 10 || dto.durationMinutes() > 480) {
+                        throw new InvalidAppointmentSeriesException(
+                                        "A duração deve estar entre 10 e 480 minutos.");
+                }
 
-        if (hasOccurrenceCount
-                && (dto.totalOccurrences() < 2 || dto.totalOccurrences() > 104)) {
-            throw new InvalidAppointmentSeriesException(
-                    "O número de ocorrências deve estar entre 2 e 104."
-            );
+                if (hasOccurrenceCount
+                                && (dto.totalOccurrences() < 2 || dto.totalOccurrences() > 104)) {
+                        throw new InvalidAppointmentSeriesException(
+                                        "O número de ocorrências deve estar entre 2 e 104.");
+                }
         }
-    }
 
         private List<LocalDate> generateDates(
                         LocalDate startsOn,
                         LocalDate endsOn,
                         Integer totalOccurrences,
-                        int interval
-        ) {
+                        int interval) {
                 List<LocalDate> dates = new ArrayList<>();
                 LocalDate date = startsOn;
 
@@ -354,8 +290,7 @@ public class AppointmentSeriesService {
 
                 if (dates.size() < 2) {
                         throw new InvalidAppointmentSeriesException(
-                                        "A série deve possuir pelo menos duas consultas"
-                        );
+                                        "A série deve possuir pelo menos duas consultas");
                 }
 
                 return dates;
@@ -365,18 +300,15 @@ public class AppointmentSeriesService {
                         Long psychoanalystId,
                         LocalDate date,
                         LocalTime startTime,
-                        LocalTime endTime
-        ) {
+                        LocalTime endTime) {
                 if (!scheduleAvailabilityService.isWithinSchedule(
                                 psychoanalystId,
                                 date,
                                 startTime,
-                                endTime
-                )) {
+                                endTime)) {
                         throw new InvalidAvailabilityException(
                                         "A série possui uma ocorrência fora da disponibilidade em "
-                                                        + date
-                        );
+                                                        + date);
                 }
         }
 
@@ -384,8 +316,7 @@ public class AppointmentSeriesService {
                         Long psychoanalystId,
                         LocalDate date,
                         LocalTime startTime,
-                        LocalTime endTime
-        ) {
+                        LocalTime endTime) {
                 LocalDateTime start = LocalDateTime.of(date, startTime);
                 LocalDateTime end = LocalDateTime.of(date, endTime);
 
@@ -395,22 +326,18 @@ public class AppointmentSeriesService {
                                 end,
                                 java.util.EnumSet.of(
                                                 AppointmentStatus.SCHEDULED,
-                                                AppointmentStatus.CONFIRMED
-                                ),
-                                null
-                ).isEmpty();
+                                                AppointmentStatus.CONFIRMED),
+                                null).isEmpty();
 
                 if (conflict) {
                         throw new ScheduleConflictException(
                                         "Existe conflito de agenda na data "
-                                                        + date
-                        );
+                                                        + date);
                 }
         }
 
         private AppointmentSeriesResponseDTO toResponseDTO(
-                        AppointmentSeries series
-        ) {
+                        AppointmentSeries series) {
                 ClinicMembership membership = series.getClinicMembership();
 
                 return new AppointmentSeriesResponseDTO(
@@ -428,49 +355,42 @@ public class AppointmentSeriesService {
                                 series.getStartsOn(),
                                 series.getEndsOn(),
                                 series.getTotalOccurrences(),
-                                series.getStatus()
-                );
+                                series.getStatus());
         }
 
-                    private Psychoanalyst findPsychoanalyst(Long id) {
-                        return psychoanalystRepository
+        private Psychoanalyst findPsychoanalyst(Long id) {
+                return psychoanalystRepository
                                 .findById(id)
                                 .orElseThrow(() -> new ResourceNotFoundException(
-                                        "Psicanalista não encontrado"
-                                ));
-                    }
+                                                "Psicanalista não encontrado"));
+        }
 
-                    private Patient findPatient(Long id) {
-                        return patientRepository
+        private Patient findPatient(Long id) {
+                return patientRepository
                                 .findById(id)
                                 .orElseThrow(() -> new ResourceNotFoundException(
-                                        "Paciente não encontrado"
-                                ));
-                    }
+                                                "Paciente não encontrado"));
+        }
 
-                    private ClinicMembership resolveMembership(
-                            Long psychoanalystId,
-                            Long membershipId
-                    ) {
-                        if (membershipId == null) {
-                            return null;
-                        }
+        private ClinicMembership resolveMembership(
+                        Long psychoanalystId,
+                        Long membershipId) {
+                if (membershipId == null) {
+                        return null;
+                }
 
-                        ClinicMembership membership = membershipRepository
+                ClinicMembership membership = membershipRepository
                                 .findByIdAndPsychoanalystId(
-                                        membershipId,
-                                        psychoanalystId
-                                )
+                                                membershipId,
+                                                psychoanalystId)
                                 .orElseThrow(() -> new ResourceNotFoundException(
-                                        "Vínculo com clínica não encontrado"
-                                ));
+                                                "Vínculo com clínica não encontrado"));
 
-                        if (membership.getStatus() != MembershipStatus.ACTIVE) {
-                            throw new ScheduleConflictException(
-                                    "O vínculo com a clínica não está ativo"
-                            );
-                        }
+                if (membership.getStatus() != MembershipStatus.ACTIVE) {
+                        throw new ScheduleConflictException(
+                                        "O vínculo com a clínica não está ativo");
+                }
 
-                        return membership;
-                    }
+                return membership;
+        }
 }

@@ -4,8 +4,7 @@ public class InvalidClinicMembershipPeriodTransitionException
         extends RuntimeException {
 
     public InvalidClinicMembershipPeriodTransitionException(
-            String message
-    ) {
+            String message) {
         super(message);
     }
 }

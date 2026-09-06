@@ -9,35 +9,22 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface AppointmentSeriesRepository
-        extends JpaRepository<
-                AppointmentSeries,
-                UUID
-        > {
+                extends JpaRepository<AppointmentSeries, UUID> {
 
-    Optional<AppointmentSeries>
-    findByIdAndPsychoanalystId(
-            UUID id,
-            Long psychoanalystId
-    );
+        Optional<AppointmentSeries> findByIdAndPsychoanalystId(
+                        UUID id,
+                        Long psychoanalystId);
 
-    Optional<AppointmentSeries>
-findByPreviousSeriesId(
-        UUID previousSeriesId
-);
+        Optional<AppointmentSeries> findByPreviousSeriesId(
+                        UUID previousSeriesId);
 
-    List<AppointmentSeries>
-    findByPsychoanalystIdAndStatusOrderByStartsOnAsc(
-            Long psychoanalystId,
-            AppointmentSeriesStatus status
-    );
+        List<AppointmentSeries> findByPsychoanalystIdAndStatusOrderByStartsOnAsc(
+                        Long psychoanalystId,
+                        AppointmentSeriesStatus status);
 
-    List<AppointmentSeries>
-findByPsychoanalystIdOrderByStartsOnDesc(
-        Long psychoanalystId
-);
+        List<AppointmentSeries> findByPsychoanalystIdOrderByStartsOnDesc(
+                        Long psychoanalystId);
 
-    List<AppointmentSeries>
-    findByPatientIdOrderByStartsOnDesc(
-            Long patientId
-    );
+        List<AppointmentSeries> findByPatientIdOrderByStartsOnDesc(
+                        Long patientId);
 }

@@ -22,105 +22,88 @@ import java.util.List;
 @Service
 public class ClinicMembershipService {
 
-    private final ClinicMembershipRepository membershipRepository;
+        private final ClinicMembershipRepository membershipRepository;
         private final ClinicMembershipPeriodRepository periodRepository;
-    private final ClinicRepository clinicRepository;
-    private final PsychoanalystRepository psychoanalystRepository;
+        private final ClinicRepository clinicRepository;
+        private final PsychoanalystRepository psychoanalystRepository;
 
-    public ClinicMembershipService(
-            ClinicMembershipRepository membershipRepository,
+        public ClinicMembershipService(
+                        ClinicMembershipRepository membershipRepository,
                         ClinicMembershipPeriodRepository periodRepository,
-            ClinicRepository clinicRepository,
-            PsychoanalystRepository psychoanalystRepository
-    ) {
-        this.membershipRepository = membershipRepository;
+                        ClinicRepository clinicRepository,
+                        PsychoanalystRepository psychoanalystRepository) {
+                this.membershipRepository = membershipRepository;
                 this.periodRepository = periodRepository;
-        this.clinicRepository = clinicRepository;
-        this.psychoanalystRepository = psychoanalystRepository;
-    }
-
-    @Transactional
-    public ClinicMembershipResponseDTO create(
-            Long clinicId,
-            ClinicMembershipCreateDTO dto
-    ) {
-
-        Clinic clinic = clinicRepository.findById(clinicId)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Clínica não encontrada com o ID: " + clinicId
-                        )
-                );
-
-        Psychoanalyst psychoanalyst =
-                psychoanalystRepository.findById(dto.psychoanalystId())
-                        .orElseThrow(() ->
-                                new ResourceNotFoundException(
-                                        "Psicanalista não encontrado com o ID: "
-                                                + dto.psychoanalystId()
-                                )
-                        );
-
-        if (membershipRepository
-                .existsByClinicIdAndPsychoanalystId(
-                        clinicId,
-                        dto.psychoanalystId()
-                )) {
-
-            throw new MembershipAlreadyExistsException(
-                    "Este psicanalista já possui vínculo com esta clínica"
-            );
+                this.clinicRepository = clinicRepository;
+                this.psychoanalystRepository = psychoanalystRepository;
         }
 
-        ClinicMembership membership = ClinicMembership.builder()
-                .clinic(clinic)
-                .psychoanalyst(psychoanalyst)
-                .status(MembershipStatus.ACTIVE)
-                .build();
+        @Transactional
+        public ClinicMembershipResponseDTO create(
+                        Long clinicId,
+                        ClinicMembershipCreateDTO dto) {
 
-        ClinicMembership savedMembership =
-                membershipRepository.save(membership);
+                Clinic clinic = clinicRepository.findById(clinicId)
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "Clínica não encontrada com o ID: " + clinicId));
 
-        ClinicMembershipPeriod firstPeriod =
-                ClinicMembershipPeriod.builder()
-                        .membership(savedMembership)
-                        .status(ClinicMembershipPeriodStatus.ACTIVE)
-                        .startedAt(java.time.LocalDateTime.now())
-                        .build();
+                Psychoanalyst psychoanalyst = psychoanalystRepository.findById(dto.psychoanalystId())
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "Psicanalista não encontrado com o ID: "
+                                                                + dto.psychoanalystId()));
 
-        periodRepository.save(firstPeriod);
+                if (membershipRepository
+                                .existsByClinicIdAndPsychoanalystId(
+                                                clinicId,
+                                                dto.psychoanalystId())) {
 
-        return toResponseDTO(savedMembership);
-    }
+                        throw new MembershipAlreadyExistsException(
+                                        "Este psicanalista já possui vínculo com esta clínica");
+                }
 
-    public List<ClinicMembershipResponseDTO> findByClinicId(
-            Long clinicId
-    ) {
+                ClinicMembership membership = ClinicMembership.builder()
+                                .clinic(clinic)
+                                .psychoanalyst(psychoanalyst)
+                                .status(MembershipStatus.ACTIVE)
+                                .build();
 
-        if (!clinicRepository.existsById(clinicId)) {
-            throw new ResourceNotFoundException(
-                    "Clínica não encontrada com o ID: " + clinicId
-            );
+                ClinicMembership savedMembership = membershipRepository.save(membership);
+
+                ClinicMembershipPeriod firstPeriod = ClinicMembershipPeriod.builder()
+                                .membership(savedMembership)
+                                .status(ClinicMembershipPeriodStatus.ACTIVE)
+                                .startedAt(java.time.LocalDateTime.now())
+                                .build();
+
+                periodRepository.save(firstPeriod);
+
+                return toResponseDTO(savedMembership);
         }
 
-        return membershipRepository.findByClinicId(clinicId)
-                .stream()
-                .map(this::toResponseDTO)
-                .toList();
-    }
+        public List<ClinicMembershipResponseDTO> findByClinicId(
+                        Long clinicId) {
 
-    private ClinicMembershipResponseDTO toResponseDTO(
-            ClinicMembership membership
-    ) {
+                if (!clinicRepository.existsById(clinicId)) {
+                        throw new ResourceNotFoundException(
+                                        "Clínica não encontrada com o ID: " + clinicId);
+                }
 
-        return new ClinicMembershipResponseDTO(
-                membership.getId(),
-                membership.getClinic().getId(),
-                membership.getClinic().getName(),
-                membership.getPsychoanalyst().getId(),
-                membership.getPsychoanalyst().getUser().getName(),
-                membership.getStatus(),
-                membership.getJoinedAt()
-        );
-    }
+                return membershipRepository.findByClinicId(clinicId)
+                                .stream()
+                                .map(this::toResponseDTO)
+                                .toList();
+        }
+
+        private ClinicMembershipResponseDTO toResponseDTO(
+                        ClinicMembership membership) {
+
+                return new ClinicMembershipResponseDTO(
+                                membership.getId(),
+                                membership.getClinic().getId(),
+                                membership.getClinic().getName(),
+                                membership.getPsychoanalyst().getId(),
+                                membership.getPsychoanalyst().getUser().getName(),
+                                membership.getStatus(),
+                                membership.getJoinedAt());
+        }
 }

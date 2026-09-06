@@ -4,26 +4,25 @@ import com.psicogest.psicogest.model.enums.ClinicMembershipPeriodStatus;
 
 import java.time.LocalDateTime;
 
-public record ClinicMembershipPeriodResponseDTO (
-        Long id,
+public record ClinicMembershipPeriodResponseDTO(
+                Long id,
 
-        Long clinicMembershipId,
+                Long clinicMembershipId,
 
-        Long clinicId,
+                Long clinicId,
 
-        String clinicName,
+                String clinicName,
 
-        Long psychoanalystId,
+                Long psychoanalystId,
 
-        String psychoanalystName,
+                String psychoanalystName,
 
-        ClinicMembershipPeriodStatus status,
+                ClinicMembershipPeriodStatus status,
 
-        LocalDateTime startedAt,
+                LocalDateTime startedAt,
 
-        LocalDateTime endedAt,
+                LocalDateTime endedAt,
 
-        String endReason
-) {
-    
+                String endReason) {
+
 }

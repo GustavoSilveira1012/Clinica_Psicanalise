@@ -26,8 +26,7 @@ public class ClinicService {
                 && clinicRepository.existsByCnpj(dto.cnpj())) {
 
             throw new CnpjAlreadyExistsException(
-        "Já existe uma clínica cadastrada com este CNPJ"
-            );
+                    "Já existe uma clínica cadastrada com este CNPJ");
         }
 
         Clinic clinic = Clinic.builder()
@@ -59,11 +58,8 @@ public class ClinicService {
     private Clinic findClinicById(Long id) {
 
         return clinicRepository.findById(id)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Clínica não encontrada com o ID: " + id
-                        )
-                );
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Clínica não encontrada com o ID: " + id));
     }
 
     private ClinicResponseDTO toResponseDTO(Clinic clinic) {
@@ -72,7 +68,6 @@ public class ClinicService {
                 clinic.getId(),
                 clinic.getName(),
                 clinic.getCnpj(),
-                clinic.getActive()
-        );
+                clinic.getActive());
     }
 }

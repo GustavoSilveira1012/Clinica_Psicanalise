@@ -14,73 +14,62 @@ import java.util.List;
 @RequestMapping("/psychoanalysts/{psychoanalystId}/availability")
 public class AvailabilityController {
 
-    private final AvailabilityService availabilityService;
+        private final AvailabilityService availabilityService;
 
-    public AvailabilityController(
-            AvailabilityService availabilityService
-    ) {
-        this.availabilityService = availabilityService;
-    }
+        public AvailabilityController(
+                        AvailabilityService availabilityService) {
+                this.availabilityService = availabilityService;
+        }
 
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public AvailabilityResponseDTO create(
-            @PathVariable Long psychoanalystId,
-            @Valid @RequestBody AvailabilityCreateDTO dto
-    ) {
+        @PostMapping
+        @ResponseStatus(HttpStatus.CREATED)
+        public AvailabilityResponseDTO create(
+                        @PathVariable Long psychoanalystId,
+                        @Valid @RequestBody AvailabilityCreateDTO dto) {
 
-        return availabilityService.create(
-                psychoanalystId,
-                dto
-        );
-    }
+                return availabilityService.create(
+                                psychoanalystId,
+                                dto);
+        }
 
-    @GetMapping
-    public List<AvailabilityResponseDTO> findByPsychoanalyst(
-            @PathVariable Long psychoanalystId
-    ) {
+        @GetMapping
+        public List<AvailabilityResponseDTO> findByPsychoanalyst(
+                        @PathVariable Long psychoanalystId) {
 
-        return availabilityService.findByPsychoanalystId(
-                psychoanalystId
-        );
-    }
+                return availabilityService.findByPsychoanalystId(
+                                psychoanalystId);
+        }
 
-    @GetMapping("/{availabilityId}")
-    public AvailabilityResponseDTO findById(
-            @PathVariable Long psychoanalystId,
-            @PathVariable Long availabilityId
-    ) {
+        @GetMapping("/{availabilityId}")
+        public AvailabilityResponseDTO findById(
+                        @PathVariable Long psychoanalystId,
+                        @PathVariable Long availabilityId) {
 
-        return availabilityService.findById(
-                psychoanalystId,
-                availabilityId
-        );
-    }
+                return availabilityService.findById(
+                                psychoanalystId,
+                                availabilityId);
+        }
 
-    @PutMapping("/{availabilityId}")
-    public AvailabilityResponseDTO update(
-            @PathVariable Long psychoanalystId,
-            @PathVariable Long availabilityId,
-            @Valid @RequestBody AvailabilityUpdateDTO dto
-    ) {
+        @PutMapping("/{availabilityId}")
+        public AvailabilityResponseDTO update(
+                        @PathVariable Long psychoanalystId,
+                        @PathVariable Long availabilityId,
+                        @Valid @RequestBody AvailabilityUpdateDTO dto) {
 
-        return availabilityService.update(
-                psychoanalystId,
-                availabilityId,
-                dto
-        );
-    }
+                return availabilityService.update(
+                                psychoanalystId,
+                                availabilityId,
+                                dto);
+        }
 
-    @DeleteMapping("/{availabilityId}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(
-            @PathVariable Long psychoanalystId,
-            @PathVariable Long availabilityId
-    ) {
+        @DeleteMapping("/{availabilityId}")
+        @ResponseStatus(HttpStatus.NO_CONTENT)
+        public void delete(
+                        @PathVariable Long psychoanalystId,
+                        @PathVariable Long availabilityId) {
 
-        availabilityService.delete(
-                psychoanalystId,
-                availabilityId
-        );
-    }
+                availabilityService.delete(
+                                psychoanalystId,
+                                availabilityId);
+        }
 }

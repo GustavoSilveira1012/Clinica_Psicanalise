@@ -553,16 +553,16 @@ PATCH  /api/finance/:id
 
 ## Matriz inicial
 
-| Recurso | OWNER | ADMIN | PSYCHOANALYST | FINANCE | ASSISTANT |
-|---|---:|---:|---:|---:|---:|
-| Dashboard geral | ✅ | ✅ | limitado | financeiro | operacional |
-| Usuários | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Pacientes | ✅ | ✅ | ✅ próprios | limitado | ✅ básico |
-| Agenda | ✅ | ✅ | ✅ | leitura limitada | ✅ |
-| Sessões | ✅ | ✅ | ✅ próprias | ❌ | status limitado |
-| Registros clínicos | ✅* | ✅* | ✅ próprios | ❌ | ❌ |
-| Financeiro | ✅ | ✅ | conforme política | ✅ | ❌ |
-| Auditoria | ✅ | ✅ | limitada | limitada | ❌ |
+| Recurso            | OWNER | ADMIN |     PSYCHOANALYST |          FINANCE |       ASSISTANT |
+| ------------------ | ----: | ----: | ----------------: | ---------------: | --------------: |
+| Dashboard geral    |    ✅ |    ✅ |          limitado |       financeiro |     operacional |
+| Usuários           |    ✅ |    ✅ |                ❌ |               ❌ |              ❌ |
+| Pacientes          |    ✅ |    ✅ |       ✅ próprios |         limitado |       ✅ básico |
+| Agenda             |    ✅ |    ✅ |                ✅ | leitura limitada |              ✅ |
+| Sessões            |    ✅ |    ✅ |       ✅ próprias |               ❌ | status limitado |
+| Registros clínicos |  ✅\* |  ✅\* |       ✅ próprios |               ❌ |              ❌ |
+| Financeiro         |    ✅ |    ✅ | conforme política |               ✅ |              ❌ |
+| Auditoria          |    ✅ |    ✅ |          limitada |         limitada |              ❌ |
 
 `*` O acesso do OWNER/ADMIN ao conteúdo clínico deve ser uma decisão explícita de governança; não assumir que administrador operacional precisa ler conteúdo clínico.
 
@@ -644,8 +644,8 @@ Exemplo conceitual:
 ```ts
 await assertCan(user, {
   organizationId,
-  resource: 'clinical_record',
-  action: 'read',
+  resource: "clinical_record",
+  action: "read",
   resourceOwnerId: professionalId,
 });
 ```
@@ -770,22 +770,22 @@ Para uma implantação real, a organização deve obter avaliação jurídica/co
 
 # 15. Backlog do MVP
 
-| ID | História | Prioridade | Status |
-|---|---|---|---|
-| US01 | Como usuário, quero fazer login | P0 | Todo |
-| US02 | Como admin, quero gerenciar usuários | P0 | Todo |
-| US03 | Como usuário, quero ver minha agenda | P0 | Todo |
-| US04 | Como profissional, quero cadastrar paciente | P0 | Todo |
-| US05 | Como profissional, quero consultar paciente | P0 | Todo |
-| US06 | Como profissional, quero criar compromisso | P0 | Todo |
-| US07 | Como sistema, quero impedir conflito de horário | P0 | Todo |
-| US08 | Como profissional, quero registrar sessão | P0 | Todo |
-| US09 | Como profissional, quero guardar registro privado | P0 | Todo |
-| US10 | Como financeiro, quero lançar cobrança | P1 | Todo |
-| US11 | Como gestor, quero visualizar indicadores | P1 | Todo |
-| US12 | Como sistema, quero auditar ações críticas | P0 | Todo |
-| US13 | Como admin, quero configurar unidade | P2 | Futuro |
-| US14 | Como gestor, quero relatórios avançados | P2 | Futuro |
+| ID   | História                                          | Prioridade | Status |
+| ---- | ------------------------------------------------- | ---------- | ------ |
+| US01 | Como usuário, quero fazer login                   | P0         | Todo   |
+| US02 | Como admin, quero gerenciar usuários              | P0         | Todo   |
+| US03 | Como usuário, quero ver minha agenda              | P0         | Todo   |
+| US04 | Como profissional, quero cadastrar paciente       | P0         | Todo   |
+| US05 | Como profissional, quero consultar paciente       | P0         | Todo   |
+| US06 | Como profissional, quero criar compromisso        | P0         | Todo   |
+| US07 | Como sistema, quero impedir conflito de horário   | P0         | Todo   |
+| US08 | Como profissional, quero registrar sessão         | P0         | Todo   |
+| US09 | Como profissional, quero guardar registro privado | P0         | Todo   |
+| US10 | Como financeiro, quero lançar cobrança            | P1         | Todo   |
+| US11 | Como gestor, quero visualizar indicadores         | P1         | Todo   |
+| US12 | Como sistema, quero auditar ações críticas        | P0         | Todo   |
+| US13 | Como admin, quero configurar unidade              | P2         | Futuro |
+| US14 | Como gestor, quero relatórios avançados           | P2         | Futuro |
 
 ---
 
@@ -934,16 +934,16 @@ Os preços não fazem parte do MVP porque precisam ser validados com mercado, cu
 
 # 20. Riscos
 
-| Risco | Impacto | Mitigação |
-|---|---|---|
-| Vazamento de dados clínicos | Crítico | RBAC, minimização, auditoria, criptografia e revisão de segurança |
-| IDOR/BOLA | Crítico | autorização por tenant + recurso em todas as leituras/mutações |
-| Crescimento de escopo | Alto | manter MVP fechado |
-| Queries lentas | Médio | índices, paginação, profiling |
-| Logs com dados sensíveis | Alto | logger sanitizado |
-| Dependência externa indisponível | Médio | retries, timeout, fallback |
-| Migração quebrada | Alto | migrations revisadas + backup + staging |
-| Uso de dados reais no GitHub | Crítico | dataset fictício e revisão antes do push |
+| Risco                            | Impacto | Mitigação                                                         |
+| -------------------------------- | ------- | ----------------------------------------------------------------- |
+| Vazamento de dados clínicos      | Crítico | RBAC, minimização, auditoria, criptografia e revisão de segurança |
+| IDOR/BOLA                        | Crítico | autorização por tenant + recurso em todas as leituras/mutações    |
+| Crescimento de escopo            | Alto    | manter MVP fechado                                                |
+| Queries lentas                   | Médio   | índices, paginação, profiling                                     |
+| Logs com dados sensíveis         | Alto    | logger sanitizado                                                 |
+| Dependência externa indisponível | Médio   | retries, timeout, fallback                                        |
+| Migração quebrada                | Alto    | migrations revisadas + backup + staging                           |
+| Uso de dados reais no GitHub     | Crítico | dataset fictício e revisão antes do push                          |
 
 ---
 

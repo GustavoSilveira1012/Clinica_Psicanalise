@@ -8,29 +8,21 @@ import java.util.List;
 import java.util.Optional;
 
 public interface AvailabilityExceptionRepository
-        extends JpaRepository<AvailabilityException, Long> {
+                extends JpaRepository<AvailabilityException, Long> {
 
-    Optional<AvailabilityException>
-    findByIdAndPsychoanalystId(
-            Long id,
-            Long psychoanalystId
-    );
+        Optional<AvailabilityException> findByIdAndPsychoanalystId(
+                        Long id,
+                        Long psychoanalystId);
 
-    List<AvailabilityException>
-    findByPsychoanalystIdOrderByDateAscStartTimeAsc(
-            Long psychoanalystId
-    );
+        List<AvailabilityException> findByPsychoanalystIdOrderByDateAscStartTimeAsc(
+                        Long psychoanalystId);
 
-    List<AvailabilityException>
-    findByPsychoanalystIdAndDateOrderByStartTimeAsc(
-            Long psychoanalystId,
-            LocalDate date
-    );
+        List<AvailabilityException> findByPsychoanalystIdAndDateOrderByStartTimeAsc(
+                        Long psychoanalystId,
+                        LocalDate date);
 
-    List<AvailabilityException>
-    findByPsychoanalystIdAndDateBetweenOrderByDateAscStartTimeAsc(
-            Long psychoanalystId,
-            LocalDate startDate,
-            LocalDate endDate
-    );
+        List<AvailabilityException> findByPsychoanalystIdAndDateBetweenOrderByDateAscStartTimeAsc(
+                        Long psychoanalystId,
+                        LocalDate startDate,
+                        LocalDate endDate);
 }

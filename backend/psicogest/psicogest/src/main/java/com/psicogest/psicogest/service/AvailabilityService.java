@@ -199,7 +199,7 @@ public class AvailabilityService {
         }
 
         public AvailabilityResponseDTO findById(Long psychoanalystId, Long availabilityId) {
-            // TODO Auto-generated method stub
-            throw new UnsupportedOperationException("Unimplemented method 'findById'");
+                // TODO Auto-generated method stub
+                throw new UnsupportedOperationException("Unimplemented method 'findById'");
         }
 }

@@ -2,20 +2,19 @@ package com.psicogest.psicogest.dto.psychoanalyst;
 
 public record PsychoanalystResponseDTO(
 
-        Long id,
+                Long id,
 
-        String name,
+                String name,
 
-        String email,
+                String email,
 
-        String licenseNumber,
+                String licenseNumber,
 
-        String specialization,
+                String specialization,
 
-        String bio,
+                String bio,
 
-        String phone,
+                String phone,
 
-        Boolean active
-) {
+                Boolean active) {
 }

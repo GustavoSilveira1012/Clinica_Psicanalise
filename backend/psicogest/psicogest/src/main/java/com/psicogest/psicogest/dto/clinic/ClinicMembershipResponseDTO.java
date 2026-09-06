@@ -6,18 +6,17 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public record ClinicMembershipResponseDTO(
-        Long id,
+                Long id,
 
-        Long clinicId,
+                Long clinicId,
 
-        String clinicName,
+                String clinicName,
 
-        Long psychoanalystId,
+                Long psychoanalystId,
 
-        String psychoanalystName,
+                String psychoanalystName,
 
-        MembershipStatus status,
+                MembershipStatus status,
 
-        LocalDateTime joinedAt
-) {    
+                LocalDateTime joinedAt) {
 }

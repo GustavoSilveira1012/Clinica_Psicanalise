@@ -8,21 +8,17 @@ import java.time.DayOfWeek;
 import java.util.Optional;
 
 public interface AvailabilityRepository extends JpaRepository<Availability, Long> {
-     List<Availability> findByPsychoanalystId(
-            Long psychoanalystId
-    );
+        List<Availability> findByPsychoanalystId(
+                        Long psychoanalystId);
 
-    List<Availability> findByPsychoanalystIdAndActiveTrue(
-            Long psychoanalystId
-    );
+        List<Availability> findByPsychoanalystIdAndActiveTrue(
+                        Long psychoanalystId);
 
-    List<Availability> findByPsychoanalystIdAndDayOfWeekAndActiveTrue(
-            Long psychoanalystId,
-            DayOfWeek dayOfWeek
-    );
+        List<Availability> findByPsychoanalystIdAndDayOfWeekAndActiveTrue(
+                        Long psychoanalystId,
+                        DayOfWeek dayOfWeek);
 
-    Optional<Availability> findByIdAndPsychoanalystId(
-        Long id,
-        Long psychoanalystId
-        );
+        Optional<Availability> findByIdAndPsychoanalystId(
+                        Long id,
+                        Long psychoanalystId);
 }

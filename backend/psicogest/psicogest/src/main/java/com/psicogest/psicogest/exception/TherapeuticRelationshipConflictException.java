@@ -4,8 +4,7 @@ public class TherapeuticRelationshipConflictException
         extends RuntimeException {
 
     public TherapeuticRelationshipConflictException(
-            String message
-    ) {
+            String message) {
         super(message);
     }
 }

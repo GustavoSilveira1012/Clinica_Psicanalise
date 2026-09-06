@@ -16,168 +16,132 @@ import java.util.List;
 @Service
 public class ScheduleAvailabilityService {
 
-    private final AvailabilityRepository availabilityRepository;
+        private final AvailabilityRepository availabilityRepository;
 
-    private final AvailabilityExceptionRepository
-            exceptionRepository;
+        private final AvailabilityExceptionRepository exceptionRepository;
 
-    public ScheduleAvailabilityService(
-            AvailabilityRepository availabilityRepository,
-            AvailabilityExceptionRepository exceptionRepository
-    ) {
-        this.availabilityRepository =
-                availabilityRepository;
+        public ScheduleAvailabilityService(
+                        AvailabilityRepository availabilityRepository,
+                        AvailabilityExceptionRepository exceptionRepository) {
+                this.availabilityRepository = availabilityRepository;
 
-        this.exceptionRepository =
-                exceptionRepository;
-    }
-
-    @Transactional(readOnly = true)
-    public boolean isWithinSchedule(
-            Long psychoanalystId,
-            LocalDate date,
-            LocalTime startTime,
-            LocalTime endTime
-    ) {
-
-        validateTime(
-                startTime,
-                endTime
-        );
-
-        List<AvailabilityException> exceptions =
-                exceptionRepository
-                        .findByPsychoanalystIdAndDateOrderByStartTimeAsc(
-                                psychoanalystId,
-                                date
-                        );
-
-        /*
-         * 1. BLOCKED possui prioridade máxima.
-         */
-        for (AvailabilityException exception
-                : exceptions) {
-
-            if (
-                    exception.getType()
-                            != AvailabilityExceptionType.BLOCKED
-            ) {
-                continue;
-            }
-
-            if (isFullDay(exception)) {
-                return false;
-            }
-
-            if (
-                    overlaps(
-                            startTime,
-                            endTime,
-                            exception.getStartTime(),
-                            exception.getEndTime()
-                    )
-            ) {
-                return false;
-            }
+                this.exceptionRepository = exceptionRepository;
         }
 
-        /*
-         * 2. Depois verificamos horários extras.
-         */
-        for (AvailabilityException exception
-                : exceptions) {
+        @Transactional(readOnly = true)
+        public boolean isWithinSchedule(
+                        Long psychoanalystId,
+                        LocalDate date,
+                        LocalTime startTime,
+                        LocalTime endTime) {
 
-            if (
-                    exception.getType()
-                            != AvailabilityExceptionType.EXTRA_AVAILABLE
-            ) {
-                continue;
-            }
+                validateTime(
+                                startTime,
+                                endTime);
 
-            if (
-                    contains(
-                            exception.getStartTime(),
-                            exception.getEndTime(),
-                            startTime,
-                            endTime
-                    )
-            ) {
-                return true;
-            }
-        }
+                List<AvailabilityException> exceptions = exceptionRepository
+                                .findByPsychoanalystIdAndDateOrderByStartTimeAsc(
+                                                psychoanalystId,
+                                                date);
 
-        /*
-         * 3. Por último, disponibilidade semanal.
-         */
-        List<Availability> availabilities =
-                availabilityRepository
-                        .findByPsychoanalystIdAndDayOfWeekAndActiveTrue(
-                                psychoanalystId,
-                                date.getDayOfWeek()
-                        );
+                /*
+                 * 1. BLOCKED possui prioridade máxima.
+                 */
+                for (AvailabilityException exception : exceptions) {
 
-        return availabilities
-                .stream()
-                .anyMatch(
-                        availability ->
-                                contains(
-                                        availability.getStartTime(),
-                                        availability.getEndTime(),
+                        if (exception.getType() != AvailabilityExceptionType.BLOCKED) {
+                                continue;
+                        }
+
+                        if (isFullDay(exception)) {
+                                return false;
+                        }
+
+                        if (overlaps(
                                         startTime,
-                                        endTime
-                                )
-                );
-    }
+                                        endTime,
+                                        exception.getStartTime(),
+                                        exception.getEndTime())) {
+                                return false;
+                        }
+                }
 
-    private boolean isFullDay(
-            AvailabilityException exception
-    ) {
+                /*
+                 * 2. Depois verificamos horários extras.
+                 */
+                for (AvailabilityException exception : exceptions) {
 
-        return exception.getStartTime() == null
-                && exception.getEndTime() == null;
-    }
+                        if (exception.getType() != AvailabilityExceptionType.EXTRA_AVAILABLE) {
+                                continue;
+                        }
 
-    private boolean contains(
-            LocalTime containerStart,
-            LocalTime containerEnd,
-            LocalTime requestedStart,
-            LocalTime requestedEnd
-    ) {
+                        if (contains(
+                                        exception.getStartTime(),
+                                        exception.getEndTime(),
+                                        startTime,
+                                        endTime)) {
+                                return true;
+                        }
+                }
 
-        boolean startsInside =
-                !requestedStart.isBefore(containerStart);
+                /*
+                 * 3. Por último, disponibilidade semanal.
+                 */
+                List<Availability> availabilities = availabilityRepository
+                                .findByPsychoanalystIdAndDayOfWeekAndActiveTrue(
+                                                psychoanalystId,
+                                                date.getDayOfWeek());
 
-        boolean endsInside =
-                !requestedEnd.isAfter(containerEnd);
-
-        return startsInside && endsInside;
-    }
-
-    private boolean overlaps(
-            LocalTime start1,
-            LocalTime end1,
-            LocalTime start2,
-            LocalTime end2
-    ) {
-
-        return start1.isBefore(end2)
-                && end1.isAfter(start2);
-    }
-
-    private void validateTime(
-            LocalTime startTime,
-            LocalTime endTime
-    ) {
-
-        if (
-                startTime == null
-                || endTime == null
-                || !endTime.isAfter(startTime)
-        ) {
-
-            throw new InvalidAvailabilityException(
-                    "Intervalo de horário inválido"
-            );
+                return availabilities
+                                .stream()
+                                .anyMatch(
+                                                availability -> contains(
+                                                                availability.getStartTime(),
+                                                                availability.getEndTime(),
+                                                                startTime,
+                                                                endTime));
         }
-    }
+
+        private boolean isFullDay(
+                        AvailabilityException exception) {
+
+                return exception.getStartTime() == null
+                                && exception.getEndTime() == null;
+        }
+
+        private boolean contains(
+                        LocalTime containerStart,
+                        LocalTime containerEnd,
+                        LocalTime requestedStart,
+                        LocalTime requestedEnd) {
+
+                boolean startsInside = !requestedStart.isBefore(containerStart);
+
+                boolean endsInside = !requestedEnd.isAfter(containerEnd);
+
+                return startsInside && endsInside;
+        }
+
+        private boolean overlaps(
+                        LocalTime start1,
+                        LocalTime end1,
+                        LocalTime start2,
+                        LocalTime end2) {
+
+                return start1.isBefore(end2)
+                                && end1.isAfter(start2);
+        }
+
+        private void validateTime(
+                        LocalTime startTime,
+                        LocalTime endTime) {
+
+                if (startTime == null
+                                || endTime == null
+                                || !endTime.isAfter(startTime)) {
+
+                        throw new InvalidAvailabilityException(
+                                        "Intervalo de horário inválido");
+                }
+        }
 }

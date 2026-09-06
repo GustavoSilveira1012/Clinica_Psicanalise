@@ -11,50 +11,38 @@ import java.util.List;
 import java.util.Optional;
 
 public interface ClinicMembershipPeriodRepository
-        extends JpaRepository<
-                ClinicMembershipPeriod,
-                Long
-        > {
+                extends JpaRepository<ClinicMembershipPeriod, Long> {
 
-    List<ClinicMembershipPeriod>
-    findByMembershipIdOrderByStartedAtDesc(
-            Long membershipId
-    );
+        List<ClinicMembershipPeriod> findByMembershipIdOrderByStartedAtDesc(
+                        Long membershipId);
 
-    Optional<ClinicMembershipPeriod>
-    findByMembershipIdAndStatus(
-            Long membershipId,
-            ClinicMembershipPeriodStatus status
-    );
+        Optional<ClinicMembershipPeriod> findByMembershipIdAndStatus(
+                        Long membershipId,
+                        ClinicMembershipPeriodStatus status);
 
-    Optional<ClinicMembershipPeriod>
-    findByIdAndMembershipId(
-            Long periodId,
-            Long membershipId
-    );
+        Optional<ClinicMembershipPeriod> findByIdAndMembershipId(
+                        Long periodId,
+                        Long membershipId);
 
-    boolean existsByMembershipIdAndStatus(
-            Long membershipId,
-            ClinicMembershipPeriodStatus status
-    );
+        boolean existsByMembershipIdAndStatus(
+                        Long membershipId,
+                        ClinicMembershipPeriodStatus status);
 
-    boolean existsByMembershipIdAndStartedAtLessThanEqualAndEndedAtIsNull(
-            Long membershipId,
-            LocalDateTime instant
-    );
+        boolean existsByMembershipIdAndStartedAtLessThanEqualAndEndedAtIsNull(
+                        Long membershipId,
+                        LocalDateTime instant);
 
-    @Query("""
-            SELECT COUNT(p) > 0
-            FROM ClinicMembershipPeriod p
-            WHERE p.membership.id = :membershipId
-              AND p.startedAt <= :instant
-              AND (
-                    p.endedAt IS NULL
-                    OR p.endedAt > :instant
-              )
-            """)
-    boolean isActiveAt(
-            @Param("membershipId") Long membershipId,
-            @Param("instant") LocalDateTime instant
-    );
+        @Query("""
+                        SELECT COUNT(p) > 0
+                        FROM ClinicMembershipPeriod p
+                        WHERE p.membership.id = :membershipId
+                          AND p.startedAt <= :instant
+                          AND (
+                                p.endedAt IS NULL
+                                OR p.endedAt > :instant
+                          )
+                        """)
+        boolean isActiveAt(
+                        @Param("membershipId") Long membershipId,
+                        @Param("instant") LocalDateTime instant);
 }

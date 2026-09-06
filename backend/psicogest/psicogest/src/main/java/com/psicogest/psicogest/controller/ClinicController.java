@@ -20,8 +20,7 @@ public class ClinicController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ClinicResponseDTO create(
-            @Valid @RequestBody ClinicCreateDTO dto
-    ) {
+            @Valid @RequestBody ClinicCreateDTO dto) {
         return clinicService.create(dto);
     }
 
@@ -32,8 +31,7 @@ public class ClinicController {
 
     @GetMapping("/{id}")
     public ClinicResponseDTO findById(
-            @PathVariable Long id
-    ) {
+            @PathVariable Long id) {
         return clinicService.findById(id);
     }
 }

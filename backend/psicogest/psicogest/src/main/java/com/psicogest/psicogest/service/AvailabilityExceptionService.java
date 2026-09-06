@@ -20,320 +20,264 @@ import java.util.List;
 
 @Service
 public class AvailabilityExceptionService {
-      private final AvailabilityExceptionRepository exceptionRepository;
-    private final PsychoanalystRepository psychoanalystRepository;
+        private final AvailabilityExceptionRepository exceptionRepository;
+        private final PsychoanalystRepository psychoanalystRepository;
 
-    public AvailabilityExceptionService(
-            AvailabilityExceptionRepository exceptionRepository,
-            PsychoanalystRepository psychoanalystRepository
-    ) {
-        this.exceptionRepository = exceptionRepository;
-        this.psychoanalystRepository = psychoanalystRepository;
-    }
+        public AvailabilityExceptionService(
+                        AvailabilityExceptionRepository exceptionRepository,
+                        PsychoanalystRepository psychoanalystRepository) {
+                this.exceptionRepository = exceptionRepository;
+                this.psychoanalystRepository = psychoanalystRepository;
+        }
 
-    @Transactional
-    public AvailabilityExceptionResponseDTO create(
-            Long psychoanalystId,
-            AvailabilityExceptionCreateDTO dto
-    ) {
+        @Transactional
+        public AvailabilityExceptionResponseDTO create(
+                        Long psychoanalystId,
+                        AvailabilityExceptionCreateDTO dto) {
 
-        validate(
-                dto.type(),
-                dto.startTime(),
-                dto.endTime()
-        );
+                validate(
+                                dto.type(),
+                                dto.startTime(),
+                                dto.endTime());
 
-        Psychoanalyst psychoanalyst =
+                Psychoanalyst psychoanalyst = findPsychoanalystById(psychoanalystId);
+
+                validateConflict(
+                                psychoanalystId,
+                                dto.date(),
+                                dto.startTime(),
+                                dto.endTime(),
+                                null);
+
+                AvailabilityException exception = AvailabilityException.builder()
+                                .psychoanalyst(psychoanalyst)
+                                .date(dto.date())
+                                .type(dto.type())
+                                .startTime(dto.startTime())
+                                .endTime(dto.endTime())
+                                .reason(normalizeReason(dto.reason()))
+                                .build();
+
+                return toResponseDTO(
+                                exceptionRepository.save(exception));
+        }
+
+        @Transactional(readOnly = true)
+        public List<AvailabilityExceptionResponseDTO> findAll(
+                        Long psychoanalystId,
+                        LocalDate from,
+                        LocalDate to) {
+
                 findPsychoanalystById(psychoanalystId);
 
-        validateConflict(
-                psychoanalystId,
-                dto.date(),
-                dto.startTime(),
-                dto.endTime(),
-                null
-        );
+                if ((from == null) != (to == null)) {
+                        throw new InvalidAvailabilityException(
+                                        "Os parâmetros 'from' e 'to' devem ser informados juntos");
+                }
 
-        AvailabilityException exception =
-                AvailabilityException.builder()
-                        .psychoanalyst(psychoanalyst)
-                        .date(dto.date())
-                        .type(dto.type())
-                        .startTime(dto.startTime())
-                        .endTime(dto.endTime())
-                        .reason(normalizeReason(dto.reason()))
-                        .build();
+                if (from != null && to.isBefore(from)) {
+                        throw new InvalidAvailabilityException(
+                                        "A data final não pode ser anterior à data inicial");
+                }
 
-        return toResponseDTO(
-                exceptionRepository.save(exception)
-        );
-    }
+                List<AvailabilityException> exceptions;
 
-    @Transactional(readOnly = true)
-    public List<AvailabilityExceptionResponseDTO> findAll(
-            Long psychoanalystId,
-            LocalDate from,
-            LocalDate to
-    ) {
+                if (from != null) {
 
-        findPsychoanalystById(psychoanalystId);
+                        exceptions = exceptionRepository
+                                        .findByPsychoanalystIdAndDateBetweenOrderByDateAscStartTimeAsc(
+                                                        psychoanalystId,
+                                                        from,
+                                                        to);
 
-        if ((from == null) != (to == null)) {
-            throw new InvalidAvailabilityException(
-                    "Os parâmetros 'from' e 'to' devem ser informados juntos"
-            );
+                } else {
+
+                        exceptions = exceptionRepository
+                                        .findByPsychoanalystIdOrderByDateAscStartTimeAsc(
+                                                        psychoanalystId);
+                }
+
+                return exceptions
+                                .stream()
+                                .map(this::toResponseDTO)
+                                .toList();
         }
 
-        if (from != null && to.isBefore(from)) {
-            throw new InvalidAvailabilityException(
-                    "A data final não pode ser anterior à data inicial"
-            );
+        @Transactional(readOnly = true)
+        public AvailabilityExceptionResponseDTO findById(
+                        Long psychoanalystId,
+                        Long exceptionId) {
+
+                return toResponseDTO(
+                                findExceptionById(
+                                                psychoanalystId,
+                                                exceptionId));
         }
 
-        List<AvailabilityException> exceptions;
+        @Transactional
+        public AvailabilityExceptionResponseDTO update(
+                        Long psychoanalystId,
+                        Long exceptionId,
+                        AvailabilityExceptionUpdateDTO dto) {
 
-        if (from != null) {
-
-            exceptions =
-                    exceptionRepository
-                            .findByPsychoanalystIdAndDateBetweenOrderByDateAscStartTimeAsc(
-                                    psychoanalystId,
-                                    from,
-                                    to
-                            );
-
-        } else {
-
-            exceptions =
-                    exceptionRepository
-                            .findByPsychoanalystIdOrderByDateAscStartTimeAsc(
-                                    psychoanalystId
-                            );
-        }
-
-        return exceptions
-                .stream()
-                .map(this::toResponseDTO)
-                .toList();
-    }
-
-    @Transactional(readOnly = true)
-    public AvailabilityExceptionResponseDTO findById(
-            Long psychoanalystId,
-            Long exceptionId
-    ) {
-
-        return toResponseDTO(
-                findExceptionById(
-                        psychoanalystId,
-                        exceptionId
-                )
-        );
-    }
-
-    @Transactional
-    public AvailabilityExceptionResponseDTO update(
-            Long psychoanalystId,
-            Long exceptionId,
-            AvailabilityExceptionUpdateDTO dto
-    ) {
-
-        AvailabilityException exception =
-                findExceptionById(
-                        psychoanalystId,
-                        exceptionId
-                );
-
-        validate(
-                dto.type(),
-                dto.startTime(),
-                dto.endTime()
-        );
-
-        validateConflict(
-                psychoanalystId,
-                dto.date(),
-                dto.startTime(),
-                dto.endTime(),
-                exceptionId
-        );
-
-        exception.setDate(dto.date());
-        exception.setType(dto.type());
-        exception.setStartTime(dto.startTime());
-        exception.setEndTime(dto.endTime());
-        exception.setReason(
-                normalizeReason(dto.reason())
-        );
-
-        return toResponseDTO(
-                exceptionRepository.save(exception)
-        );
-    }
-
-    @Transactional
-    public void delete(
-            Long psychoanalystId,
-            Long exceptionId
-    ) {
-
-        AvailabilityException exception =
-                findExceptionById(
-                        psychoanalystId,
-                        exceptionId
-                );
-
-        exceptionRepository.delete(exception);
-    }
-
-    private void validate(
-            AvailabilityExceptionType type,
-            LocalTime startTime,
-            LocalTime endTime
-    ) {
-
-        boolean startProvided = startTime != null;
-        boolean endProvided = endTime != null;
-
-        if (startProvided != endProvided) {
-
-            throw new InvalidAvailabilityException(
-                    "Horário inicial e horário final devem ser informados juntos"
-            );
-        }
-
-        if (startProvided && !endTime.isAfter(startTime)) {
-
-            throw new InvalidAvailabilityException(
-                    "O horário final deve ser posterior ao horário inicial"
-            );
-        }
-
-        if (
-                type == AvailabilityExceptionType.EXTRA_AVAILABLE
-                && !startProvided
-        ) {
-
-            throw new InvalidAvailabilityException(
-                    "Disponibilidade extra exige horário inicial e final"
-            );
-        }
-    }
-
-    private void validateConflict(
-            Long psychoanalystId,
-            LocalDate date,
-            LocalTime startTime,
-            LocalTime endTime,
-            Long ignoredId
-    ) {
-
-        List<AvailabilityException> existingExceptions =
-                exceptionRepository
-                        .findByPsychoanalystIdAndDateOrderByStartTimeAsc(
+                AvailabilityException exception = findExceptionById(
                                 psychoanalystId,
-                                date
-                        );
+                                exceptionId);
 
-        for (AvailabilityException existing
-                : existingExceptions) {
+                validate(
+                                dto.type(),
+                                dto.startTime(),
+                                dto.endTime());
 
-            if (
-                    ignoredId != null
-                    && existing.getId().equals(ignoredId)
-            ) {
-                continue;
-            }
+                validateConflict(
+                                psychoanalystId,
+                                dto.date(),
+                                dto.startTime(),
+                                dto.endTime(),
+                                exceptionId);
 
-            if (
-                    overlaps(
-                            startTime,
-                            endTime,
-                            existing.getStartTime(),
-                            existing.getEndTime()
-                    )
-            ) {
+                exception.setDate(dto.date());
+                exception.setType(dto.type());
+                exception.setStartTime(dto.startTime());
+                exception.setEndTime(dto.endTime());
+                exception.setReason(
+                                normalizeReason(dto.reason()));
 
-                throw new ScheduleConflictException(
-                        "Já existe uma exceção de agenda conflitante nesta data e horário"
-                );
-            }
-        }
-    }
-
-    private boolean overlaps(
-            LocalTime start1,
-            LocalTime end1,
-            LocalTime start2,
-            LocalTime end2
-    ) {
-
-        // null/null representa o dia inteiro.
-        if (start1 == null || start2 == null) {
-            return true;
+                return toResponseDTO(
+                                exceptionRepository.save(exception));
         }
 
-        return start1.isBefore(end2)
-                && end1.isAfter(start2);
-    }
+        @Transactional
+        public void delete(
+                        Long psychoanalystId,
+                        Long exceptionId) {
 
-    private Psychoanalyst findPsychoanalystById(
-            Long psychoanalystId
-    ) {
+                AvailabilityException exception = findExceptionById(
+                                psychoanalystId,
+                                exceptionId);
 
-        return psychoanalystRepository
-                .findById(psychoanalystId)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Psicanalista não encontrado com o ID: "
-                                        + psychoanalystId
-                        )
-                );
-    }
-
-    private AvailabilityException findExceptionById(
-            Long psychoanalystId,
-            Long exceptionId
-    ) {
-
-        return exceptionRepository
-                .findByIdAndPsychoanalystId(
-                        exceptionId,
-                        psychoanalystId
-                )
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Exceção de disponibilidade não encontrada"
-                        )
-                );
-    }
-
-    private String normalizeReason(String reason) {
-
-        if (reason == null || reason.isBlank()) {
-            return null;
+                exceptionRepository.delete(exception);
         }
 
-        return reason.trim();
-    }
+        private void validate(
+                        AvailabilityExceptionType type,
+                        LocalTime startTime,
+                        LocalTime endTime) {
 
-    private AvailabilityExceptionResponseDTO toResponseDTO(
-            AvailabilityException exception
-    ) {
+                boolean startProvided = startTime != null;
+                boolean endProvided = endTime != null;
 
-        boolean fullDay =
-                exception.getStartTime() == null
-                        && exception.getEndTime() == null;
+                if (startProvided != endProvided) {
 
-        return new AvailabilityExceptionResponseDTO(
-                exception.getId(),
-                exception.getPsychoanalyst().getId(),
-                exception.getDate(),
-                exception.getType(),
-                exception.getStartTime(),
-                exception.getEndTime(),
-                fullDay,
-                exception.getReason()
-        );
-    }
+                        throw new InvalidAvailabilityException(
+                                        "Horário inicial e horário final devem ser informados juntos");
+                }
+
+                if (startProvided && !endTime.isAfter(startTime)) {
+
+                        throw new InvalidAvailabilityException(
+                                        "O horário final deve ser posterior ao horário inicial");
+                }
+
+                if (type == AvailabilityExceptionType.EXTRA_AVAILABLE
+                                && !startProvided) {
+
+                        throw new InvalidAvailabilityException(
+                                        "Disponibilidade extra exige horário inicial e final");
+                }
+        }
+
+        private void validateConflict(
+                        Long psychoanalystId,
+                        LocalDate date,
+                        LocalTime startTime,
+                        LocalTime endTime,
+                        Long ignoredId) {
+
+                List<AvailabilityException> existingExceptions = exceptionRepository
+                                .findByPsychoanalystIdAndDateOrderByStartTimeAsc(
+                                                psychoanalystId,
+                                                date);
+
+                for (AvailabilityException existing : existingExceptions) {
+
+                        if (ignoredId != null
+                                        && existing.getId().equals(ignoredId)) {
+                                continue;
+                        }
+
+                        if (overlaps(
+                                        startTime,
+                                        endTime,
+                                        existing.getStartTime(),
+                                        existing.getEndTime())) {
+
+                                throw new ScheduleConflictException(
+                                                "Já existe uma exceção de agenda conflitante nesta data e horário");
+                        }
+                }
+        }
+
+        private boolean overlaps(
+                        LocalTime start1,
+                        LocalTime end1,
+                        LocalTime start2,
+                        LocalTime end2) {
+
+                // null/null representa o dia inteiro.
+                if (start1 == null || start2 == null) {
+                        return true;
+                }
+
+                return start1.isBefore(end2)
+                                && end1.isAfter(start2);
+        }
+
+        private Psychoanalyst findPsychoanalystById(
+                        Long psychoanalystId) {
+
+                return psychoanalystRepository
+                                .findById(psychoanalystId)
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "Psicanalista não encontrado com o ID: "
+                                                                + psychoanalystId));
+        }
+
+        private AvailabilityException findExceptionById(
+                        Long psychoanalystId,
+                        Long exceptionId) {
+
+                return exceptionRepository
+                                .findByIdAndPsychoanalystId(
+                                                exceptionId,
+                                                psychoanalystId)
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "Exceção de disponibilidade não encontrada"));
+        }
+
+        private String normalizeReason(String reason) {
+
+                if (reason == null || reason.isBlank()) {
+                        return null;
+                }
+
+                return reason.trim();
+        }
+
+        private AvailabilityExceptionResponseDTO toResponseDTO(
+                        AvailabilityException exception) {
+
+                boolean fullDay = exception.getStartTime() == null
+                                && exception.getEndTime() == null;
+
+                return new AvailabilityExceptionResponseDTO(
+                                exception.getId(),
+                                exception.getPsychoanalyst().getId(),
+                                exception.getDate(),
+                                exception.getType(),
+                                exception.getStartTime(),
+                                exception.getEndTime(),
+                                fullDay,
+                                exception.getReason());
+        }
 }

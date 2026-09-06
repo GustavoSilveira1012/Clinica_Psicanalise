@@ -1,11 +1,11 @@
-package com.psicogest.psicogest.dto.clinic;
+package com.psicogest.psicogest.dto.common;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-public record ClinicMembershipPeriodEndDTO(
+public record DeactivateDTO(
 
-                @NotBlank(message = "Motivo do encerramento é obrigatório")
+                @NotBlank(message = "Motivo é obrigatório")
 
                 @Size(max = 255, message = "Motivo deve possuir no máximo 255 caracteres")
 

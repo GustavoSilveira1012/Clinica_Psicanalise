@@ -9,66 +9,51 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping(
-        "/clinic-memberships/{membershipId}/periods"
-)
+@RequestMapping("/clinic-memberships/{membershipId}/periods")
 public class ClinicMembershipPeriodController {
 
-    private final ClinicMembershipPeriodService periodService;
+        private final ClinicMembershipPeriodService periodService;
 
-    public ClinicMembershipPeriodController(
-            ClinicMembershipPeriodService periodService
-    ) {
+        public ClinicMembershipPeriodController(
+                        ClinicMembershipPeriodService periodService) {
 
-        this.periodService =
-                periodService;
-    }
-
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public ClinicMembershipPeriodResponseDTO start(
-            @PathVariable Long membershipId,
-            @RequestBody(required = false)
-            ClinicMembershipPeriodCreateDTO dto
-    ) {
-
-        if (dto == null) {
-
-            dto =
-                    new ClinicMembershipPeriodCreateDTO(
-                            null
-                    );
+                this.periodService = periodService;
         }
 
-        return periodService.start(
-                membershipId,
-                dto
-        );
-    }
+        @PostMapping
+        @ResponseStatus(HttpStatus.CREATED)
+        public ClinicMembershipPeriodResponseDTO start(
+                        @PathVariable Long membershipId,
+                        @RequestBody(required = false) ClinicMembershipPeriodCreateDTO dto) {
 
-    @GetMapping
-    public List<ClinicMembershipPeriodResponseDTO>
-    findAll(
-            @PathVariable Long membershipId
-    ) {
+                if (dto == null) {
 
-        return periodService.findAll(
-                membershipId
-        );
-    }
+                        dto = new ClinicMembershipPeriodCreateDTO(
+                                        null);
+                }
 
-    @PatchMapping("/{periodId}/end")
-    public ClinicMembershipPeriodResponseDTO end(
-            @PathVariable Long membershipId,
-            @PathVariable Long periodId,
-            @Valid
-            @RequestBody ClinicMembershipPeriodEndDTO dto
-    ) {
+                return periodService.start(
+                                membershipId,
+                                dto);
+        }
 
-        return periodService.end(
-                membershipId,
-                periodId,
-                dto
-        );
-    }
+        @GetMapping
+        public List<ClinicMembershipPeriodResponseDTO> findAll(
+                        @PathVariable Long membershipId) {
+
+                return periodService.findAll(
+                                membershipId);
+        }
+
+        @PatchMapping("/{periodId}/end")
+        public ClinicMembershipPeriodResponseDTO end(
+                        @PathVariable Long membershipId,
+                        @PathVariable Long periodId,
+                        @Valid @RequestBody ClinicMembershipPeriodEndDTO dto) {
+
+                return periodService.end(
+                                membershipId,
+                                periodId,
+                                dto);
+        }
 }

@@ -1,9 +1,8 @@
 [README.md](https://github.com/user-attachments/files/31813081/README.md)
+
 # 🧠 PsicoGest
 
 > Plataforma SaaS para gestão profissional de clínicas e consultórios de psicanálise, pensada para crescer de um MVP de portfólio para uma operação multiunidade de médio porte.
-
-
 
 ## 📌 Sobre o projeto
 
@@ -31,18 +30,18 @@ O PsicoGest pretende resolver isso oferecendo:
 
 | Módulo             | MVP          | Futuro                             |
 | ------------------ | ------------ | ---------------------------------- |
-| Autenticação       | ✅            | MFA/SSO                            |
-| Usuários e perfis  | ✅            | SCIM/SSO corporativo               |
-| Pacientes          | ✅            | Portal do paciente                 |
-| Agenda             | ✅            | Integrações com calendários        |
-| Sessões            | ✅            | Teleatendimento                    |
-| Registros clínicos | ✅            | Templates e versionamento avançado |
-| Financeiro         | ✅ básico     | Repasse, faturamento e conciliação |
-| Dashboard          | ✅ básico     | BI avançado                        |
-| Auditoria          | ✅            | SIEM/exportação                    |
-| Multiunidade       | 🟡 estrutura | ✅                                  |
+| Autenticação       | ✅           | MFA/SSO                            |
+| Usuários e perfis  | ✅           | SCIM/SSO corporativo               |
+| Pacientes          | ✅           | Portal do paciente                 |
+| Agenda             | ✅           | Integrações com calendários        |
+| Sessões            | ✅           | Teleatendimento                    |
+| Registros clínicos | ✅           | Templates e versionamento avançado |
+| Financeiro         | ✅ básico    | Repasse, faturamento e conciliação |
+| Dashboard          | ✅ básico    | BI avançado                        |
+| Auditoria          | ✅           | SIEM/exportação                    |
+| Multiunidade       | 🟡 estrutura | ✅                                 |
 | Notificações       | 🟡 internas  | E-mail/SMS/WhatsApp via provedor   |
-| Assinaturas SaaS   | ❌            | ✅                                  |
+| Assinaturas SaaS   | ❌           | ✅                                 |
 
 ## 🛠️ Stack
 
@@ -186,13 +185,13 @@ No repositório público:
 
 ## 👥 Perfis de acesso
 
-| Perfil                  | Exemplo de acesso                                    |
-| ----------------------- | --------------------------------------------------- |
-| `OWNER`                 | Toda a clínica/organização                            |
-| `ADMIN`                 | Gestão operacional, usuários e financeiro             |
-| `PSYCHOANALYST`         | Próprios pacientes, agenda e registros autorizados    |
-| `FINANCE`               | Financeiro sem conteúdo clínico                       |
-| `ASSISTANT`             | Agenda e cadastro operacional, sem registros clínicos |
+| Perfil          | Exemplo de acesso                                     |
+| --------------- | ----------------------------------------------------- |
+| `OWNER`         | Toda a clínica/organização                            |
+| `ADMIN`         | Gestão operacional, usuários e financeiro             |
+| `PSYCHOANALYST` | Próprios pacientes, agenda e registros autorizados    |
+| `FINANCE`       | Financeiro sem conteúdo clínico                       |
+| `ASSISTANT`     | Agenda e cadastro operacional, sem registros clínicos |
 
 ## 📊 Indicadores do dashboard
 

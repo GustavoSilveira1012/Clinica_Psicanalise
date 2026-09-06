@@ -6,18 +6,15 @@ import java.time.LocalDateTime;
 
 public record TherapeuticRelationshipCreateDTO(
 
-        @NotNull(
-                message = "Paciente é obrigatório"
-        )
-        Long patientId,
+                @NotNull(message = "Paciente é obrigatório") Long patientId,
 
-        Boolean primary,
+                Boolean primary,
 
-        /*
-         * Pode ser usado ao migrar registros antigos.
-         * Se null, usamos agora.
-         */
-        LocalDateTime startedAt
+                /*
+                 * Pode ser usado ao migrar registros antigos.
+                 * Se null, usamos agora.
+                 */
+                LocalDateTime startedAt
 
 ) {
 }

@@ -13,90 +13,71 @@ import java.time.LocalDate;
 import java.util.List;
 
 @RestController
-@RequestMapping(
-        "/psychoanalysts/{psychoanalystId}/availability-exceptions"
-)
+@RequestMapping("/psychoanalysts/{psychoanalystId}/availability-exceptions")
 public class AvailabilityExceptionController {
 
-    private final AvailabilityExceptionService exceptionService;
+        private final AvailabilityExceptionService exceptionService;
 
-    public AvailabilityExceptionController(
-            AvailabilityExceptionService exceptionService
-    ) {
-        this.exceptionService = exceptionService;
-    }
+        public AvailabilityExceptionController(
+                        AvailabilityExceptionService exceptionService) {
+                this.exceptionService = exceptionService;
+        }
 
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public AvailabilityExceptionResponseDTO create(
-            @PathVariable Long psychoanalystId,
-            @Valid
-            @RequestBody AvailabilityExceptionCreateDTO dto
-    ) {
+        @PostMapping
+        @ResponseStatus(HttpStatus.CREATED)
+        public AvailabilityExceptionResponseDTO create(
+                        @PathVariable Long psychoanalystId,
+                        @Valid @RequestBody AvailabilityExceptionCreateDTO dto) {
 
-        return exceptionService.create(
-                psychoanalystId,
-                dto
-        );
-    }
+                return exceptionService.create(
+                                psychoanalystId,
+                                dto);
+        }
 
-    @GetMapping
-    public List<AvailabilityExceptionResponseDTO> findAll(
-            @PathVariable Long psychoanalystId,
+        @GetMapping
+        public List<AvailabilityExceptionResponseDTO> findAll(
+                        @PathVariable Long psychoanalystId,
 
-            @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-            LocalDate from,
+                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
 
-            @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-            LocalDate to
-    ) {
+                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
 
-        return exceptionService.findAll(
-                psychoanalystId,
-                from,
-                to
-        );
-    }
+                return exceptionService.findAll(
+                                psychoanalystId,
+                                from,
+                                to);
+        }
 
-    @GetMapping("/{exceptionId}")
-    public AvailabilityExceptionResponseDTO findById(
-            @PathVariable Long psychoanalystId,
-            @PathVariable Long exceptionId
-    ) {
+        @GetMapping("/{exceptionId}")
+        public AvailabilityExceptionResponseDTO findById(
+                        @PathVariable Long psychoanalystId,
+                        @PathVariable Long exceptionId) {
 
-        return exceptionService.findById(
-                psychoanalystId,
-                exceptionId
-        );
-    }
+                return exceptionService.findById(
+                                psychoanalystId,
+                                exceptionId);
+        }
 
-    @PutMapping("/{exceptionId}")
-    public AvailabilityExceptionResponseDTO update(
-            @PathVariable Long psychoanalystId,
-            @PathVariable Long exceptionId,
-            @Valid
-            @RequestBody AvailabilityExceptionUpdateDTO dto
-    ) {
+        @PutMapping("/{exceptionId}")
+        public AvailabilityExceptionResponseDTO update(
+                        @PathVariable Long psychoanalystId,
+                        @PathVariable Long exceptionId,
+                        @Valid @RequestBody AvailabilityExceptionUpdateDTO dto) {
 
-        return exceptionService.update(
-                psychoanalystId,
-                exceptionId,
-                dto
-        );
-    }
+                return exceptionService.update(
+                                psychoanalystId,
+                                exceptionId,
+                                dto);
+        }
 
-    @DeleteMapping("/{exceptionId}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(
-            @PathVariable Long psychoanalystId,
-            @PathVariable Long exceptionId
-    ) {
+        @DeleteMapping("/{exceptionId}")
+        @ResponseStatus(HttpStatus.NO_CONTENT)
+        public void delete(
+                        @PathVariable Long psychoanalystId,
+                        @PathVariable Long exceptionId) {
 
-        exceptionService.delete(
-                psychoanalystId,
-                exceptionId
-        );
-    }
+                exceptionService.delete(
+                                psychoanalystId,
+                                exceptionId);
+        }
 }

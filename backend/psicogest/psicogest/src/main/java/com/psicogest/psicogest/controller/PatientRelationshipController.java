@@ -7,30 +7,22 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping(
-        "/patients/{patientId}/therapeutic-relationships"
-)
+@RequestMapping("/patients/{patientId}/therapeutic-relationships")
 public class PatientRelationshipController {
-    private final TherapeuticRelationshipService
-            relationshipService;
+        private final TherapeuticRelationshipService relationshipService;
 
-    public PatientRelationshipController(
-            TherapeuticRelationshipService relationshipService
-    ) {
+        public PatientRelationshipController(
+                        TherapeuticRelationshipService relationshipService) {
 
-        this.relationshipService =
-                relationshipService;
-    }
+                this.relationshipService = relationshipService;
+        }
 
-    @GetMapping
-    public List<TherapeuticRelationshipResponseDTO>
-    findByPatient(
-            @PathVariable Long patientId
-    ) {
+        @GetMapping
+        public List<TherapeuticRelationshipResponseDTO> findByPatient(
+                        @PathVariable Long patientId) {
 
-        return relationshipService
-                .findByPatient(
-                        patientId
-                );
-    }
+                return relationshipService
+                                .findByPatient(
+                                                patientId);
+        }
 }

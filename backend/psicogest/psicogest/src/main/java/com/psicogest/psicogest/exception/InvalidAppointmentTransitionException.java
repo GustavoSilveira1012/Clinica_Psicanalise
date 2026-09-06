@@ -4,8 +4,7 @@ public class InvalidAppointmentTransitionException
         extends RuntimeException {
 
     public InvalidAppointmentTransitionException(
-            String message
-    ) {
+            String message) {
         super(message);
     }
 }

@@ -157,113 +157,117 @@ public class GlobalExceptionHandler {
                                 .body(response);
         }
 
-        @ExceptionHandler(
-        InvalidAppointmentSeriesException.class
-)
-public ResponseEntity<Map<String, Object>>
-handleInvalidAppointmentSeries(
-        InvalidAppointmentSeriesException exception
-) {
+        @ExceptionHandler(InvalidAppointmentSeriesException.class)
+        public ResponseEntity<Map<String, Object>> handleInvalidAppointmentSeries(
+                        InvalidAppointmentSeriesException exception) {
 
-    Map<String, Object> response =
-            new HashMap<>();
+                Map<String, Object> response = new HashMap<>();
 
-    response.put(
-            "timestamp",
-            LocalDateTime.now()
-    );
+                response.put(
+                                "timestamp",
+                                LocalDateTime.now());
 
-    response.put(
-            "status",
-            400
-    );
+                response.put(
+                                "status",
+                                400);
 
-    response.put(
-            "error",
-            "Bad Request"
-    );
+                response.put(
+                                "error",
+                                "Bad Request");
 
-    response.put(
-            "message",
-            exception.getMessage()
-    );
+                response.put(
+                                "message",
+                                exception.getMessage());
 
-    return ResponseEntity
-            .badRequest()
-            .body(response);
-}
+                return ResponseEntity
+                                .badRequest()
+                                .body(response);
+        }
 
-@ExceptionHandler({
-        InvalidTherapeuticRelationshipTransitionException.class,
-        TherapeuticRelationshipConflictException.class
-})
-public ResponseEntity<Map<String, Object>>
-handleTherapeuticRelationshipConflict(
-        RuntimeException exception
-) {
+        @ExceptionHandler({
+                        InvalidTherapeuticRelationshipTransitionException.class,
+                        TherapeuticRelationshipConflictException.class
+        })
+        public ResponseEntity<Map<String, Object>> handleTherapeuticRelationshipConflict(
+                        RuntimeException exception) {
 
-    Map<String, Object> response =
-            new HashMap<>();
+                Map<String, Object> response = new HashMap<>();
 
-    response.put(
-            "timestamp",
-            LocalDateTime.now()
-    );
+                response.put(
+                                "timestamp",
+                                LocalDateTime.now());
 
-    response.put(
-            "status",
-            HttpStatus.CONFLICT.value()
-    );
+                response.put(
+                                "status",
+                                HttpStatus.CONFLICT.value());
 
-    response.put(
-            "error",
-            "Conflict"
-    );
+                response.put(
+                                "error",
+                                "Conflict");
 
-    response.put(
-            "message",
-            exception.getMessage()
-    );
+                response.put(
+                                "message",
+                                exception.getMessage());
 
-    return ResponseEntity
-            .status(HttpStatus.CONFLICT)
-            .body(response);
-}
+                return ResponseEntity
+                                .status(HttpStatus.CONFLICT)
+                                .body(response);
+        }
 
-@ExceptionHandler({
-        InvalidClinicMembershipPeriodTransitionException.class,
-        ClinicMembershipPeriodConflictException.class
-})
-public ResponseEntity<Map<String, Object>>
-handleClinicMembershipPeriodConflict(
-        RuntimeException exception
-) {
+        @ExceptionHandler({
+                        InvalidClinicMembershipPeriodTransitionException.class,
+                        ClinicMembershipPeriodConflictException.class
+        })
+        public ResponseEntity<Map<String, Object>> handleClinicMembershipPeriodConflict(
+                        RuntimeException exception) {
 
-    Map<String, Object> response =
-            new HashMap<>();
+                Map<String, Object> response = new HashMap<>();
 
-    response.put(
-            "timestamp",
-            LocalDateTime.now()
-    );
+                response.put(
+                                "timestamp",
+                                LocalDateTime.now());
 
-    response.put(
-            "status",
-            HttpStatus.CONFLICT.value()
-    );
+                response.put(
+                                "status",
+                                HttpStatus.CONFLICT.value());
 
-    response.put(
-            "error",
-            "Conflict"
-    );
+                response.put(
+                                "error",
+                                "Conflict");
 
-    response.put(
-            "message",
-            exception.getMessage()
-    );
+                response.put(
+                                "message",
+                                exception.getMessage());
 
-    return ResponseEntity
-            .status(HttpStatus.CONFLICT)
-            .body(response);
-}
+                return ResponseEntity
+                                .status(HttpStatus.CONFLICT)
+                                .body(response);
+        }
+
+        @ExceptionHandler(EntityLifecycleException.class)
+        public ResponseEntity<Map<String, Object>> handleEntityLifecycle(
+                        EntityLifecycleException exception) {
+
+                Map<String, Object> response = new HashMap<>();
+
+                response.put(
+                                "timestamp",
+                                LocalDateTime.now());
+
+                response.put(
+                                "status",
+                                HttpStatus.CONFLICT.value());
+
+                response.put(
+                                "error",
+                                "Conflict");
+
+                response.put(
+                                "message",
+                                exception.getMessage());
+
+                return ResponseEntity
+                                .status(HttpStatus.CONFLICT)
+                                .body(response);
+        }
 }

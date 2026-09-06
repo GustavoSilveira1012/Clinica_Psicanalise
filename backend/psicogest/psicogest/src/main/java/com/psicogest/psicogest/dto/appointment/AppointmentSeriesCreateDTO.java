@@ -9,36 +9,25 @@ import java.time.LocalTime;
 
 public record AppointmentSeriesCreateDTO(
 
-        @NotNull
-        Long patientId,
+                @NotNull Long patientId,
 
-        Long clinicMembershipId,
+                Long clinicMembershipId,
 
-        @NotNull
-        RecurrenceFrequency frequency,
+                @NotNull RecurrenceFrequency frequency,
 
-        @Min(1)
-        @Max(12)
-        Integer recurrenceInterval,
+                @Min(1) @Max(12) Integer recurrenceInterval,
 
-        @NotNull
-        LocalDate startsOn,
+                @NotNull LocalDate startsOn,
 
-        LocalDate endsOn,
+                LocalDate endsOn,
 
-        @Min(2)
-        @Max(104)
-        Integer totalOccurrences,
+                @Min(2) @Max(104) Integer totalOccurrences,
 
-        @NotNull
-        LocalTime startTime,
+                @NotNull LocalTime startTime,
 
-        @Min(10)
-        @Max(480)
-        Integer durationMinutes,
+                @Min(10) @Max(480) Integer durationMinutes,
 
-        @NotNull
-        AppointmentType appointmentType
+                @NotNull AppointmentType appointmentType
 
 ) {
 }

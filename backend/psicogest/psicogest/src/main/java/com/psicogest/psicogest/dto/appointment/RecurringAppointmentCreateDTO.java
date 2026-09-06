@@ -9,29 +9,17 @@ import java.time.LocalDateTime;
 
 public record RecurringAppointmentCreateDTO(
 
-        @NotNull
-        Long patientId,
+                @NotNull Long patientId,
 
-        Long clinicMembershipId,
+                Long clinicMembershipId,
 
-        @NotNull
-        LocalDateTime firstScheduledStart,
+                @NotNull LocalDateTime firstScheduledStart,
 
-        @NotNull
-        LocalDateTime firstScheduledEnd,
+                @NotNull LocalDateTime firstScheduledEnd,
 
-        @NotNull
-        AppointmentType appointmentType,
+                @NotNull AppointmentType appointmentType,
 
-        @Min(
-                value = 2,
-                message = "Recorrência deve possuir pelo menos 2 sessões"
-        )
-        @Max(
-                value = 52,
-                message = "Recorrência não pode ultrapassar 52 sessões"
-        )
-        int occurrences
+                @Min(value = 2, message = "Recorrência deve possuir pelo menos 2 sessões") @Max(value = 52, message = "Recorrência não pode ultrapassar 52 sessões") int occurrences
 
 ) {
 }

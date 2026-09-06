@@ -18,95 +18,83 @@ import java.util.List;
 @Service
 public class PsychoanalystService {
 
-    private final PsychoanalystRepository psychoanalystRepository;
-    private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
+        private final PsychoanalystRepository psychoanalystRepository;
+        private final UserRepository userRepository;
+        private final PasswordEncoder passwordEncoder;
 
-    public PsychoanalystService(
-            PsychoanalystRepository psychoanalystRepository,
-            UserRepository userRepository,
-            PasswordEncoder passwordEncoder
-    ) {
-        this.psychoanalystRepository = psychoanalystRepository;
-        this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
-    }
-
-    public PsychoanalystResponseDTO create(
-            PsychoanalystCreateDTO dto
-    ) {
-
-        if (userRepository.existsByEmail(dto.email())) {
-
-            throw new EmailAlreadyExistsException(
-                    "Já existe um usuário cadastrado com este e-mail"
-            );
+        public PsychoanalystService(
+                        PsychoanalystRepository psychoanalystRepository,
+                        UserRepository userRepository,
+                        PasswordEncoder passwordEncoder) {
+                this.psychoanalystRepository = psychoanalystRepository;
+                this.userRepository = userRepository;
+                this.passwordEncoder = passwordEncoder;
         }
 
-        User user = User.builder()
-                .name(dto.name())
-                .email(dto.email())
-                .passwordHash(
-                        passwordEncoder.encode(dto.password())
-                )
-                .role(UserRole.PSYCHOANALYST)
-                .active(true)
-                .build();
+        public PsychoanalystResponseDTO create(
+                        PsychoanalystCreateDTO dto) {
 
-        User savedUser = userRepository.save(user);
+                if (userRepository.existsByEmail(dto.email())) {
 
-        Psychoanalyst psychoanalyst =
-                Psychoanalyst.builder()
-                        .user(savedUser)
-                        .licenseNumber(dto.licenseNumber())
-                        .specialization(dto.specialization())
-                        .bio(dto.bio())
-                        .phone(dto.phone())
-                        .build();
+                        throw new EmailAlreadyExistsException(
+                                        "Já existe um usuário cadastrado com este e-mail");
+                }
 
-        Psychoanalyst savedPsychoanalyst =
-                psychoanalystRepository.save(psychoanalyst);
+                User user = User.builder()
+                                .name(dto.name())
+                                .email(dto.email())
+                                .passwordHash(
+                                                passwordEncoder.encode(dto.password()))
+                                .role(UserRole.PSYCHOANALYST)
+                                .active(true)
+                                .build();
 
-        return toResponseDTO(savedPsychoanalyst);
-    }
+                User savedUser = userRepository.save(user);
 
-    public List<PsychoanalystResponseDTO> findAll() {
+                Psychoanalyst psychoanalyst = Psychoanalyst.builder()
+                                .user(savedUser)
+                                .licenseNumber(dto.licenseNumber())
+                                .specialization(dto.specialization())
+                                .bio(dto.bio())
+                                .phone(dto.phone())
+                                .build();
 
-        return psychoanalystRepository.findAll()
-                .stream()
-                .map(this::toResponseDTO)
-                .toList();
-    }
+                Psychoanalyst savedPsychoanalyst = psychoanalystRepository.save(psychoanalyst);
 
-    public PsychoanalystResponseDTO findById(Long id) {
+                return toResponseDTO(savedPsychoanalyst);
+        }
 
-        Psychoanalyst psychoanalyst =
-                psychoanalystRepository.findById(id)
-                        .orElseThrow(() ->
-                                new ResourceNotFoundException(
-                                        "Psicanalista não encontrado com o ID: "
-                                                + id
-                                )
-                        );
+        public List<PsychoanalystResponseDTO> findAll() {
 
-        return toResponseDTO(psychoanalyst);
-    }
+                return psychoanalystRepository.findAll()
+                                .stream()
+                                .map(this::toResponseDTO)
+                                .toList();
+        }
 
-    private PsychoanalystResponseDTO toResponseDTO(
-            Psychoanalyst psychoanalyst
-    ) {
+        public PsychoanalystResponseDTO findById(Long id) {
 
-        User user = psychoanalyst.getUser();
+                Psychoanalyst psychoanalyst = psychoanalystRepository.findById(id)
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "Psicanalista não encontrado com o ID: "
+                                                                + id));
 
-        return new PsychoanalystResponseDTO(
-                psychoanalyst.getId(),
-                user.getName(),
-                user.getEmail(),
-                psychoanalyst.getLicenseNumber(),
-                psychoanalyst.getSpecialization(),
-                psychoanalyst.getBio(),
-                psychoanalyst.getPhone(),
-                user.getActive()
-        );
-    }
+                return toResponseDTO(psychoanalyst);
+        }
+
+        private PsychoanalystResponseDTO toResponseDTO(
+                        Psychoanalyst psychoanalyst) {
+
+                User user = psychoanalyst.getUser();
+
+                return new PsychoanalystResponseDTO(
+                                psychoanalyst.getId(),
+                                user.getName(),
+                                user.getEmail(),
+                                psychoanalyst.getLicenseNumber(),
+                                psychoanalyst.getSpecialization(),
+                                psychoanalyst.getBio(),
+                                psychoanalyst.getPhone(),
+                                user.getActive());
+        }
 }

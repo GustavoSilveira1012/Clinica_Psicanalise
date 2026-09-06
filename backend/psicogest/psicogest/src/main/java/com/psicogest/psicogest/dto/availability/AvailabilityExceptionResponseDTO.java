@@ -1,4 +1,5 @@
 package com.psicogest.psicogest.dto.availability;
+
 import com.psicogest.psicogest.model.enums.AvailabilityExceptionType;
 
 import java.time.LocalDate;
@@ -6,21 +7,21 @@ import java.time.LocalTime;
 
 public record AvailabilityExceptionResponseDTO(
 
-        Long id,
+                Long id,
 
-        Long psychoanalystId,
+                Long psychoanalystId,
 
-        LocalDate date,
+                LocalDate date,
 
-        AvailabilityExceptionType type,
+                AvailabilityExceptionType type,
 
-        LocalTime startTime,
+                LocalTime startTime,
 
-        LocalTime endTime,
+                LocalTime endTime,
 
-        Boolean fullDay,
+                Boolean fullDay,
 
-        String reason
+                String reason
 
 ) {
 }

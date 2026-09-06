@@ -1,5 +1,6 @@
 package com.psicogest.psicogest.model.entity;
 
+import com.psicogest.psicogest.domain.lifecycle.DeactivatableEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -12,7 +13,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Clinic {
+public class Clinic implements DeactivatableEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -26,6 +27,15 @@ public class Clinic {
 
     @Column(nullable = false)
     private Boolean active = true;
+
+    @Column(name = "deactivated_at")
+    private LocalDateTime deactivatedAt;
+
+    @Column(name = "deactivation_reason", length = 255)
+    private String deactivationReason;
+
+    @Column(name = "reactivated_at")
+    private LocalDateTime reactivatedAt;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;

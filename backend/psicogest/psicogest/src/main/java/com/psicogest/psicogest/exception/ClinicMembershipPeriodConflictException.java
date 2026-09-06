@@ -4,8 +4,7 @@ public class ClinicMembershipPeriodConflictException
         extends RuntimeException {
 
     public ClinicMembershipPeriodConflictException(
-            String message
-    ) {
+            String message) {
         super(message);
     }
 }

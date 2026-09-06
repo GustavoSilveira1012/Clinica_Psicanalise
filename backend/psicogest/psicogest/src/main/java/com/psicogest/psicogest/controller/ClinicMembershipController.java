@@ -16,8 +16,7 @@ public class ClinicMembershipController {
     private final ClinicMembershipService membershipService;
 
     public ClinicMembershipController(
-            ClinicMembershipService membershipService
-    ) {
+            ClinicMembershipService membershipService) {
         this.membershipService = membershipService;
     }
 
@@ -25,16 +24,14 @@ public class ClinicMembershipController {
     @ResponseStatus(HttpStatus.CREATED)
     public ClinicMembershipResponseDTO create(
             @PathVariable Long clinicId,
-            @Valid @RequestBody ClinicMembershipCreateDTO dto
-    ) {
+            @Valid @RequestBody ClinicMembershipCreateDTO dto) {
 
         return membershipService.create(clinicId, dto);
     }
 
     @GetMapping
     public List<ClinicMembershipResponseDTO> findByClinic(
-            @PathVariable Long clinicId
-    ) {
+            @PathVariable Long clinicId) {
 
         return membershipService.findByClinicId(clinicId);
     }

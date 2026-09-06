@@ -21,8 +21,7 @@ public class UserService {
 
     public UserService(
             UserRepository userRepository,
-            PasswordEncoder passwordEncoder
-    ) {
+            PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
     }
@@ -46,8 +45,7 @@ public class UserService {
 
         if (userRepository.existsByEmail(dto.email())) {
             throw new EmailAlreadyExistsException(
-                    "Já existe um usuário cadastrado com este e-mail"
-            );
+                    "Já existe um usuário cadastrado com este e-mail");
         }
 
         User user = User.builder()
@@ -66,11 +64,8 @@ public class UserService {
     private User findUserById(Long id) {
 
         return userRepository.findById(id)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Usuário não encontrado com o ID: " + id
-                        )
-                );
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Usuário não encontrado com o ID: " + id));
     }
 
     private UserResponseDTO toResponseDTO(User user) {
@@ -80,49 +75,44 @@ public class UserService {
                 user.getName(),
                 user.getEmail(),
                 user.getRole(),
-                user.getActive()
-        );
+                user.getActive());
     }
 
     public UserResponseDTO update(
-        Long id,
-        UserUpdateDTO dto
-) {
+            Long id,
+            UserUpdateDTO dto) {
 
-    User user = findUserById(id);
+        User user = findUserById(id);
 
-    if (!user.getEmail().equals(dto.email())
-            && userRepository.existsByEmail(dto.email())) {
+        if (!user.getEmail().equals(dto.email())
+                && userRepository.existsByEmail(dto.email())) {
 
-        throw new EmailAlreadyExistsException(
-                "Já existe um usuário cadastrado com este e-mail"
-        );
+            throw new EmailAlreadyExistsException(
+                    "Já existe um usuário cadastrado com este e-mail");
+        }
+
+        user.setName(dto.name());
+        user.setEmail(dto.email());
+        user.setRole(dto.role());
+        user.setActive(dto.active());
+
+        if (dto.password() != null
+                && !dto.password().isBlank()) {
+
+            user.setPasswordHash(
+                    passwordEncoder.encode(dto.password()));
+        }
+
+        User updatedUser = userRepository.save(user);
+
+        return toResponseDTO(updatedUser);
     }
 
-    user.setName(dto.name());
-    user.setEmail(dto.email());
-    user.setRole(dto.role());
-    user.setActive(dto.active());
+    public void delete(Long id) {
 
-    if (dto.password() != null
-            && !dto.password().isBlank()) {
+        User user = findUserById(id);
 
-        user.setPasswordHash(
-                passwordEncoder.encode(dto.password())
-        );
+        userRepository.delete(user);
     }
-
-    User updatedUser = userRepository.save(user);
-
-    return toResponseDTO(updatedUser);
-}
-
-public void delete(Long id) {
-
-    User user = findUserById(id);
-
-    userRepository.delete(user);
-}
-
 
 }

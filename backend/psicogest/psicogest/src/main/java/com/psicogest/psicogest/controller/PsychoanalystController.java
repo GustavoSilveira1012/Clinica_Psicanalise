@@ -18,16 +18,14 @@ public class PsychoanalystController {
     private final PsychoanalystService psychoanalystService;
 
     public PsychoanalystController(
-            PsychoanalystService psychoanalystService
-    ) {
+            PsychoanalystService psychoanalystService) {
         this.psychoanalystService = psychoanalystService;
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public PsychoanalystResponseDTO create(
-            @Valid @RequestBody PsychoanalystCreateDTO dto
-    ) {
+            @Valid @RequestBody PsychoanalystCreateDTO dto) {
 
         return psychoanalystService.create(dto);
     }
@@ -40,8 +38,7 @@ public class PsychoanalystController {
 
     @GetMapping("/{id}")
     public PsychoanalystResponseDTO findById(
-            @PathVariable Long id
-    ) {
+            @PathVariable Long id) {
 
         return psychoanalystService.findById(id);
     }

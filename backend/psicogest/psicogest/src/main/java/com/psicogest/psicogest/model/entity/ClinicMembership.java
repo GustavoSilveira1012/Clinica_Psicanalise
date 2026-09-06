@@ -9,21 +9,16 @@ import org.hibernate.type.SqlTypes;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "clinic_memberships",
-    uniqueConstraints = {
-        @UniqueConstraint(
-            name = "uk_clinic_membership_user",
-            columnNames = {"clinic_id", "psychoanalyst_id"}
-        )
-    }
-)
+@Table(name = "clinic_memberships", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_clinic_membership_user", columnNames = { "clinic_id", "psychoanalyst_id" })
+})
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class ClinicMembership {
-    
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
