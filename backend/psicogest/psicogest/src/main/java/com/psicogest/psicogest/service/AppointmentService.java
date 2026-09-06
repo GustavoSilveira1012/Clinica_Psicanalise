@@ -379,9 +379,6 @@ public class AppointmentService {
                         .originalAppointment(
                                 original
                         )
-                        .recurringGroupId(
-                                original.getRecurringGroupId()
-                        )
                         .scheduledStart(
                                 dto.scheduledStart()
                         )
@@ -463,9 +460,6 @@ public class AppointmentService {
             );
         }
 
-        UUID recurringGroupId =
-                UUID.randomUUID();
-
         List<Appointment> appointments =
                 java.util.stream.IntStream
                         .range(
@@ -489,9 +483,6 @@ public class AppointmentService {
                                     )
                                     .clinicMembership(
                                             membership
-                                    )
-                                    .recurringGroupId(
-                                            recurringGroupId
                                     )
                                     .scheduledStart(
                                             start
@@ -772,7 +763,11 @@ public class AppointmentService {
                                 .getId()
                         : null,
 
-                appointment.getRecurringGroupId(),
+                appointment.getAppointmentSeries() != null
+                        ? appointment.getAppointmentSeries().getId()
+                        : null,
+
+                appointment.getOccurrenceNumber(),
 
                 appointment.getScheduledStart(),
 

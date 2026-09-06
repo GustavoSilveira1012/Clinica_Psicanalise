@@ -26,7 +26,9 @@ public record AppointmentResponseDTO(
 
                 Long originalAppointmentId,
 
-                UUID recurringGroupId,
+                UUID appointmentSeriesId,
+
+                Integer occurrenceNumber,
 
                 LocalDateTime scheduledStart,
 

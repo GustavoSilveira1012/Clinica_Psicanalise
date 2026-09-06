@@ -1,6 +1,7 @@
 package com.psicogest.psicogest.service;
 
 import com.psicogest.psicogest.domain.appointment.AppointmentStateMachine;
+import com.psicogest.psicogest.domain.appointment.AppointmentPersistenceExceptionTranslator;
 import com.psicogest.psicogest.dto.appointment.AppointmentResponseDTO;
 import com.psicogest.psicogest.dto.appointment.RecurringAppointmentCancelDTO;
 import com.psicogest.psicogest.dto.appointment.RecurringAppointmentRescheduleDTO;
@@ -19,6 +20,7 @@ import com.psicogest.psicogest.repository.AppointmentSeriesRepository;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -30,17 +32,22 @@ public class AppointmentSeriesOperationService {
     private final AppointmentSeriesRepository seriesRepository;
     private final AppointmentStateMachine stateMachine;
     private final ScheduleAvailabilityService scheduleAvailabilityService;
+    private final AppointmentPersistenceExceptionTranslator
+        persistenceExceptionTranslator;
 
     public AppointmentSeriesOperationService(
         AppointmentSeriesRepository appointmentSeriesRepository,
         AppointmentRepository appointmentRepository,
         AppointmentStateMachine stateMachine,
-        ScheduleAvailabilityService scheduleAvailabilityService
+        ScheduleAvailabilityService scheduleAvailabilityService,
+        AppointmentPersistenceExceptionTranslator
+            persistenceExceptionTranslator
     ) {
         this.appointmentRepository = appointmentRepository;
         this.seriesRepository = appointmentSeriesRepository;
         this.stateMachine = stateMachine;
         this.scheduleAvailabilityService = scheduleAvailabilityService;
+        this.persistenceExceptionTranslator = persistenceExceptionTranslator;
     }
 
         private Appointment findAppointment(
@@ -136,40 +143,17 @@ public class AppointmentSeriesOperationService {
         }
 
         appointmentRepository.saveAllAndFlush(mutableAppointments);
-        updateSeriesStatusIfNecessary(series);
+
+        if (dto.scope() == RecurrenceScope.THIS_AND_FUTURE
+                || dto.scope() == RecurrenceScope.ENTIRE_SERIES) {
+            series.setStatus(AppointmentSeriesStatus.CANCELLED);
+            seriesRepository.save(series);
+        }
 
         return mutableAppointments
             .stream()
             .map(this::toResponseDTO)
             .toList();
-        }
-
-        private void updateSeriesStatusIfNecessary(AppointmentSeries series) {
-        List<Appointment> appointments = appointmentRepository
-            .findByAppointmentSeriesIdOrderByOccurrenceNumberAsc(
-                series.getId()
-            );
-
-        boolean hasFutureActive = appointments.stream().anyMatch(
-            appointment -> isMutable(appointment)
-                && appointment.getScheduledStart().isAfter(
-                    LocalDateTime.now()
-                )
-        );
-
-        if (!hasFutureActive) {
-            boolean allCancelled = appointments.stream().allMatch(
-                appointment -> appointment.getStatus()
-                    == AppointmentStatus.CANCELLED
-                    || appointment.getStatus()
-                    == AppointmentStatus.RESCHEDULED
-            );
-
-            series.setStatus(allCancelled
-                ? AppointmentSeriesStatus.CANCELLED
-                : AppointmentSeriesStatus.COMPLETED);
-            seriesRepository.save(series);
-        }
         }
 
             private Appointment rescheduleSingle(
@@ -282,19 +266,252 @@ public class AppointmentSeriesOperationService {
                             )
                         )
                     );
-                    case THIS_AND_FUTURE -> rescheduleMultiple(
-                        series,
+                    case THIS_AND_FUTURE -> rescheduleThisAndFuture(
                         reference,
-                        false,
                         dto
                     );
-                    case ENTIRE_SERIES -> rescheduleMultiple(
-                        series,
+                    case ENTIRE_SERIES -> rescheduleEntireSeries(
                         reference,
-                        true,
                         dto
                     );
                 };
+            }
+
+            private List<AppointmentResponseDTO> rescheduleEntireSeries(
+                Appointment reference,
+                RecurringAppointmentRescheduleDTO dto
+            ) {
+                AppointmentSeries series = requireSeries(reference);
+
+                List<Appointment> allAppointments = appointmentRepository
+                    .findByAppointmentSeriesIdOrderByOccurrenceNumberAsc(
+                        series.getId()
+                    );
+
+                List<Appointment> futureMutable = allAppointments.stream()
+                    .filter(this::isFutureMutable)
+                    .toList();
+
+                if (futureMutable.isEmpty()) {
+                    throw new InvalidAppointmentSeriesException(
+                        "A série não possui ocorrências futuras elegíveis"
+                    );
+                }
+
+                Appointment firstFuture = futureMutable.get(0);
+
+                return splitSeriesAndReschedule(
+                    series,
+                    firstFuture,
+                    futureMutable,
+                    dto
+                );
+            }
+
+            private boolean isFutureMutable(Appointment appointment) {
+                return isMutable(appointment)
+                    && LocalDateTime.now().isBefore(
+                        appointment.getScheduledStart()
+                    );
+            }
+
+            private List<AppointmentResponseDTO> rescheduleThisAndFuture(
+                Appointment reference,
+                RecurringAppointmentRescheduleDTO dto
+            ) {
+                AppointmentSeries oldSeries = requireSeries(reference);
+
+                List<Appointment> candidates = appointmentRepository
+                    .findByAppointmentSeriesIdAndOccurrenceNumberGreaterThanEqualOrderByOccurrenceNumberAsc(
+                        oldSeries.getId(),
+                        reference.getOccurrenceNumber()
+                    )
+                    .stream()
+                    .filter(this::isFutureMutable)
+                    .toList();
+
+                if (candidates.isEmpty()) {
+                    throw new InvalidAppointmentSeriesException(
+                        "Não existem ocorrências futuras elegíveis"
+                    );
+                }
+
+                return splitSeriesAndReschedule(
+                    oldSeries,
+                    reference,
+                    candidates,
+                    dto
+                );
+            }
+
+            private List<AppointmentResponseDTO> splitSeriesAndReschedule(
+                AppointmentSeries oldSeries,
+                Appointment reference,
+                List<Appointment> candidates,
+                RecurringAppointmentRescheduleDTO dto
+            ) {
+                if (candidates.size() < 2) {
+                    throw new InvalidAppointmentSeriesException(
+                        "A nova série deve possuir pelo menos duas consultas"
+                    );
+                }
+
+                validateRequestedPeriod(
+                    dto.scheduledStart(),
+                    dto.scheduledEnd()
+                );
+
+                Duration newDuration = Duration.between(
+                    dto.scheduledStart(),
+                    dto.scheduledEnd()
+                );
+
+                List<NewOccurrence> newOccurrences = calculateNewOccurrences(
+                    reference,
+                    candidates,
+                    dto.scheduledStart(),
+                    newDuration
+                );
+
+                validateAllNewOccurrences(
+                    oldSeries.getPsychoanalyst().getId(),
+                    candidates,
+                    newOccurrences
+                );
+
+                LocalDateTime now = LocalDateTime.now();
+
+                AppointmentSeries newSeries = AppointmentSeries.builder()
+                    .id(java.util.UUID.randomUUID())
+                    .patient(oldSeries.getPatient())
+                    .psychoanalyst(oldSeries.getPsychoanalyst())
+                    .clinicMembership(oldSeries.getClinicMembership())
+                    .previousSeries(oldSeries)
+                    .frequency(oldSeries.getFrequency())
+                    .recurrenceInterval(oldSeries.getRecurrenceInterval())
+                    .dayOfWeek(dto.scheduledStart().getDayOfWeek())
+                    .startTime(dto.scheduledStart().toLocalTime())
+                    .durationMinutes(Math.toIntExact(newDuration.toMinutes()))
+                    .startsOn(newOccurrences.get(0).start().toLocalDate())
+                    .endsOn(newOccurrences.get(newOccurrences.size() - 1)
+                        .start().toLocalDate())
+                    .totalOccurrences(newOccurrences.size())
+                    .status(AppointmentSeriesStatus.ACTIVE)
+                    .build();
+
+                AppointmentSeries savedNewSeries = seriesRepository.save(newSeries);
+
+                oldSeries.setStatus(AppointmentSeriesStatus.SUPERSEDED);
+                oldSeries.setSupersededAt(now);
+                oldSeries.setSupersededFrom(
+                    reference.getScheduledStart().toLocalDate()
+                );
+                seriesRepository.save(oldSeries);
+
+                for (Appointment oldAppointment : candidates) {
+                    stateMachine.validateTransition(
+                        oldAppointment.getStatus(),
+                        AppointmentStatus.RESCHEDULED
+                    );
+                    oldAppointment.setStatus(AppointmentStatus.RESCHEDULED);
+                    oldAppointment.setRescheduledAt(now);
+                }
+
+                appointmentRepository.saveAll(candidates);
+
+                List<Appointment> replacements = new java.util.ArrayList<>();
+
+                for (int i = 0; i < candidates.size(); i++) {
+                    Appointment oldAppointment = candidates.get(i);
+                    NewOccurrence occurrence = newOccurrences.get(i);
+
+                    replacements.add(Appointment.builder()
+                        .patient(oldAppointment.getPatient())
+                        .psychoanalyst(oldAppointment.getPsychoanalyst())
+                        .clinicMembership(oldAppointment.getClinicMembership())
+                        .appointmentSeries(savedNewSeries)
+                        .occurrenceNumber(i + 1)
+                        .originalAppointment(oldAppointment)
+                        .scheduledStart(occurrence.start())
+                        .scheduledEnd(occurrence.end())
+                        .appointmentType(oldAppointment.getAppointmentType())
+                        .status(AppointmentStatus.SCHEDULED)
+                        .build());
+                }
+
+                List<Appointment> saved = saveAllSafely(replacements);
+
+                return saved.stream()
+                    .map(this::toResponseDTO)
+                    .toList();
+            }
+
+            private void validateRequestedPeriod(
+                LocalDateTime start,
+                LocalDateTime end
+            ) {
+                if (start == null || end == null || !end.isAfter(start)) {
+                    throw new InvalidAvailabilityException(
+                        "Duração da consulta é inválida"
+                    );
+                }
+            }
+
+            private List<NewOccurrence> calculateNewOccurrences(
+                Appointment reference,
+                List<Appointment> candidates,
+                LocalDateTime requestedStart,
+                Duration duration
+            ) {
+                List<NewOccurrence> result = new java.util.ArrayList<>();
+                LocalDateTime originalReferenceStart =
+                    reference.getScheduledStart();
+
+                for (Appointment appointment : candidates) {
+                    Duration offset = Duration.between(
+                        originalReferenceStart,
+                        appointment.getScheduledStart()
+                    );
+                    LocalDateTime newStart = requestedStart.plus(offset);
+                    result.add(new NewOccurrence(
+                        newStart,
+                        newStart.plus(duration)
+                    ));
+                }
+
+                return result;
+            }
+
+            private void validateAllNewOccurrences(
+                Long psychoanalystId,
+                List<Appointment> oldAppointments,
+                List<NewOccurrence> newOccurrences
+            ) {
+                for (int i = 0; i < newOccurrences.size(); i++) {
+                    NewOccurrence occurrence = newOccurrences.get(i);
+                    validateNewPeriod(
+                        psychoanalystId,
+                        occurrence.start(),
+                        occurrence.end(),
+                        oldAppointments.get(i).getId()
+                    );
+                }
+            }
+
+            private List<Appointment> saveAllSafely(
+                List<Appointment> appointments
+            ) {
+                try {
+                    return appointmentRepository.saveAllAndFlush(appointments);
+                } catch (DataIntegrityViolationException exception) {
+                    throw persistenceExceptionTranslator.translate(exception);
+                }
+            }
+
+            private record NewOccurrence(
+                LocalDateTime start,
+                LocalDateTime end
+            ) {
             }
 
             private List<AppointmentResponseDTO> rescheduleMultiple(
@@ -443,7 +660,10 @@ public class AppointmentSeriesOperationService {
             appointment.getOriginalAppointment() != null
                 ? appointment.getOriginalAppointment().getId()
                 : null,
-            appointment.getRecurringGroupId(),
+            appointment.getAppointmentSeries() != null
+                ? appointment.getAppointmentSeries().getId()
+                : null,
+            appointment.getOccurrenceNumber(),
             appointment.getScheduledStart(),
             appointment.getScheduledEnd(),
             appointment.getStatus(),

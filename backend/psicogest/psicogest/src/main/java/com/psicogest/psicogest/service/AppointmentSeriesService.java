@@ -415,7 +415,7 @@ public class AppointmentSeriesService {
 
                 return new AppointmentSeriesResponseDTO(
                                 series.getId(),
-                                series.getPatient().getId(),
+                                null, null, null, series.getPatient().getId(),
                                 series.getPatient().getUser().getName(),
                                 series.getPsychoanalyst().getId(),
                                 series.getPsychoanalyst().getUser().getName(),

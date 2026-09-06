@@ -6,13 +6,11 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Entity
 @Table(name = "appointments", indexes = {
                 @Index(name = "idx_appointments_psychoanalyst_period", columnList = "psychoanalyst_id, scheduled_start, scheduled_end"),
-                @Index(name = "idx_appointments_patient", columnList = "patient_id"),
-                @Index(name = "idx_appointments_recurring_group", columnList = "recurring_group_id")
+                @Index(name = "idx_appointments_patient", columnList = "patient_id")
 })
 @Getter
 @Setter
@@ -57,9 +55,6 @@ public class Appointment {
 
         @Column(name = "occurrence_number")
         private Integer occurrenceNumber;
-
-        @Column(name = "recurring_group_id")
-        private UUID recurringGroupId;
 
         @Column(name = "scheduled_start", nullable = false)
         private LocalDateTime scheduledStart;

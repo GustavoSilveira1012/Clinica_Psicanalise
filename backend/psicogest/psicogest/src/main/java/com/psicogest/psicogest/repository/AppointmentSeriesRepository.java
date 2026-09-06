@@ -20,11 +20,21 @@ public interface AppointmentSeriesRepository
             Long psychoanalystId
     );
 
+    Optional<AppointmentSeries>
+findByPreviousSeriesId(
+        UUID previousSeriesId
+);
+
     List<AppointmentSeries>
     findByPsychoanalystIdAndStatusOrderByStartsOnAsc(
             Long psychoanalystId,
             AppointmentSeriesStatus status
     );
+
+    List<AppointmentSeries>
+findByPsychoanalystIdOrderByStartsOnDesc(
+        Long psychoanalystId
+);
 
     List<AppointmentSeries>
     findByPatientIdOrderByStartsOnDesc(

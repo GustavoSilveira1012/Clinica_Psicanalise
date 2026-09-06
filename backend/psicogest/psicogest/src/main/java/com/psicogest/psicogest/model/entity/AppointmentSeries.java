@@ -38,6 +38,16 @@ public class AppointmentSeries {
     @JoinColumn(name = "clinic_membership_id")
     private ClinicMembership clinicMembership;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "previous_series_id")
+    private AppointmentSeries previousSeries;
+
+    @Column(name = "superseded_at")
+    private LocalDateTime supersededAt;
+
+    @Column(name = "superseded_from")
+    private LocalDate supersededFrom;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private RecurrenceFrequency frequency;

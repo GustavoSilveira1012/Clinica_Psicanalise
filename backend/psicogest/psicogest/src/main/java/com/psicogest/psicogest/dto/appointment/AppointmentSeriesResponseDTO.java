@@ -9,6 +9,12 @@ public record AppointmentSeriesResponseDTO(
 
         UUID id,
 
+        UUID previousSeriesId,
+
+        LocalDateTime supersededAt,
+
+        LocalDate supersededFrom,
+
         Long patientId,
         String patientName,
 

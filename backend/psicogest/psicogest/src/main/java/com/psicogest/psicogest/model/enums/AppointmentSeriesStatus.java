@@ -6,5 +6,7 @@ public enum AppointmentSeriesStatus {
 
     CANCELLED,
 
-    COMPLETED
+    COMPLETED,
+
+    SUPERSEDED
 }
