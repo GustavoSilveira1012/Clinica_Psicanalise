@@ -3,6 +3,8 @@ package com.psicogest.psicogest.dto.availability;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
 
+import jakarta.transaction.Transactional;
+@Transactional
 public record AvailabilityResponseDTO(
 
         Long id,

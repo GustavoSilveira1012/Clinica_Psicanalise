@@ -6,7 +6,7 @@ import java.time.DayOfWeek;
 import java.time.LocalTime;
 
 public record AvailabilityUpdateDTO(
-
+        
         @NotNull(message = "Dia da semana é obrigatório")
         DayOfWeek dayOfWeek,
 

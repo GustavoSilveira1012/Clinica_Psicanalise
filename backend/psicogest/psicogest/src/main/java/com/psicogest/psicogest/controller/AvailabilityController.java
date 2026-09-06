@@ -45,29 +45,42 @@ public class AvailabilityController {
         );
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{availabilityId}")
     public AvailabilityResponseDTO findById(
-            @PathVariable Long id
+            @PathVariable Long psychoanalystId,
+            @PathVariable Long availabilityId
     ) {
 
-        return availabilityService.findById(id);
+        return availabilityService.findById(
+                psychoanalystId,
+                availabilityId
+        );
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/{availabilityId}")
     public AvailabilityResponseDTO update(
-            @PathVariable Long id,
+            @PathVariable Long psychoanalystId,
+            @PathVariable Long availabilityId,
             @Valid @RequestBody AvailabilityUpdateDTO dto
     ) {
 
-        return availabilityService.update(id, dto);
+        return availabilityService.update(
+                psychoanalystId,
+                availabilityId,
+                dto
+        );
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{availabilityId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(
-            @PathVariable Long id
+            @PathVariable Long psychoanalystId,
+            @PathVariable Long availabilityId
     ) {
 
-        availabilityService.delete(id);
+        availabilityService.delete(
+                psychoanalystId,
+                availabilityId
+        );
     }
 }

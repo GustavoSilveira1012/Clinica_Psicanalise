@@ -59,17 +59,30 @@ CREATE TABLE IF NOT EXISTS appointments (
 	id BIGSERIAL PRIMARY KEY,
 	patient_id BIGINT NOT NULL,
 	psychoanalyst_id BIGINT NOT NULL,
-	scheduled_at TIMESTAMP NOT NULL,
-	duration_minutes INTEGER NOT NULL DEFAULT 50,
+	clinic_membership_id BIGINT,
+	original_appointment_id BIGINT,
+	recurring_group_id UUID,
+	scheduled_start TIMESTAMP NOT NULL,
+	scheduled_end TIMESTAMP NOT NULL,
 	status appointment_status NOT NULL DEFAULT 'SCHEDULED',
-	type appointment_type NOT NULL DEFAULT 'ONLINE',
-	notes TEXT,
+	appointment_type appointment_type NOT NULL DEFAULT 'ONLINE',
+	cancellation_reason VARCHAR(255),
+	cancelled_at TIMESTAMP,
 	created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	CONSTRAINT fk_appointment_patient FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE RESTRICT,
 	CONSTRAINT fk_appointment_psychoanalyst FOREIGN KEY (psychoanalyst_id) REFERENCES psychoanalysts(id) ON DELETE RESTRICT,
-	CONSTRAINT check_duration CHECK (duration_minutes > 0)
+	CONSTRAINT fk_appointment_clinic_membership FOREIGN KEY (clinic_membership_id) REFERENCES clinic_memberships(id) ON DELETE RESTRICT,
+	CONSTRAINT fk_appointment_original FOREIGN KEY (original_appointment_id) REFERENCES appointments(id) ON DELETE RESTRICT,
+	CONSTRAINT check_appointment_time CHECK (scheduled_end > scheduled_start)
 );
+
+-- Compatibilidade com instalações anteriores da tabela appointments.
+ALTER TABLE public.appointments
+	DROP COLUMN IF EXISTS scheduled_at,
+	DROP COLUMN IF EXISTS duration_minutes,
+	DROP COLUMN IF EXISTS type,
+	DROP COLUMN IF EXISTS notes;
 
 CREATE TABLE IF NOT EXISTS medical_records (
 	id BIGSERIAL PRIMARY KEY,
@@ -102,7 +115,7 @@ CREATE TABLE IF NOT EXISTS payments (
 CREATE TABLE IF NOT EXISTS availability (
 	id BIGSERIAL PRIMARY KEY,
 	psychoanalyst_id BIGINT NOT NULL,
-	day_of_week VARCHAR(20) NOT NULL,
+	day_of_week INTEGER NOT NULL,
 	start_time TIME NOT NULL,
 	end_time TIME NOT NULL,
 	active BOOLEAN NOT NULL DEFAULT TRUE,

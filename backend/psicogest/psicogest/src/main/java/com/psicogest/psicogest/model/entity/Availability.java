@@ -27,7 +27,7 @@ public class Availability {
     )
     private Psychoanalyst psychoanalyst;
 
-    @Enumerated(EnumType.STRING)
+    @Enumerated(EnumType.ORDINAL)
     @Column(name = "day_of_week", nullable = false)
     private DayOfWeek dayOfWeek;
 

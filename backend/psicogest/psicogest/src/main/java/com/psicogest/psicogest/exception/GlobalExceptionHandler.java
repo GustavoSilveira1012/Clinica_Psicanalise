@@ -122,4 +122,21 @@ public class GlobalExceptionHandler {
                 .badRequest()
                 .body(response);
         }
+
+        @ExceptionHandler(ScheduleConflictException.class)
+        public ResponseEntity<Map<String, Object>> handleScheduleConflict(
+                ScheduleConflictException exception
+        ) {
+
+        Map<String, Object> response = new HashMap<>();
+
+        response.put("timestamp", LocalDateTime.now());
+        response.put("status", 409);
+        response.put("error", "Conflict");
+        response.put("message", exception.getMessage());
+
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(response);
+        }
 }
