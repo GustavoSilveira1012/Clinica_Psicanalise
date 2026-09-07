@@ -1,4 +1,4 @@
-package com.psicogest.psicogest.service;
+﻿package com.psicogest.psicogest.service;
 
 import com.psicogest.psicogest.dto.patient.PatientResponseDTO;
 import com.psicogest.psicogest.model.entity.Patient;
@@ -7,7 +7,7 @@ import com.psicogest.psicogest.model.enums.TherapeuticRelationshipStatus;
 import com.psicogest.psicogest.repository.PatientRepository;
 import com.psicogest.psicogest.repository.PsychoanalystRepository;
 import com.psicogest.psicogest.repository.TherapeuticRelationshipRepository;
-import com.psicogest.psicogest.security.AuthenticatedUserContext;
+import com.psicogest.psicogest.security.authorization.AuthenticatedUserContext;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
@@ -74,12 +74,11 @@ public class PatientAccessQueryService {
     private PatientResponseDTO toResponse(Patient patient) {
         return new PatientResponseDTO(
                 patient.getId(),
-                patient.getName(),
-                patient.getEmail(),
-                patient.getPhoneNumber(),
-                patient.getDateOfBirth(),
-                patient.getGender(),
-                patient.isActive()
+                patient.getUser().getName(),
+                patient.getUser().getEmail(),
+                patient.getPhone(),
+                patient.getBirthDate(),
+                patient.getActive()
         );
     }
 }

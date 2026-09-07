@@ -1,4 +1,4 @@
-package com.psicogest.psicogest.exception;
+﻿package com.psicogest.psicogest.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -307,4 +307,42 @@ public class GlobalExceptionHandler {
                                 .status(HttpStatus.CONFLICT)
                                 .body(response);
         }
+
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<Map<String, Object>> handleRateLimit(
+            RateLimitExceededException exception) {
+
+        Map<String, Object> response = new HashMap<>();
+
+        response.put("timestamp", LocalDateTime.now());
+        response.put("status", 429);
+        response.put("error", "Too Many Requests");
+        response.put("message", "Muitas tentativas. Tente novamente mais tarde.");
+
+        return ResponseEntity
+                .status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(response);
+    }
+
+    @ExceptionHandler(SecurityInfrastructureException.class)
+    public ResponseEntity<Map<String, Object>> handleSecurityInfrastructure(
+            SecurityInfrastructureException exception) {
+
+        Map<String, Object> response = new HashMap<>();
+
+        response.put("timestamp", LocalDateTime.now());
+        response.put("status", 503);
+        response.put("error", "Service Unavailable");
+        response.put("message", "Serviço temporariamente indisponível");
+
+        return ResponseEntity
+                .status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(response);
+    }
+
+
+
+
 }
+
+
