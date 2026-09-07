@@ -75,7 +75,14 @@ public class UserService {
                 user.getName(),
                 user.getEmail(),
                 user.getRole(),
-                user.getActive());
+                user.getActive(),
+                user.getSecurityVersion(),
+                user.getFailedLoginAttempts(),
+                user.getLastFailedLoginAt(),
+                user.getLockedUntil(),
+                user.getLastLoginAt(),
+                user.getPasswordChangedAt(),
+                user.getRequirePasswordChange());
     }
 
     public UserResponseDTO update(

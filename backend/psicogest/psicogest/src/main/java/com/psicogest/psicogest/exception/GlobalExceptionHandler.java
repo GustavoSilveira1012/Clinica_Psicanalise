@@ -45,6 +45,21 @@ public class GlobalExceptionHandler {
                                 .body(response);
         }
 
+        @ExceptionHandler(com.psicogest.psicogest.exception.ClinicalAccessForbiddenException.class)
+        public ResponseEntity<Map<String, Object>> handleClinicalAccessForbidden(
+                        com.psicogest.psicogest.exception.ClinicalAccessForbiddenException exception) {
+                Map<String, Object> response = new HashMap<>();
+
+                response.put("timestamp", LocalDateTime.now());
+                response.put("status", 403);
+                response.put("error", "Forbidden");
+                response.put("message", exception.getMessage());
+
+                return ResponseEntity
+                                .status(HttpStatus.FORBIDDEN)
+                                .body(response);
+        }
+
         @ExceptionHandler(MethodArgumentNotValidException.class)
         public ResponseEntity<Map<String, Object>> handleValidation(
                         MethodArgumentNotValidException exception) {

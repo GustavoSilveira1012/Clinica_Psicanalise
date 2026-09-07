@@ -39,6 +39,30 @@ public class User implements DeactivatableEntity {
     @Column(nullable = false)
     private Boolean active;
 
+    @Builder.Default
+    @Column(name = "security_version", nullable = false)
+    private Integer securityVersion = 1;
+
+    @Builder.Default
+    @Column(name = "failed_login_attempts", nullable = false)
+    private Integer failedLoginAttempts = 0;
+
+    @Column(name = "last_failed_login_at")
+    private LocalDateTime lastFailedLoginAt;
+
+    @Column(name = "locked_until")
+    private LocalDateTime lockedUntil;
+
+    @Column(name = "last_login_at")
+    private LocalDateTime lastLoginAt;
+
+    @Column(name = "password_changed_at")
+    private LocalDateTime passwordChangedAt;
+
+    @Builder.Default
+    @Column(name = "require_password_change", nullable = false)
+    private Boolean requirePasswordChange = false;
+
     @Column(name = "deactivated_at")
     private LocalDateTime deactivatedAt;
 
@@ -63,6 +87,18 @@ public class User implements DeactivatableEntity {
 
         if (active == null) {
             active = true;
+        }
+
+        if (securityVersion == null) {
+            securityVersion = 1;
+        }
+
+        if (failedLoginAttempts == null) {
+            failedLoginAttempts = 0;
+        }
+
+        if (requirePasswordChange == null) {
+            requirePasswordChange = false;
         }
     }
 

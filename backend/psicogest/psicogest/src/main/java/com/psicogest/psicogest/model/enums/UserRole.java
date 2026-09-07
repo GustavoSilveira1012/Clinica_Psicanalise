@@ -2,10 +2,12 @@ package com.psicogest.psicogest.model.enums;
 
 public enum UserRole {
 
-    ADMIN,
+    PATIENT,
 
     PSYCHOANALYST,
 
-    PATIENT
+    CLINIC_ADMIN,
+
+    SYSTEM_ADMIN
 
 }

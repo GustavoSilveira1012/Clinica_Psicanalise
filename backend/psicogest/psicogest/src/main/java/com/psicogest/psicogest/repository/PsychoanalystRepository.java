@@ -9,5 +9,7 @@ public interface PsychoanalystRepository
         extends JpaRepository<Psychoanalyst, Long> {
     Boolean existsByUserId(Long userId);
 
+    java.util.Optional<Psychoanalyst> findByUserId(Long userId);
+
     List<Psychoanalyst> findByActiveTrue();
 }
