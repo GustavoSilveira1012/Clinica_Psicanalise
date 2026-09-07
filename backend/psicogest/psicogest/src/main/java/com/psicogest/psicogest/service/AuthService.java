@@ -1,146 +1,80 @@
 package com.psicogest.psicogest.service;
 
-import com.psicogest.psicogest.dto.auth.AuthResponse;
-import com.psicogest.psicogest.dto.auth.LoginRequest;
+import com.psicogest.psicogest.dto.auth.*;
+import com.psicogest.psicogest.exception.RefreshTokenReuseDetectedException;
 import com.psicogest.psicogest.model.entity.User;
-import com.psicogest.psicogest.repository.UserRepository;
-import com.psicogest.psicogest.security.jwt.JwtProperties;
+import com.psicogest.psicogest.model.enums.*;
+import com.psicogest.psicogest.repository.*;
 import com.psicogest.psicogest.security.jwt.JwtService;
+import com.psicogest.psicogest.security.mfa.*;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.Duration;
-import java.time.Instant;
-import java.time.LocalDateTime;
+import java.time.*;
 import java.util.Locale;
 
 @Service
 public class AuthService {
-
-    private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final JwtService jwtService;
-    private final RefreshTokenService refreshTokenService;
-    private final JwtProperties jwtProperties;
+    private final UserRepository users;
+    private final PasswordEncoder passwords;
+    private final MfaMethodRepository methods;
+    private final ChallengeService challenges;
+    private final AuthTokenService tokens;
+    private final RefreshTokenService refreshTokens;
+    private final UserSessionService sessions;
+    private final JwtService jwt;
+    private final Clock clock;
     private final String dummyHash;
-
-    public AuthService(
-            UserRepository userRepository,
-            PasswordEncoder passwordEncoder,
-            JwtService jwtService,
-            RefreshTokenService refreshTokenService,
-            JwtProperties jwtProperties
-    ) {
-        this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.jwtService = jwtService;
-        this.refreshTokenService = refreshTokenService;
-        this.jwtProperties = jwtProperties;
-        this.dummyHash = passwordEncoder.encode("dummy-password-never-used");
+    public AuthService(UserRepository users, PasswordEncoder passwords, MfaMethodRepository methods,
+            ChallengeService challenges, AuthTokenService tokens, RefreshTokenService refreshTokens,
+            UserSessionService sessions, JwtService jwt, Clock clock) {
+        this.users = users; this.passwords = passwords; this.methods = methods; this.challenges = challenges;
+        this.tokens = tokens; this.refreshTokens = refreshTokens; this.sessions = sessions;
+        this.jwt = jwt; this.clock = clock; this.dummyHash = passwords.encode("dummy-password-never-used");
     }
 
-    @Transactional
-    public AuthTokens login(
-            LoginRequest dto,
-            String ip,
-            String userAgent
-    ) {
-        String normalizedEmail = dto.email()
-                .trim()
-                .toLowerCase(Locale.ROOT);
-
-        User user = userRepository.findByEmailIgnoreCase(normalizedEmail)
-                .orElse(null);
-
-        String passwordHash = user != null
-                ? user.getPasswordHash()
-                : dummyHash;
-
-        boolean valid = passwordEncoder.matches(dto.password(), passwordHash);
-
+    @Transactional(noRollbackFor = BadCredentialsException.class)
+    public LoginResult login(LoginRequest dto, String ip, String userAgent) {
+        User user = users.findByEmailForUpdate(dto.email().trim().toLowerCase(Locale.ROOT)).orElse(null);
+        boolean valid = passwords.matches(dto.password(), user == null ? dummyHash : user.getPasswordHash());
         if (user == null || !valid) {
             if (user != null) {
-                Integer failedAttempts = user.getFailedLoginAttempts();
-                user.setFailedLoginAttempts(
-                        (failedAttempts == null ? 0 : failedAttempts) + 1);
-                user.setLastFailedLoginAt(LocalDateTime.now());
-                userRepository.save(user);
+                user.setFailedLoginAttempts(user.getFailedLoginAttempts() + 1);
+                user.setLastFailedLoginAt(LocalDateTime.now(clock));
             }
-
-            throw invalidCredentials();
+            throw new BadCredentialsException("Credenciais inválidas");
         }
-
-        if (Boolean.FALSE.equals(user.getActive())
-                || (user.getLockedUntil() != null
-                && user.getLockedUntil().isAfter(LocalDateTime.now()))) {
-            throw invalidCredentials();
+        if (!Boolean.TRUE.equals(user.getActive()) || (user.getLockedUntil() != null
+                && user.getLockedUntil().isAfter(LocalDateTime.now(clock)))) {
+            throw new BadCredentialsException("Credenciais inválidas");
         }
-
-        user.setFailedLoginAttempts(0);
-        user.setLastLoginAt(LocalDateTime.now());
-        userRepository.save(user);
-
-        JwtService.AccessToken accessToken = jwtService.issueAccessToken(user);
-        RefreshTokenService.IssuedRefreshToken refresh =
-                refreshTokenService.issueInitial(user, ip, userAgent);
-
-        return new AuthTokens(
-                toAuthResponse(user, accessToken),
-                refresh.rawToken());
+        boolean activeMfa = methods.existsByUserIdAndStatus(user.getId(), MfaMethodStatus.ACTIVE);
+        if (activeMfa || MfaPolicyService.requiresMfa(user)) {
+            var type = activeMfa ? AuthenticationChallengeType.MFA_REQUIRED
+                    : AuthenticationChallengeType.MFA_ENROLLMENT_REQUIRED;
+            String challenge = challenges.issue(user, type, ip, userAgent);
+            return new LoginResult(new LoginResponse(LoginStatus.valueOf(type.name()), null, challenge), null);
+        }
+        AuthTokens authenticated = tokens.authenticate(user, ip, userAgent);
+        return new LoginResult(new LoginResponse(LoginStatus.AUTHENTICATED, authenticated.response(), null),
+                authenticated.refreshToken());
     }
 
-    @Transactional
-    public AuthTokens refresh(
-            String rawRefreshToken,
-            String ip,
-            String userAgent
-    ) {
-        RefreshTokenService.RotationResult rotation =
-                refreshTokenService.rotate(rawRefreshToken, ip, userAgent);
-        JwtService.AccessToken accessToken =
-                jwtService.issueAccessToken(rotation.user());
-
-        return new AuthTokens(
-                toAuthResponse(rotation.user(), accessToken),
+    @Transactional(noRollbackFor = RefreshTokenReuseDetectedException.class)
+    public AuthTokens refresh(String raw, String ip, String userAgent) {
+        var rotation = refreshTokens.rotate(raw, ip, userAgent);
+        return new AuthTokens(tokens.response(rotation.user(), jwt.issueAccessToken(rotation.user(), rotation.sessionId())),
                 rotation.refreshToken());
     }
 
     @Transactional
     public void logoutAll(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado"));
-
-        Integer securityVersion = user.getSecurityVersion();
-        user.setSecurityVersion((securityVersion == null ? 0 : securityVersion) + 1);
-        userRepository.saveAndFlush(user);
-        refreshTokenService.revokeAllForUser(userId);
+        User user = users.findByIdForUpdate(userId).orElseThrow(() -> new BadCredentialsException("Credenciais inválidas"));
+        user.setSecurityVersion(user.getSecurityVersion() + 1);
+        sessions.revokeAll(userId, "LOGOUT_ALL_DEVICES");
     }
 
-    private AuthResponse toAuthResponse(
-            User user,
-            JwtService.AccessToken accessToken
-    ) {
-        long expiresIn = Math.max(
-                0,
-                Duration.between(Instant.now(), accessToken.expiresAt()).toSeconds());
-
-        return new AuthResponse(
-                accessToken.value(),
-                "Bearer",
-                expiresIn,
-                user.getId(),
-                user.getRole().name());
-    }
-
-    private BadCredentialsException invalidCredentials() {
-        return new BadCredentialsException("Credenciais inválidas");
-    }
-
-    public record AuthTokens(
-            AuthResponse response,
-            String refreshToken
-    ) {
-    }
+    public record AuthTokens(AuthResponse response, String refreshToken) {}
+    public record LoginResult(LoginResponse response, String refreshToken) {}
 }

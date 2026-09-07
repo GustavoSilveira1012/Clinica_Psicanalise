@@ -3,6 +3,7 @@ package com.psicogest.psicogest.controller;
 import com.psicogest.psicogest.dto.auth.AuthResponse;
 import com.psicogest.psicogest.dto.auth.CsrfResponse;
 import com.psicogest.psicogest.dto.auth.LoginRequest;
+import com.psicogest.psicogest.dto.auth.LoginResponse;
 import com.psicogest.psicogest.security.refresh.RefreshCookieService;
 import com.psicogest.psicogest.service.AuthService;
 import com.psicogest.psicogest.service.RefreshTokenService;
@@ -45,17 +46,21 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public AuthResponse login(
+    public LoginResponse login(
             @Valid @RequestBody LoginRequest dto,
             HttpServletRequest request,
             HttpServletResponse response
     ) {
-        AuthService.AuthTokens tokens = authService.login(
+        AuthService.LoginResult tokens = authService.login(
                 dto,
                 request.getRemoteAddr(),
                 request.getHeader("User-Agent"));
 
-        cookieService.write(response, tokens.refreshToken());
+        if (tokens.refreshToken() != null) {
+            cookieService.write(response, tokens.refreshToken());
+        } else {
+            cookieService.clear(response);
+        }
         return tokens.response();
     }
 

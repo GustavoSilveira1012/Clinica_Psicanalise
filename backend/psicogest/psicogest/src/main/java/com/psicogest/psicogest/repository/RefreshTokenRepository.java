@@ -17,6 +17,9 @@ public interface RefreshTokenRepository
                 UUID
         > {
 
+    @Query("select r.user.id from RefreshToken r where r.tokenHash = :hash")
+    Optional<Long> findUserIdByHash(@Param("hash") String hash);
+
     @Lock(
             LockModeType.PESSIMISTIC_WRITE
     )

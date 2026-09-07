@@ -25,6 +25,9 @@ class JwtValidatorTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock private com.psicogest.psicogest.repository.UserSessionRepository sessions;
+    private final java.util.UUID sid = java.util.UUID.randomUUID();
+
     @Test
     void shouldAcceptOnlyTheConfiguredAudienceAndAccessTokenType() {
         AudienceValidator validator = new AudienceValidator("psicogest-web");
@@ -39,7 +42,7 @@ class JwtValidatorTest {
 
     @Test
     void shouldRejectJwtWhenTheAccountSecurityVersionChanged() {
-        AccountStateJwtValidator validator = new AccountStateJwtValidator(userRepository);
+        AccountStateJwtValidator validator = new AccountStateJwtValidator(userRepository, sessions, java.time.Clock.systemUTC());
         UserRepository.UserSecurityView view = userSecurityView(true, 2, null);
         when(userRepository.findProjectedById(eq(15L))).thenReturn(Optional.of(view));
 
@@ -51,7 +54,9 @@ class JwtValidatorTest {
 
     @Test
     void shouldAcceptJwtWhenTheAccountIsActiveAndTheVersionMatches() {
-        AccountStateJwtValidator validator = new AccountStateJwtValidator(userRepository);
+        AccountStateJwtValidator validator = new AccountStateJwtValidator(userRepository, sessions, java.time.Clock.systemUTC());
+        when(sessions.existsByIdAndUserIdAndRevokedAtIsNullAndExpiresAtAfter(
+                eq(sid), eq(15L), org.mockito.ArgumentMatchers.any())).thenReturn(true);
         UserRepository.UserSecurityView view = userSecurityView(true, 1, null);
         when(userRepository.findProjectedById(eq(15L))).thenReturn(Optional.of(view));
 
@@ -72,6 +77,7 @@ class JwtValidatorTest {
                 .subject("15")
                 .claim("token_type", tokenType)
                 .claim("sv", version)
+                .claim("sid", sid.toString())
                 .build();
     }
 

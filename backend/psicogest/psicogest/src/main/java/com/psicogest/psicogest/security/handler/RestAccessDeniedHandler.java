@@ -1,6 +1,6 @@
 package com.psicogest.psicogest.security.handler;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -17,10 +17,10 @@ import java.util.Map;
 public class RestAccessDeniedHandler
         implements AccessDeniedHandler {
 
-    private final ObjectMapper objectMapper;
+    private final JsonMapper objectMapper;
 
     public RestAccessDeniedHandler(
-            ObjectMapper objectMapper
+            JsonMapper objectMapper
     ) {
 
         this.objectMapper =

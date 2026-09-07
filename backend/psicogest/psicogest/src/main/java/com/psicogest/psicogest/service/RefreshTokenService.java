@@ -2,243 +2,91 @@ package com.psicogest.psicogest.service;
 
 import com.psicogest.psicogest.exception.*;
 import com.psicogest.psicogest.model.entity.*;
-import com.psicogest.psicogest.repository.RefreshTokenRepository;
+import com.psicogest.psicogest.model.enums.MfaMethodStatus;
+import com.psicogest.psicogest.repository.*;
 import com.psicogest.psicogest.security.jwt.JwtProperties;
-import com.psicogest.psicogest.security.refresh.RefreshTokenGenerator;
-
+import com.psicogest.psicogest.security.mfa.MfaPolicyService;
+import com.psicogest.psicogest.security.refresh.SecurityTokenGenerator;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDateTime;
+import java.time.*;
 import java.util.UUID;
 
 @Service
 public class RefreshTokenService {
-
     private final RefreshTokenRepository repository;
-
-    private final RefreshTokenGenerator generator;
-
+    private final SecurityTokenGenerator generator;
     private final JwtProperties properties;
-
-    public RefreshTokenService(
-            RefreshTokenRepository repository,
-            RefreshTokenGenerator generator,
-            JwtProperties properties) {
-
-        this.repository = repository;
-
-        this.generator = generator;
-
-        this.properties = properties;
+    private final UserRepository users;
+    private final UserSessionRepository sessions;
+    private final UserSessionService sessionService;
+    private final MfaMethodRepository methods;
+    private final Clock clock;
+    public RefreshTokenService(RefreshTokenRepository repository, SecurityTokenGenerator generator,
+            JwtProperties properties, UserRepository users, UserSessionRepository sessions,
+            UserSessionService sessionService, MfaMethodRepository methods, Clock clock) {
+        this.repository = repository; this.generator = generator; this.properties = properties; this.users = users;
+        this.sessions = sessions; this.sessionService = sessionService; this.methods = methods; this.clock = clock;
     }
 
     @Transactional
-    public IssuedRefreshToken issueInitial(
-            User user,
-            String ip,
-            String userAgent) {
-
-        UUID familyId = UUID.randomUUID();
-
-        return issue(
-                user,
-                familyId,
-                ip,
-                userAgent);
+    public IssuedRefreshToken issueInitial(User user, UUID sessionId, String ip, String userAgent) {
+        return issue(user, sessionId, ip, userAgent);
     }
 
-    private IssuedRefreshToken issue(
-            User user,
-            UUID familyId,
-            String ip,
-            String userAgent) {
-
+    private IssuedRefreshToken issue(User user, UUID familyId, String ip, String userAgent) {
         String raw = generator.generate();
-
-        LocalDateTime now = LocalDateTime.now();
-
-        RefreshToken entity = RefreshToken.builder()
-
-                .id(
-                        UUID.randomUUID())
-
-                .user(user)
-
-                .familyId(
-                        familyId)
-
-                .tokenHash(
-                        generator.hash(raw))
-
-                .securityVersion(
-                        user.getSecurityVersion())
-
-                .issuedAt(now)
-
-                .expiresAt(
-                        now.plus(
-                                properties
-                                        .refreshTokenTtl()))
-
-                .createdIp(ip)
-
-                .userAgentHash(
-                        userAgent != null
-                                ? generator.hash(
-                                        userAgent)
-                                : null)
-
-                .build();
-
-        repository.saveAndFlush(
-                entity);
-
-        return new IssuedRefreshToken(
-                raw,
-                entity);
+        LocalDateTime now = LocalDateTime.now(clock);
+        RefreshToken entity = repository.saveAndFlush(RefreshToken.builder().id(UUID.randomUUID()).user(user)
+                .familyId(familyId).tokenHash(generator.hash(raw)).securityVersion(user.getSecurityVersion())
+                .issuedAt(now).expiresAt(now.plus(properties.refreshTokenTtl())).createdIp(ip)
+                .userAgentHash(userAgent == null ? null : generator.hash(userAgent)).build());
+        return new IssuedRefreshToken(raw, entity);
     }
 
-    public record IssuedRefreshToken(
-
-            String rawToken,
-
-            RefreshToken entity
-
-    ) {
-    }
-
-    @Transactional(
-            propagation = Propagation.REQUIRES_NEW,
-            noRollbackFor = RefreshTokenReuseDetectedException.class
-    )
-    public RotationResult rotate(
-            String rawToken,
-            String ip,
-            String userAgent) {
-
-        String hash = generator.hash(
-                rawToken);
-
-        RefreshToken current = repository
-                .findByTokenHashForUpdate(
-                        hash)
-                .orElseThrow(
-                        InvalidRefreshTokenException::new);
-
-        LocalDateTime now = LocalDateTime.now();
-
-        /*
-         * REUSE DETECTION
-         */
+    @Transactional(noRollbackFor = RefreshTokenReuseDetectedException.class)
+    public RotationResult rotate(String raw, String ip, String userAgent) {
+        if (raw == null || !raw.matches("[A-Za-z0-9_-]{43}")) throw new InvalidRefreshTokenException();
+        String hash = generator.hash(raw);
+        Long userId = repository.findUserIdByHash(hash).orElseThrow(InvalidRefreshTokenException::new);
+        User user = users.findByIdForUpdate(userId).orElseThrow(InvalidRefreshTokenException::new);
+        RefreshToken current = repository.findByTokenHashForUpdate(hash).orElseThrow(InvalidRefreshTokenException::new);
+        LocalDateTime now = LocalDateTime.now(clock);
         if (current.getConsumedAt() != null) {
-
-            repository.revokeFamily(
-                    current.getFamilyId(),
-                    now,
-                    "REFRESH_TOKEN_REUSE");
-
-            /*
-             * Nunca logar rawToken.
-             *
-             * SecurityEvent será integrado
-             * no próximo bloco.
-             */
-
+            sessionService.revoke(userId, current.getFamilyId(), "REFRESH_TOKEN_REUSE");
             throw new RefreshTokenReuseDetectedException();
         }
-
-        if (current.getRevokedAt() != null) {
-
+        UserSession session = sessions.findByIdAndUserId(current.getFamilyId(), userId)
+                .orElseThrow(InvalidRefreshTokenException::new);
+        if (current.getRevokedAt() != null || !now.isBefore(current.getExpiresAt())
+                || session.getRevokedAt() != null || !now.isBefore(session.getExpiresAt())
+                || !Boolean.TRUE.equals(user.getActive())
+                || (user.getLockedUntil() != null && user.getLockedUntil().isAfter(now))
+                || !current.getSecurityVersion().equals(user.getSecurityVersion())
+                || (MfaPolicyService.requiresMfa(user)
+                    && !methods.existsByUserIdAndStatus(userId, MfaMethodStatus.ACTIVE))) {
             throw new InvalidRefreshTokenException();
         }
-
-        if (!now.isBefore(
-                current.getExpiresAt())) {
-
-            throw new InvalidRefreshTokenException();
-        }
-
-        User user = current.getUser();
-
-        if (Boolean.FALSE.equals(
-                user.getActive())) {
-
-            repository.revokeFamily(
-                    current.getFamilyId(),
-                    now,
-                    "USER_INACTIVE");
-
-            throw new InvalidRefreshTokenException();
-        }
-
-        if (user.getLockedUntil() != null
-                && user.getLockedUntil().isAfter(now)) {
-            repository.revokeFamily(
-                    current.getFamilyId(),
-                    now,
-                    "USER_LOCKED");
-
-            throw new InvalidRefreshTokenException();
-        }
-
-        if (!current.getSecurityVersion()
-                .equals(
-                        user.getSecurityVersion())) {
-
-            repository.revokeFamily(
-                    current.getFamilyId(),
-                    now,
-                    "SECURITY_VERSION_CHANGED");
-
-            throw new InvalidRefreshTokenException();
-        }
-
-        IssuedRefreshToken replacement = issue(
-                user,
-                current.getFamilyId(),
-                ip,
-                userAgent);
-
+        var replacement = issue(user, current.getFamilyId(), ip, userAgent);
         current.setConsumedAt(now);
-
-        current.setReplacedBy(
-                replacement.entity());
-
-        repository.saveAndFlush(
-                current);
-
-        return new RotationResult(
-                user,
-                replacement.rawToken());
+        current.setReplacedBy(replacement.entity());
+        session.setLastSeenAt(now);
+        session.setLastIp(ip);
+        session.setExpiresAt(replacement.entity().getExpiresAt());
+        return new RotationResult(user, replacement.rawToken(), session.getId());
     }
 
     @Transactional
-    public void revokeCurrentSession(String rawToken) {
-        String hash = generator.hash(rawToken);
-
-        repository.findByTokenHashForUpdate(hash)
-                .ifPresent(token -> repository.revokeFamily(
-                        token.getFamilyId(),
-                        LocalDateTime.now(),
-                        "LOGOUT"));
+    public void revokeCurrentSession(String raw) {
+        if (raw == null || !raw.matches("[A-Za-z0-9_-]{43}")) return;
+        String hash = generator.hash(raw);
+        repository.findUserIdByHash(hash).ifPresent(userId -> {
+            users.findByIdForUpdate(userId).orElseThrow(InvalidRefreshTokenException::new);
+            repository.findByTokenHashForUpdate(hash).ifPresent(token ->
+                    sessionService.revoke(userId, token.getFamilyId(), "LOGOUT"));
+        });
     }
 
-    @Transactional
-    public void revokeAllForUser(Long userId) {
-        repository.revokeAllForUser(
-                userId,
-                LocalDateTime.now(),
-                "LOGOUT_ALL_DEVICES");
-    }
-
-    public record RotationResult(
-
-            User user,
-
-            String refreshToken
-
-    ) {
-    }
+    public record IssuedRefreshToken(String rawToken, RefreshToken entity) {}
+    public record RotationResult(User user, String refreshToken, UUID sessionId) {}
 }

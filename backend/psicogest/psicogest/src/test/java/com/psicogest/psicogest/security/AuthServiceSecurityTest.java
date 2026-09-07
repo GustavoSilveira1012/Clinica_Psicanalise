@@ -1,143 +1,85 @@
 package com.psicogest.psicogest.security;
-
-import com.psicogest.psicogest.dto.auth.LoginRequest;
+import com.psicogest.psicogest.dto.auth.*;
 import com.psicogest.psicogest.model.entity.User;
-import com.psicogest.psicogest.model.enums.UserRole;
-import com.psicogest.psicogest.security.jwt.JwtProperties;
+import com.psicogest.psicogest.model.enums.*;
+import com.psicogest.psicogest.repository.*;
 import com.psicogest.psicogest.security.jwt.JwtService;
-import com.psicogest.psicogest.service.AuthService;
-import com.psicogest.psicogest.service.RefreshTokenService;
-import com.psicogest.psicogest.repository.UserRepository;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import com.psicogest.psicogest.security.mfa.ChallengeService;
+import com.psicogest.psicogest.service.*;
+import org.junit.jupiter.api.*;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
-
-import java.time.Duration;
-import java.time.Instant;
+import java.time.Clock;
 import java.util.Optional;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-@ExtendWith(MockitoExtension.class)
 class AuthServiceSecurityTest {
+    UserRepository users = mock(UserRepository.class);
+    PasswordEncoder passwords = mock(PasswordEncoder.class);
+    MfaMethodRepository methods = mock(MfaMethodRepository.class);
+    ChallengeService challenges = mock(ChallengeService.class);
+    AuthTokenService tokens = mock(AuthTokenService.class);
+    RefreshTokenService refresh = mock(RefreshTokenService.class);
+    UserSessionService sessions = mock(UserSessionService.class);
+    JwtService jwt = mock(JwtService.class);
+    AuthService service = new AuthService(users, passwords, methods, challenges, tokens, refresh, sessions, jwt, Clock.systemUTC());
 
-    @Mock
-    private UserRepository userRepository;
-
-    @Mock
-    private PasswordEncoder passwordEncoder;
-
-    @Mock
-    private JwtService jwtService;
-
-    @Mock
-    private RefreshTokenService refreshTokenService;
-
-    private AuthService service;
-
-    @BeforeEach
-    void setUp() {
-        when(passwordEncoder.encode("dummy-password-never-used"))
-                .thenReturn("dummy-hash");
-
-        JwtProperties properties = new JwtProperties(
-                "psicogest-api",
-                "psicogest-web",
-                Duration.ofMinutes(10),
-                Duration.ofDays(14),
-                null,
-                null,
-                "test",
-                "psicogest_rt",
-                false);
-
-        service = new AuthService(
-                userRepository,
-                passwordEncoder,
-                jwtService,
-                refreshTokenService,
-                properties);
+    @Test void patientCanAuthenticateWithoutMfa() {
+        User user = user(UserRole.PATIENT);
+        when(users.findByEmailForUpdate("person@example.com")).thenReturn(Optional.of(user));
+        when(passwords.matches("secret", "hash")).thenReturn(true);
+        when(tokens.authenticate(user, "ip", "agent")).thenReturn(new AuthService.AuthTokens(
+                new AuthResponse("access", "Bearer", 600, 15L, "PATIENT"), "refresh"));
+        var result = service.login(new LoginRequest(" Person@Example.com ", "secret"), "ip", "agent");
+        assertThat(result.response().status()).isEqualTo(LoginStatus.AUTHENTICATED);
+        assertThat(result.response().authentication().accessToken()).isEqualTo("access");
+        assertThat(result.response().toString()).doesNotContain("refresh");
     }
 
-    @Test
-    void shouldReturnAccessTokenAndKeepRefreshTokenOutOfResponse() {
-        User user = user();
-        when(userRepository.findByEmailIgnoreCase("person@example.com"))
-                .thenReturn(Optional.of(user));
-        when(passwordEncoder.matches("secret", "stored-hash"))
-                .thenReturn(true);
-
-        JwtService.AccessToken access = new JwtService.AccessToken(
-                "access-jwt",
-                Instant.now().plusSeconds(600));
-        when(jwtService.issueAccessToken(user)).thenReturn(access);
-
-        RefreshTokenService.IssuedRefreshToken refresh =
-                new RefreshTokenService.IssuedRefreshToken("refresh-secret", null);
-        when(refreshTokenService.issueInitial(user, "127.0.0.1", "agent"))
-                .thenReturn(refresh);
-
-        AuthService.AuthTokens result = service.login(
-                new LoginRequest(" Person@Example.com ", "secret"),
-                "127.0.0.1",
-                "agent");
-
-        assertThat(result.response().accessToken()).isEqualTo("access-jwt");
-        assertThat(result.refreshToken()).isEqualTo("refresh-secret");
-        assertThat(result.response().toString()).doesNotContain("refresh-secret");
+    @Test void professionalNeedsEnrollmentAndGetsNoTokens() {
+        for (var role : new UserRole[]{UserRole.PSYCHOANALYST, UserRole.CLINIC_ADMIN, UserRole.SYSTEM_ADMIN}) {
+            User user = user(role);
+            when(users.findByEmailForUpdate("person@example.com")).thenReturn(Optional.of(user));
+            when(passwords.matches("secret", "hash")).thenReturn(true);
+            when(challenges.issue(user, AuthenticationChallengeType.MFA_ENROLLMENT_REQUIRED, "ip", "agent"))
+                    .thenReturn("challenge");
+            var result = service.login(new LoginRequest("person@example.com", "secret"), "ip", "agent");
+            assertThat(result.response().status()).isEqualTo(LoginStatus.MFA_ENROLLMENT_REQUIRED);
+            assertThat(result.response().authentication()).isNull();
+            assertThat(result.refreshToken()).isNull();
+        }
+        verifyNoInteractions(tokens, jwt, refresh);
     }
 
-    @Test
-    void shouldRejectInvalidPasswordWithoutIssuingTokens() {
-        User user = user();
-        when(userRepository.findByEmailIgnoreCase("person@example.com"))
-                .thenReturn(Optional.of(user));
-        when(passwordEncoder.matches("wrong", "stored-hash"))
-                .thenReturn(false);
-
-        assertThatThrownBy(() -> service.login(
-                new LoginRequest("person@example.com", "wrong"),
-                "127.0.0.1",
-                "agent"))
-                .isInstanceOf(BadCredentialsException.class)
-                .hasMessage("Credenciais inválidas");
-
-        verify(jwtService, never()).issueAccessToken(any());
-        verify(refreshTokenService, never()).issueInitial(any(), any(), any());
+    @Test void patientWithActiveMfaAlsoNeedsSecondFactor() {
+        User user = user(UserRole.PATIENT);
+        when(users.findByEmailForUpdate("person@example.com")).thenReturn(Optional.of(user));
+        when(passwords.matches("secret", "hash")).thenReturn(true);
+        when(methods.existsByUserIdAndStatus(15L, MfaMethodStatus.ACTIVE)).thenReturn(true);
+        var result = service.login(new LoginRequest("person@example.com", "secret"), "ip", "agent");
+        assertThat(result.response().status()).isEqualTo(LoginStatus.MFA_REQUIRED);
+        verifyNoInteractions(tokens, jwt, refresh);
     }
 
-    @Test
-    void shouldIncrementSecurityVersionAndRevokeAllRefreshTokens() {
-        User user = user();
-        user.setSecurityVersion(4);
-        when(userRepository.findById(15L)).thenReturn(Optional.of(user));
+    @Test void invalidPasswordNeverIssuesTokens() {
+        User user = user(UserRole.PATIENT);
+        when(users.findByEmailForUpdate("person@example.com")).thenReturn(Optional.of(user));
+        assertThatThrownBy(() -> service.login(new LoginRequest("person@example.com", "wrong"), "ip", "agent"))
+                .isInstanceOf(BadCredentialsException.class);
+        assertThat(user.getFailedLoginAttempts()).isEqualTo(1);
+        verifyNoInteractions(tokens, jwt, refresh, challenges);
+    }
 
+    @Test void logoutAllIncrementsVersionAndRevokesSessions() {
+        User user = user(UserRole.PATIENT);
+        when(users.findByIdForUpdate(15L)).thenReturn(Optional.of(user));
         service.logoutAll(15L);
-
-        assertThat(user.getSecurityVersion()).isEqualTo(5);
-        verify(userRepository).saveAndFlush(user);
-        verify(refreshTokenService).revokeAllForUser(eq(15L));
+        assertThat(user.getSecurityVersion()).isEqualTo(2);
+        verify(sessions).revokeAll(15L, "LOGOUT_ALL_DEVICES");
     }
 
-    private User user() {
-        User user = new User();
-        user.setId(15L);
-        user.setEmail("person@example.com");
-        user.setPasswordHash("stored-hash");
-        user.setRole(UserRole.PSYCHOANALYST);
-        user.setActive(true);
-        user.setSecurityVersion(1);
-        user.setFailedLoginAttempts(0);
-        return user;
+    private User user(UserRole role) {
+        return User.builder().id(15L).email("person@example.com").passwordHash("hash").role(role).active(true).build();
     }
 }

@@ -18,6 +18,14 @@ public interface UserRepository
 
     boolean existsByEmail(String email);
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from User u where u.id = :id")
+    Optional<User> findByIdForUpdate(@Param("id") Long id);
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from User u where lower(u.email) = :email")
+    Optional<User> findByEmailForUpdate(@Param("email") String email);
+
     interface UserSecurityView {
 
         Boolean getActive();

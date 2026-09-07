@@ -18,6 +18,7 @@ public class GlobalExceptionHandler {
         @ExceptionHandler({
                         BadCredentialsException.class,
                         InvalidRefreshTokenException.class,
+                        InvalidMfaException.class,
                         RefreshTokenReuseDetectedException.class
         })
         public ResponseEntity<Map<String, Object>> handleAuthenticationFailure(

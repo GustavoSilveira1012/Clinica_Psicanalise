@@ -66,7 +66,8 @@ class JwtServiceSecurityTest {
         user.setRole(UserRole.PSYCHOANALYST);
         user.setSecurityVersion(4);
 
-        JwtService.AccessToken issued = service.issueAccessToken(user);
+        java.util.UUID sid = java.util.UUID.randomUUID();
+        JwtService.AccessToken issued = service.issueAccessToken(user, sid);
         var decoded = decoder.decode(issued.value());
 
         assertThat(JwtValidators.createDefaultWithIssuer("psicogest-api")
@@ -74,6 +75,7 @@ class JwtServiceSecurityTest {
         assertThat(decoded.getClaims().get("iss")).isEqualTo("psicogest-api");
         assertThat(decoded.getAudience()).containsExactly("psicogest-web");
         assertThat(decoded.getSubject()).isEqualTo("15");
+        assertThat(decoded.getClaimAsString("sid")).isEqualTo(sid.toString());
         assertThat(decoded.getClaimAsString("token_type")).isEqualTo("access");
         assertThat(decoded.getClaimAsStringList("roles"))
                 .containsExactly("PSYCHOANALYST");
@@ -89,10 +91,10 @@ class JwtServiceSecurityTest {
         user.setRole(UserRole.PATIENT);
         user.setSecurityVersion(1);
 
-        String token = service.issueAccessToken(user).value();
-        char last = token.charAt(token.length() - 1);
-        String tampered = token.substring(0, token.length() - 1)
-                + (last == 'a' ? 'b' : 'a');
+        String token = service.issueAccessToken(user, java.util.UUID.randomUUID()).value();
+        int index = token.lastIndexOf('.') + 1;
+        String tampered = token.substring(0, index) + (token.charAt(index) == 'a' ? 'b' : 'a')
+                + token.substring(index + 1);
 
         assertThatThrownBy(() -> decoder.decode(tampered))
                 .isInstanceOf(JwtException.class);

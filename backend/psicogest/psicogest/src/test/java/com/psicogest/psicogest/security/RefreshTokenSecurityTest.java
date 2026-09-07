@@ -1,146 +1,71 @@
 package com.psicogest.psicogest.security;
-
 import com.psicogest.psicogest.exception.RefreshTokenReuseDetectedException;
-import com.psicogest.psicogest.model.entity.RefreshToken;
-import com.psicogest.psicogest.model.entity.User;
+import com.psicogest.psicogest.model.entity.*;
 import com.psicogest.psicogest.model.enums.UserRole;
-import com.psicogest.psicogest.repository.RefreshTokenRepository;
+import com.psicogest.psicogest.repository.*;
 import com.psicogest.psicogest.security.jwt.JwtProperties;
-import com.psicogest.psicogest.security.refresh.RefreshTokenGenerator;
-import com.psicogest.psicogest.service.RefreshTokenService;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import com.psicogest.psicogest.security.refresh.SecurityTokenGenerator;
+import com.psicogest.psicogest.service.*;
+import org.junit.jupiter.api.*;
+import java.time.*;
+import java.util.*;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.util.Optional;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-@ExtendWith(MockitoExtension.class)
 class RefreshTokenSecurityTest {
-
-    @Mock
-    private RefreshTokenRepository repository;
-
-    private RefreshTokenGenerator generator;
-    private RefreshTokenService service;
-
-    @BeforeEach
-    void setUp() {
-        generator = new RefreshTokenGenerator();
-        JwtProperties properties = new JwtProperties(
-                "psicogest-api",
-                "psicogest-web",
-                Duration.ofMinutes(10),
-                Duration.ofDays(14),
-                null,
-                null,
-                "test",
-                "psicogest_rt",
-                false);
-        service = new RefreshTokenService(repository, generator, properties);
+    RefreshTokenRepository repository = mock(RefreshTokenRepository.class);
+    UserRepository users = mock(UserRepository.class);
+    UserSessionRepository sessions = mock(UserSessionRepository.class);
+    UserSessionService sessionService = mock(UserSessionService.class);
+    MfaMethodRepository methods = mock(MfaMethodRepository.class);
+    SecurityTokenGenerator generator = new SecurityTokenGenerator();
+    RefreshTokenService service;
+    User user = User.builder().id(15L).role(UserRole.PATIENT).active(true).build();
+    UUID sid = UUID.randomUUID();
+    @BeforeEach void setUp() {
+        var properties = new JwtProperties("issuer", "audience", Duration.ofMinutes(10), Duration.ofDays(14),
+                null, null, "test", "rt", false);
+        service = new RefreshTokenService(repository, generator, properties, users, sessions, sessionService,
+                methods, Clock.systemUTC());
+        when(repository.saveAndFlush(any(RefreshToken.class))).thenAnswer(i -> i.getArgument(0));
     }
-
-    @Test
-    void shouldPersistOnlyTheHashOfInitialRefreshToken() {
-        User user = user();
-
-        RefreshTokenService.IssuedRefreshToken issued =
-                service.issueInitial(user, "127.0.0.1", "agent");
-
-        assertThat(issued.rawToken()).isNotBlank();
-        assertThat(issued.entity().getTokenHash())
-                .isEqualTo(generator.hash(issued.rawToken()))
-                .isNotEqualTo(issued.rawToken());
+    @Test void persistsOnlyHashAndUsesSessionAsFamily() {
+        var token = service.issueInitial(user, sid, "127.0.0.1", "agent");
+        assertThat(token.entity().getTokenHash()).isEqualTo(generator.hash(token.rawToken())).isNotEqualTo(token.rawToken());
+        assertThat(token.entity().getFamilyId()).isEqualTo(sid);
     }
-
-    @Test
-    void shouldRotateTokenAndConsumeThePreviousToken() {
-        User user = user();
-        UUID familyId = UUID.randomUUID();
+    @Test void rotatesAndTouchesSession() {
         String raw = generator.generate();
-        RefreshToken current = token(user, familyId, raw);
-
-        when(repository.findByTokenHashForUpdate(generator.hash(raw)))
-                .thenReturn(Optional.of(current));
-
-        RefreshTokenService.RotationResult result =
-                service.rotate(raw, "127.0.0.1", "agent");
-
-        assertThat(result.user()).isSameAs(user);
-        assertThat(result.refreshToken()).isNotEqualTo(raw);
+        var current = existing(raw);
+        var session = UserSession.builder().id(sid).user(user).expiresAt(LocalDateTime.now().plusDays(1)).build();
+        when(sessions.findByIdAndUserId(sid, 15L)).thenReturn(Optional.of(session));
+        var result = service.rotate(raw, "127.0.0.2", "agent");
         assertThat(current.getConsumedAt()).isNotNull();
         assertThat(current.getReplacedBy()).isNotNull();
-        assertThat(current.getReplacedBy().getFamilyId()).isEqualTo(familyId);
+        assertThat(result.sessionId()).isEqualTo(sid);
+        assertThat(session.getLastIp()).isEqualTo("127.0.0.2");
+        assertThat(session.getLastSeenAt()).isNotNull();
     }
-
-    @Test
-    void shouldRevokeFamilyWhenAConsumedTokenIsReused() {
-        User user = user();
-        UUID familyId = UUID.randomUUID();
+    @Test void reuseRevokesTheWholeSession() {
         String raw = generator.generate();
-        RefreshToken consumed = token(user, familyId, raw);
-        consumed.setConsumedAt(LocalDateTime.now().minusMinutes(1));
-
-        when(repository.findByTokenHashForUpdate(generator.hash(raw)))
-                .thenReturn(Optional.of(consumed));
-
-        assertThatThrownBy(() -> service.rotate(raw, "127.0.0.1", "agent"))
-                .isInstanceOf(RefreshTokenReuseDetectedException.class);
-
-        verify(repository).revokeFamily(
-                eq(familyId),
-                any(LocalDateTime.class),
-                eq("REFRESH_TOKEN_REUSE"));
+        existing(raw).setConsumedAt(LocalDateTime.now().minusMinutes(1));
+        assertThatThrownBy(() -> service.rotate(raw, "ip", "agent")).isInstanceOf(RefreshTokenReuseDetectedException.class);
+        verify(sessionService).revoke(15L, sid, "REFRESH_TOKEN_REUSE");
     }
-
-    @Test
-    void shouldRevokeTheCurrentSessionByFamily() {
-        User user = user();
-        UUID familyId = UUID.randomUUID();
+    @Test void logoutRevokesSession() {
         String raw = generator.generate();
-        RefreshToken current = token(user, familyId, raw);
-
-        when(repository.findByTokenHashForUpdate(generator.hash(raw)))
-                .thenReturn(Optional.of(current));
-
+        existing(raw);
         service.revokeCurrentSession(raw);
-
-        verify(repository).revokeFamily(
-                eq(familyId),
-                any(LocalDateTime.class),
-                eq("LOGOUT"));
+        verify(sessionService).revoke(15L, sid, "LOGOUT");
     }
-
-    private User user() {
-        User user = new User();
-        user.setId(15L);
-        user.setRole(UserRole.PSYCHOANALYST);
-        user.setActive(true);
-        user.setSecurityVersion(1);
-        return user;
-    }
-
-    private RefreshToken token(User user, UUID familyId, String raw) {
-        LocalDateTime now = LocalDateTime.now();
-        return RefreshToken.builder()
-                .id(UUID.randomUUID())
-                .user(user)
-                .familyId(familyId)
-                .tokenHash(generator.hash(raw))
-                .securityVersion(1)
-                .issuedAt(now)
-                .expiresAt(now.plusDays(1))
-                .build();
+    private RefreshToken existing(String raw) {
+        var current = RefreshToken.builder().id(UUID.randomUUID()).user(user).familyId(sid)
+                .tokenHash(generator.hash(raw)).securityVersion(1)
+                .issuedAt(LocalDateTime.now()).expiresAt(LocalDateTime.now().plusDays(1)).build();
+        when(repository.findUserIdByHash(generator.hash(raw))).thenReturn(Optional.of(15L));
+        when(users.findByIdForUpdate(15L)).thenReturn(Optional.of(user));
+        when(repository.findByTokenHashForUpdate(generator.hash(raw))).thenReturn(Optional.of(current));
+        return current;
     }
 }

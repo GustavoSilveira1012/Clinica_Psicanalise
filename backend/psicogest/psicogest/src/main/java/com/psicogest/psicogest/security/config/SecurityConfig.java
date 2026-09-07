@@ -105,15 +105,12 @@ public class SecurityConfig {
     ) throws Exception {
 
         RequestMatcher authCsrfMatcher = request -> {
-            if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            if (List.of("GET", "HEAD", "OPTIONS", "TRACE").contains(request.getMethod())) {
                 return false;
             }
 
-            String uri = request.getRequestURI();
-            return uri.equals("/auth/login")
-                    || uri.equals("/auth/refresh")
-                    || uri.equals("/auth/logout")
-                    || uri.equals("/auth/logout-all");
+            String uri = request.getRequestURI().substring(request.getContextPath().length());
+            return uri.startsWith("/auth/");
         };
 
         CookieCsrfTokenRepository csrfRepository =
@@ -168,6 +165,11 @@ public class SecurityConfig {
                                  .requestMatchers(
                                          "/auth/login",
                                          "/auth/refresh",
+                                         "/auth/logout",
+                                         "/auth/mfa/totp/setup",
+                                         "/auth/mfa/totp/confirm",
+                                         "/auth/mfa/totp/verify",
+                                         "/auth/mfa/recovery",
                                          "/auth/csrf"
                                 )
                                 .permitAll()
