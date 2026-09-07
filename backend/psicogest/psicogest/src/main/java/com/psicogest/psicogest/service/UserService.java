@@ -11,6 +11,7 @@ import com.psicogest.psicogest.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -108,6 +109,10 @@ public class UserService {
 
             user.setPasswordHash(
                     passwordEncoder.encode(dto.password()));
+
+            user.setPasswordChangedAt(LocalDateTime.now());
+            user.setSecurityVersion(
+                    user.getSecurityVersion() + 1);
         }
 
         User updatedUser = userRepository.save(user);

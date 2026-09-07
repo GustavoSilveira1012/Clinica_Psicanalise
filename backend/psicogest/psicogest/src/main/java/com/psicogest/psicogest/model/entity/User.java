@@ -106,5 +106,4 @@ public class User implements DeactivatableEntity {
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
     }
-
 }

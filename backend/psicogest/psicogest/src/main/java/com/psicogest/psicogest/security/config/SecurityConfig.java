@@ -19,8 +19,9 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 
 import org.springframework.security.config.http.SessionCreationPolicy;
 
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 
 import org.springframework.security.web.SecurityFilterChain;
 
@@ -39,83 +40,93 @@ import java.util.List;
 public class SecurityConfig {
 
     @Bean
-    public PasswordEncoder passwordEncoder() {
+    public CorsConfigurationSource corsConfigurationSource(
+            SecurityProperties properties
+    ) {
 
-        return new BCryptPasswordEncoder(
-                12
+        if (properties.allowedOrigins() == null
+                || properties.allowedOrigins().stream().anyMatch("*"::equals)) {
+            throw new IllegalStateException(
+                    "CORS com credenciais exige origens explícitas");
+        }
+
+        CorsConfiguration configuration =
+                new CorsConfiguration();
+
+        configuration.setAllowedOrigins(
+                properties.allowedOrigins()
         );
+
+        configuration.setAllowedMethods(
+                List.of(
+                        "GET",
+                        "POST",
+                        "PUT",
+                        "PATCH",
+                        "DELETE",
+                        "OPTIONS"
+                )
+        );
+
+        configuration.setAllowedHeaders(
+                List.of(
+                        HttpHeaders.AUTHORIZATION,
+                        HttpHeaders.CONTENT_TYPE,
+                        "X-CSRF-TOKEN",
+                        "Idempotency-Key"
+                )
+        );
+
+        configuration.setAllowCredentials(
+                true
+        );
+
+        configuration.setMaxAge(
+                3600L
+        );
+
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
+
+        source.registerCorsConfiguration(
+                "/**",
+                configuration
+        );
+
+        return source;
     }
-
-    @Bean
-public CorsConfigurationSource corsConfigurationSource(
-        SecurityProperties properties
-) {
-
-    CorsConfiguration configuration =
-            new CorsConfiguration();
-
-    configuration.setAllowedOrigins(
-            properties.allowedOrigins()
-    );
-
-    configuration.setAllowedMethods(
-            List.of(
-                    "GET",
-                    "POST",
-                    "PUT",
-                    "PATCH",
-                    "DELETE",
-                    "OPTIONS"
-            )
-    );
-
-    configuration.setAllowedHeaders(
-            List.of(
-                    HttpHeaders.AUTHORIZATION,
-                    HttpHeaders.CONTENT_TYPE,
-                    "X-CSRF-TOKEN",
-                    "Idempotency-Key"
-            )
-    );
-
-    configuration.setAllowCredentials(
-            false
-    );
-
-    configuration.setMaxAge(
-            3600L
-    );
-
-    UrlBasedCorsConfigurationSource source =
-            new UrlBasedCorsConfigurationSource();
-
-    source.registerCorsConfiguration(
-            "/**",
-            configuration
-    );
-
-    return source;
-}
 
     @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             RestAuthenticationEntryPoint authenticationEntryPoint,
-            RestAccessDeniedHandler accessDeniedHandler
+            RestAccessDeniedHandler accessDeniedHandler,
+            JwtAuthenticationConverter jwtAuthenticationConverter
     ) throws Exception {
+
+        RequestMatcher authCsrfMatcher = request -> {
+            if (!"POST".equalsIgnoreCase(request.getMethod())) {
+                return false;
+            }
+
+            String uri = request.getRequestURI();
+            return uri.equals("/auth/login")
+                    || uri.equals("/auth/refresh")
+                    || uri.equals("/auth/logout")
+                    || uri.equals("/auth/logout-all");
+        };
+
+        CookieCsrfTokenRepository csrfRepository =
+                CookieCsrfTokenRepository.withHttpOnlyFalse();
+        csrfRepository.setCookieName("psicogest_csrf");
+        csrfRepository.setHeaderName("X-CSRF-TOKEN");
 
         http
 
-                /*
-                 * API REST.
-                 *
-                 * Quando introduzirmos refresh token
-                 * HttpOnly, vamos proteger especificamente
-                 * os endpoints baseados em cookie contra CSRF.
-                 */
                 .csrf(
-                        csrf ->
-                                csrf.disable()
+                        csrf -> csrf
+                                .csrfTokenRepository(csrfRepository)
+                                .requireCsrfProtectionMatcher(authCsrfMatcher)
                 )
 
                 .cors(
@@ -154,13 +165,10 @@ public CorsConfigurationSource corsConfigurationSource(
                                 )
                                 .permitAll()
 
-                                /*
-                                 * Login e refresh ainda
-                                 * serão implementados.
-                                 */
-                                .requestMatchers(
-                                        "/auth/login",
-                                        "/auth/refresh"
+                                 .requestMatchers(
+                                         "/auth/login",
+                                         "/auth/refresh",
+                                         "/auth/csrf"
                                 )
                                 .permitAll()
 
@@ -170,7 +178,15 @@ public CorsConfigurationSource corsConfigurationSource(
                                  * exige autenticação.
                                  */
                                 .anyRequest()
-                                .authenticated()
+                                 .authenticated()
+                )
+
+                .oauth2ResourceServer(
+                        oauth -> oauth
+                                .jwt(jwt -> jwt.jwtAuthenticationConverter(
+                                        jwtAuthenticationConverter))
+                                .authenticationEntryPoint(authenticationEntryPoint)
+                                .accessDeniedHandler(accessDeniedHandler)
                 )
 
                 .headers(
