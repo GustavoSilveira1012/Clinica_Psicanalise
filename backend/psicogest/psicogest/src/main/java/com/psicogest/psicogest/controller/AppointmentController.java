@@ -5,6 +5,7 @@ import com.psicogest.psicogest.service.AppointmentService;
 import com.psicogest.psicogest.service.AppointmentSeriesOperationService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -29,6 +30,12 @@ public class AppointmentController {
     }
 
     @PostMapping
+    @PreAuthorize("""
+            @identityAuthorization.isPsychoanalystSelf(
+                authentication,
+                #psychoanalystId
+            )
+            """)
     @ResponseStatus(HttpStatus.CREATED)
     public AppointmentResponseDTO create(
             @PathVariable Long psychoanalystId,
@@ -70,6 +77,12 @@ public class AppointmentController {
     }
 
     @GetMapping("/{appointmentId}")
+    @PreAuthorize("""
+            @clinicalAuthorization.canReadAppointment(
+                authentication,
+                #appointmentId
+            )
+            """)
     public AppointmentResponseDTO findById(
             @PathVariable Long psychoanalystId,
             @PathVariable Long appointmentId

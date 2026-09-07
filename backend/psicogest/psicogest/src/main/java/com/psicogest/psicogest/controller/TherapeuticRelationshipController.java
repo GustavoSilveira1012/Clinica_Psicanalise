@@ -4,6 +4,7 @@ import com.psicogest.psicogest.dto.relationship.*;
 import com.psicogest.psicogest.service.TherapeuticRelationshipService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,15 +22,24 @@ public class TherapeuticRelationshipController {
         }
 
         @PostMapping
-        @ResponseStatus(HttpStatus.CREATED)
-        public TherapeuticRelationshipResponseDTO create(
-                        @PathVariable Long psychoanalystId,
-                        @Valid @RequestBody TherapeuticRelationshipCreateDTO dto) {
+@PreAuthorize("""
+        @identityAuthorization.isPsychoanalystSelf(
+            authentication,
+            #psychoanalystId
+        )
+        """)
+@ResponseStatus(HttpStatus.CREATED)
+public TherapeuticRelationshipResponseDTO create(
+        @PathVariable Long psychoanalystId,
+        @Valid
+        @RequestBody TherapeuticRelationshipCreateDTO dto
+) {
 
-                return relationshipService.create(
-                                psychoanalystId,
-                                dto);
-        }
+    return relationshipService.create(
+            psychoanalystId,
+            dto
+    );
+}
 
         @GetMapping
         public List<TherapeuticRelationshipResponseDTO> findByPsychoanalyst(
@@ -41,6 +51,12 @@ public class TherapeuticRelationshipController {
         }
 
         @PatchMapping("/{relationshipId}/suspend")
+        @PreAuthorize("""
+                @identityAuthorization.isPsychoanalystSelf(
+                    authentication,
+                    #psychoanalystId
+                )
+                """)
         public TherapeuticRelationshipResponseDTO suspend(
                         @PathVariable Long psychoanalystId,
                         @PathVariable Long relationshipId) {
@@ -51,6 +67,12 @@ public class TherapeuticRelationshipController {
         }
 
         @PatchMapping("/{relationshipId}/resume")
+        @PreAuthorize("""
+                @identityAuthorization.isPsychoanalystSelf(
+                    authentication,
+                    #psychoanalystId
+                )
+                """)
         public TherapeuticRelationshipResponseDTO resume(
                         @PathVariable Long psychoanalystId,
                         @PathVariable Long relationshipId) {
@@ -61,6 +83,12 @@ public class TherapeuticRelationshipController {
         }
 
         @PatchMapping("/{relationshipId}/primary")
+        @PreAuthorize("""
+                @identityAuthorization.isPsychoanalystSelf(
+                    authentication,
+                    #psychoanalystId
+                )
+                """)
         public TherapeuticRelationshipResponseDTO makePrimary(
                         @PathVariable Long psychoanalystId,
                         @PathVariable Long relationshipId) {
@@ -71,6 +99,12 @@ public class TherapeuticRelationshipController {
         }
 
         @PatchMapping("/{relationshipId}/end")
+        @PreAuthorize("""
+                @identityAuthorization.isPsychoanalystSelf(
+                    authentication,
+                    #psychoanalystId
+                )
+                """)
         public TherapeuticRelationshipResponseDTO end(
                         @PathVariable Long psychoanalystId,
                         @PathVariable Long relationshipId,

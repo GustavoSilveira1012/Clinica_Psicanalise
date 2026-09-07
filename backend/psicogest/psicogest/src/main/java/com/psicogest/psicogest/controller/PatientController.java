@@ -4,10 +4,13 @@ import com.psicogest.psicogest.dto.patient.PatientCreateDTO;
 import com.psicogest.psicogest.dto.patient.PatientResponseDTO;
 import com.psicogest.psicogest.dto.common.DeactivateDTO;
 import com.psicogest.psicogest.service.PatientService;
+import com.psicogest.psicogest.service.PatientAccessQueryService;
 
 import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,9 +19,14 @@ import java.util.List;
 @RequestMapping("/patients")
 public class PatientController {
     private final PatientService patientService;
+    private final PatientAccessQueryService patientAccessQueryService;
 
-    public PatientController(PatientService patientService) {
+    public PatientController(
+            PatientService patientService,
+            PatientAccessQueryService patientAccessQueryService
+    ) {
         this.patientService = patientService;
+        this.patientAccessQueryService = patientAccessQueryService;
     }
 
     @PostMapping
@@ -30,17 +38,29 @@ public class PatientController {
     }
 
     @GetMapping
-    public List<PatientResponseDTO> findAll() {
-
-        return patientService.findAll();
+    @PreAuthorize("""
+            hasAnyRole(
+                'PATIENT',
+                'PSYCHOANALYST'
+            )
+            """)
+    public List<PatientResponseDTO> findAll(Authentication authentication) {
+        return patientAccessQueryService.findAccessible(authentication);
     }
 
     @GetMapping("/{id}")
-    public PatientResponseDTO findById(
-            @PathVariable Long id) {
+@PreAuthorize("""
+        @clinicalAuthorization.canReadPatientProfile(
+            authentication,
+            #id
+        )
+        """)
+public PatientResponseDTO findById(
+        @PathVariable Long id
+) {
 
-        return patientService.findById(id);
-    }
+    return patientService.findById(id);
+}
 
     @PatchMapping("/{id}/deactivate")
     public PatientResponseDTO deactivate(
