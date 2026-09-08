@@ -5,15 +5,14 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.psicogest.psicogest.model.entity.SecurityEvent;
-import com.psicogest.psicogest.model.entity.SecurityEvent.SecurityEventRepository;
 
 @Service
 public class SecurityEventService {
 
-    private final SecurityEventRepository repository;
+    private final com.psicogest.psicogest.repository.SecurityEventRepository repository;
 
     public SecurityEventService(
-            SecurityEventRepository repository
+            com.psicogest.psicogest.repository.SecurityEventRepository repository
     ) {
 
         this.repository = repository;

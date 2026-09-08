@@ -32,7 +32,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
             FROM User u
             WHERE u.id = :userId
             """)
-    Optional<User> findByIdForSecurityUpdate(@Param("userId") Long userId);
+    Optional<User> findByIdForSecurityUpdate1(@Param("userId") Long userId);
 
     interface UserSecurityView {
         Boolean getActive();
@@ -48,4 +48,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
             WHERE u.id = :id
             """)
     Optional<UserSecurityView> findProjectedById(@Param("id") Long id);
+
+    Optional<User> findByIdForSecurityUpdate(Long userId);
 }

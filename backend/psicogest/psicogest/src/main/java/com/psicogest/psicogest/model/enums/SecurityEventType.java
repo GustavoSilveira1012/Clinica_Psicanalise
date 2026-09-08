@@ -1,4 +1,4 @@
-﻿package com.psicogest.psicogest.model.enums;
+package com.psicogest.psicogest.model.enums;
 
 public enum SecurityEventType {
     LOGIN_SUCCESS,
@@ -11,5 +11,8 @@ public enum SecurityEventType {
     PASSWORD_CHANGED,
     MFA_ENROLLED,
     SESSION_REVOKED,
-    SECURITY_ALERT
+    SECURITY_ALERT,
+    AUDIT_LOG_ACCESSED,
+    AUDIT_INTEGRITY_FAILURE,
+    AUDIT_VERIFICATION_COMPLETED
 }
