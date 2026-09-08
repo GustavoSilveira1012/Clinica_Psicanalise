@@ -1,5 +1,5 @@
 package com.psicogest.psicogest.controller;
-import com.psicogest.psicogest.security.refresh.RefreshCookieService;
+import com.psicogest.psicogest.security.auth.refresh.RefreshCookieService;
 import com.psicogest.psicogest.service.UserSessionService;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;

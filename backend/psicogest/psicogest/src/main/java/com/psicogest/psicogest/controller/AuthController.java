@@ -4,7 +4,7 @@ import com.psicogest.psicogest.dto.auth.AuthResponse;
 import com.psicogest.psicogest.dto.auth.CsrfResponse;
 import com.psicogest.psicogest.dto.auth.LoginRequest;
 import com.psicogest.psicogest.dto.auth.LoginResponse;
-import com.psicogest.psicogest.security.refresh.RefreshCookieService;
+import com.psicogest.psicogest.security.auth.refresh.RefreshCookieService;
 import com.psicogest.psicogest.service.AuthService;
 import com.psicogest.psicogest.service.RefreshTokenService;
 import jakarta.servlet.http.HttpServletRequest;

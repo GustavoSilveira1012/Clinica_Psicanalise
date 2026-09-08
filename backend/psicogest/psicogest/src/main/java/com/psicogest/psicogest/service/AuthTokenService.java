@@ -2,7 +2,7 @@ package com.psicogest.psicogest.service;
 
 import com.psicogest.psicogest.dto.auth.AuthResponse;
 import com.psicogest.psicogest.model.entity.*;
-import com.psicogest.psicogest.security.jwt.JwtService;
+import com.psicogest.psicogest.security.auth.jwt.JwtService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.*;

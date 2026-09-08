@@ -2,7 +2,7 @@ package com.psicogest.psicogest.controller;
 
 import com.psicogest.psicogest.dto.auth.*;
 import com.psicogest.psicogest.model.enums.LoginStatus;
-import com.psicogest.psicogest.security.refresh.RefreshCookieService;
+import com.psicogest.psicogest.security.auth.refresh.RefreshCookieService;
 import com.psicogest.psicogest.service.*;
 import jakarta.servlet.http.*;
 import jakarta.validation.Valid;
