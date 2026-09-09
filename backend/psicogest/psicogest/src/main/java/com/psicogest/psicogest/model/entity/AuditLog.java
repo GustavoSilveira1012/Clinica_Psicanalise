@@ -4,99 +4,94 @@ import com.psicogest.psicogest.security.audit.AuditAction;
 import com.psicogest.psicogest.security.audit.AuditOutcome;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
-
 @Entity
-@Table(name = "audit_logs")
+@Table( name = "audit_logs" )
 @Getter
-@Builder
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class AuditLog {
 
     @Id
     private UUID id;
 
-    @Column(
-            nullable = false,
-            unique = true
-    )
-    private Long sequence;
+    @Column( name = "user_id", nullable = false )
+    private Long userId;
 
-    @Column(name = "previous_mac")
-    private String previousMac;
+    @Column( name = "session_id", nullable = false )
+    private UUID sessionId;
 
-    @Column(
-            name = "entry_mac",
-            nullable = false
-    )
-    private String entryMac;
-
-    @Column(
-            name = "key_id",
-            nullable = false
-    )
-    private String keyId;
-
-    @Column(
-            name = "metadata_hash",
-            nullable = false
-    )
-    private String metadataHash;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "actor_user_id")
-    private User actorUser;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "session_id")
-    private UserSession session;
-
-    @Enumerated(EnumType.STRING)
+    @Enumerated( EnumType.STRING )
+    @Column( nullable = false )
     private AuditAction action;
 
-    @Column(name = "resource_type")
+    @Column( name = "resource_type", nullable = false )
     private String resourceType;
 
-    @Column(name = "resource_id")
+    @Column( name = "resource_id", nullable = false )
     private String resourceId;
 
-    @Column(name = "patient_id")
+    @Column( name = "patient_id" )
     private Long patientId;
 
-    @Column(name = "clinic_context_id")
-    private Long clinicContextId;
+    @Column( columnDefinition = "text" )
+    private String description;
 
-    @Enumerated(EnumType.STRING)
+    @Enumerated( EnumType.STRING )
+    @Column( nullable = false )
     private AuditOutcome outcome;
 
-    @Column(name = "occurred_at")
-    private Instant occurredAt;
-
-    @Column(name = "correlation_id")
+    @Column( name = "correlation_id", nullable = false )
     private String correlationId;
 
-    @Column(name = "source_ip")
+    @Column( name = "source_ip" )
     private String sourceIp;
 
-    @Column(name = "user_agent_hash")
+    @Column( name = "user_agent_hash" )
     private String userAgentHash;
 
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(
-            columnDefinition = "jsonb"
-    )
+    @JdbcTypeCode( SqlTypes.JSON )
+    @Column( columnDefinition = "jsonb" )
     private Map<String, Object> metadata;
 
-    public void setEntryMac(
-            String entryMac
-    ) {
-        this.entryMac = entryMac;
-    }
+    @Column( name = "occurred_at", nullable = false )
+    private Instant occurredAt;
+
+    @Column( name = "created_at", nullable = false, updatable = false )
+    private Instant createdAt;
+
+    // Campos para integridade da auditoria
+    @Column( name = "sequence", nullable = false )
+    private Long sequence;
+
+    @Column( name = "previous_mac" )
+    private String previousMac;
+
+    @Column( name = "entry_mac" )
+    private String entryMac;
+
+    @Column( name = "metadata_hash" )
+    private String metadataHash;
+
+    @Column( name = "key_id" )
+    private String keyId;
+
+    @Column( name = "clinic_context_id" )
+    private Long clinicContextId;
+
+    @ManyToOne( fetch = FetchType.LAZY )
+    @JoinColumn( name = "actor_user_id" )
+    private User actorUser;
+
+    @ManyToOne( fetch = FetchType.LAZY )
+    @JoinColumn( name = "session_id", insertable = false, updatable = false )
+    private UserSession session;
 }

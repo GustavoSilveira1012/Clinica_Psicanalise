@@ -1,4 +1,4 @@
-﻿package com.psicogest.psicogest.security.request;
+package com.psicogest.psicogest.security.request;
 
 public record SecurityRequestContext(
         String sourceIp,

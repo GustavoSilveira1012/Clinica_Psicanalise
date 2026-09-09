@@ -1,4 +1,4 @@
-﻿package com.psicogest.psicogest.exception;
+package com.psicogest.psicogest.exception;
 
 public class SecurityInfrastructureException extends RuntimeException {
 

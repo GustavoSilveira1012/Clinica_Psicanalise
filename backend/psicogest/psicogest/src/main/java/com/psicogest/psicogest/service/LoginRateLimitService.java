@@ -1,4 +1,4 @@
-﻿package com.psicogest.psicogest.service;
+package com.psicogest.psicogest.service;
 
 import com.psicogest.psicogest.config.RateLimitProperties;
 import com.psicogest.psicogest.exception.RateLimitExceededException;

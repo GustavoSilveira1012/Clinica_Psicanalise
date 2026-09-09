@@ -1,4 +1,4 @@
-﻿package com.psicogest.psicogest.infrastructure.security;
+package com.psicogest.psicogest.infrastructure.security;
 
 import org.springframework.stereotype.Component;
 import java.security.MessageDigest;

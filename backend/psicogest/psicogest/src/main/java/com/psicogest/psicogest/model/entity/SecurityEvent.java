@@ -1,4 +1,4 @@
-﻿package com.psicogest.psicogest.model.entity;
+package com.psicogest.psicogest.model.entity;
 
 import com.psicogest.psicogest.model.enums.SecurityEventOutcome;
 import com.psicogest.psicogest.model.enums.SecurityEventSeverity;

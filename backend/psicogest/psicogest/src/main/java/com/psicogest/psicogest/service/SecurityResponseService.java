@@ -1,4 +1,4 @@
-﻿package com.psicogest.psicogest.service;
+package com.psicogest.psicogest.service;
 
 import com.psicogest.psicogest.model.entity.User;
 import com.psicogest.psicogest.repository.RefreshTokenRepository;

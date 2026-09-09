@@ -1,4 +1,4 @@
-﻿package com.psicogest.psicogest.exception;
+package com.psicogest.psicogest.exception;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.psicogest.psicogest.service.SecurityEventService;

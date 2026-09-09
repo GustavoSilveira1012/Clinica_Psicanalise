@@ -1,4 +1,4 @@
-﻿package com.psicogest.psicogest.infrastructure.redis;
+package com.psicogest.psicogest.infrastructure.redis;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

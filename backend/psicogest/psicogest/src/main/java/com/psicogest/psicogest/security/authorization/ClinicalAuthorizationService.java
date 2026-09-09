@@ -1,283 +1,227 @@
 package com.psicogest.psicogest.security.authorization;
 
-import com.psicogest.psicogest.model.enums.ClinicAccessRole;
-import com.psicogest.psicogest.model.enums.ClinicUserMembershipStatus;
-import com.psicogest.psicogest.model.enums.TherapeuticRelationshipStatus;
-
-import com.psicogest.psicogest.repository.*;
-
+import com.psicogest.psicogest.model.entity.Psychoanalyst;
+import com.psicogest.psicogest.model.enums.MedicalRecordStatus;
+import com.psicogest.psicogest.repository.MedicalRecordRepository;
+import com.psicogest.psicogest.repository.PsychoanalystRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
-import java.util.EnumSet;
+import java.util.UUID;
 
-@Component("clinicalAuthorization")
+@Slf4j
+@Service
 public class ClinicalAuthorizationService {
 
-    private static final EnumSet<
-            TherapeuticRelationshipStatus
-            > READ_RELATIONSHIP_STATUSES =
-            EnumSet.of(
-                    TherapeuticRelationshipStatus.ACTIVE,
-                    TherapeuticRelationshipStatus.SUSPENDED
-            );
+    private final MedicalRecordRepository medicalRecordRepository;
 
-    private final AuthenticatedUserContext context;
+    private final PsychoanalystRepository psychoanalystRepository;
 
-    private final PatientRepository patientRepository;
-
-    private final PsychoanalystRepository
-            psychoanalystRepository;
-
-    private final TherapeuticRelationshipRepository
-            relationshipRepository;
-
-    private final AppointmentRepository
-            appointmentRepository;
-
-    private final ClinicUserMembershipRepository
-            clinicUserMembershipRepository;
+    private final SecurityContextService contextService;
 
     public ClinicalAuthorizationService(
-            AuthenticatedUserContext context,
-            PatientRepository patientRepository,
+            MedicalRecordRepository medicalRecordRepository,
             PsychoanalystRepository psychoanalystRepository,
-            TherapeuticRelationshipRepository relationshipRepository,
-            AppointmentRepository appointmentRepository,
-            ClinicUserMembershipRepository clinicUserMembershipRepository
+            SecurityContextService contextService
     ) {
 
-        this.context = context;
-        this.patientRepository = patientRepository;
+        this.medicalRecordRepository = medicalRecordRepository;
         this.psychoanalystRepository = psychoanalystRepository;
-        this.relationshipRepository = relationshipRepository;
-        this.appointmentRepository = appointmentRepository;
-        this.clinicUserMembershipRepository =
-                clinicUserMembershipRepository;
+        this.contextService = contextService;
     }
 
-    public boolean canReadPatientProfile(
-        Authentication authentication,
-        Long patientId
-) {
-
-    Long userId =
-            context
-                    .userId(authentication)
-                    .orElse(null);
-
-    if (userId == null) {
-        return false;
-    }
-
-    /*
-     * Paciente pode visualizar a si próprio.
+    /**
+     * 26. Autorização para leitura de prontuário
+     *
+     * Autoriza se:
+     * - Usuário tem role PSYCHOANALYST
+     * - Usuário é o autor original do prontuário OU
+     * - Usuário tem vínculo ACTIVE ou SUSPENDED com o paciente
      */
-    if (
-            context.hasRole(
-                    authentication,
-                    "PATIENT"
-            )
+    public boolean canReadMedicalRecord(
+            Authentication authentication,
+            UUID medicalRecordId
     ) {
 
-        return patientRepository
-                .existsByIdAndUserId(
-                        patientId,
-                        userId
-                );
+        if (
+                !contextService.hasRole(
+                        authentication,
+                        "PSYCHOANALYST"
+                )
+        ) {
+
+            log.debug(
+                    "Acesso negado: usuário não tem role PSYCHOANALYST"
+            );
+            return false;
+        }
+
+        Long userId =
+                contextService
+                        .userId( authentication )
+                        .orElse( null );
+
+        if ( userId == null ) {
+
+            log.debug(
+                    "Acesso negado: userId não encontrado"
+            );
+            return false;
+        }
+
+        Psychoanalyst psychoanalyst =
+                psychoanalystRepository
+                        .findByUserId( userId )
+                        .orElse( null );
+
+        if ( psychoanalyst == null ) {
+
+            log.debug(
+                    "Acesso negado: usuário não é psicanalista"
+            );
+            return false;
+        }
+
+        boolean canRead =
+                medicalRecordRepository
+                        .existsReadableBy(
+                                medicalRecordId,
+                                psychoanalyst.getId()
+                        );
+
+        if ( !canRead ) {
+
+            log.warn(
+                    "Tentativa de leitura não autorizada: recordId={}, psychoanalystId={}",
+                    medicalRecordId,
+                    psychoanalyst.getId()
+            );
+        }
+
+        return canRead;
     }
 
-    /*
-     * Psicanalista precisa de vínculo clínico.
+    /**
+     * 43. Autorização para editar prontuário
+     *
+     * Permite edição apenas se:
+     * - Usuário é o autor original
+     * - Prontuário está em status DRAFT
      */
-    if (
-            context.hasRole(
-                    authentication,
-                    "PSYCHOANALYST"
-            )
+    public boolean canEditMedicalRecord(
+            Authentication authentication,
+            UUID medicalRecordId
     ) {
+
+        Long userId = contextService
+                .userId(authentication)
+                .orElse(null);
+
+        if (userId == null) {
+            log.debug("Acesso negado: userId não encontrado");
+            return false;
+        }
+
+        if (!contextService.hasRole(authentication, "PSYCHOANALYST")) {
+            log.debug("Acesso negado: usuário não tem role PSYCHOANALYST");
+            return false;
+        }
 
         return psychoanalystRepository
                 .findByUserId(userId)
-                .map(
-                        psychoanalyst ->
-                                relationshipRepository
-                                        .existsByPatientIdAndPsychoanalystIdAndStatusIn(
-                                                patientId,
-                                                psychoanalyst.getId(),
-                                                READ_RELATIONSHIP_STATUSES
-                                        )
+                .map(psychoanalyst ->
+                        medicalRecordRepository
+                                .existsByIdAndAuthorPsychoanalystIdAndStatus(
+                                        medicalRecordId,
+                                        psychoanalyst.getId(),
+                                        com.psicogest.psicogest.model.enums.MedicalRecordStatus.DRAFT
+                                )
                 )
                 .orElse(false);
     }
 
-    /*
-     * CLINIC_ADMIN será tratado através
-     * do contexto administrativo da clínica.
+    /**
+     * Autorização para escrever dados clínicos de um paciente
+     *
+     * Permite se:
+     * - Usuário é PSYCHOANALYST
+     * - Usuário tem vínculo ACTIVE com o paciente
      */
-    if (
-            context.hasRole(
-                    authentication,
-                    "CLINIC_ADMIN"
-            )
+    public boolean canWriteClinicalData(
+            Authentication authentication,
+            Long patientId
     ) {
 
-        return appointmentRepository
-                .existsPatientInClinicAdminScope(
-                        patientId,
-                        userId
-                );
+        Long userId = contextService
+                .userId(authentication)
+                .orElse(null);
+
+        if (userId == null) {
+            log.debug("Acesso negado: userId não encontrado");
+            return false;
+        }
+
+        if (!contextService.hasRole(authentication, "PSYCHOANALYST")) {
+            log.debug("Acesso negado: usuário não tem role PSYCHOANALYST");
+            return false;
+        }
+
+        Psychoanalyst psychoanalyst = psychoanalystRepository
+                .findByUserId(userId)
+                .orElse(null);
+
+        if (psychoanalyst == null) {
+            log.debug("Acesso negado: usuário não é psicanalista");
+            return false;
+        }
+
+        // Verificar se tem vínculo ACTIVE com paciente
+        return psychoanalystRepository.existsActiveTherapeuticRelationship(
+                psychoanalyst.getId(),
+                patientId
+        );
     }
 
-    /*
-     * SYSTEM_ADMIN não ganha acesso
-     * ao paciente clínico automaticamente.
+    /**
+     * Autorização para ler dados clínicos de um paciente
+     *
+     * Permite se:
+     * - Usuário é PSYCHOANALYST
+     * - Usuário tem vínculo ACTIVE ou SUSPENDED com o paciente
      */
-    return false;
-}
-
-public boolean canReadClinicalData(
-        Authentication authentication,
-        Long patientId
-) {
-
-    if (
-            !context.hasRole(
-                    authentication,
-                    "PSYCHOANALYST"
-            )
-    ) {
-        return false;
-    }
-
-    Long userId =
-            context
-                    .userId(authentication)
-                    .orElse(null);
-
-    if (userId == null) {
-        return false;
-    }
-
-    return psychoanalystRepository
-            .findByUserId(userId)
-            .map(
-                    psychoanalyst ->
-                            relationshipRepository
-                                    .existsByPatientIdAndPsychoanalystIdAndStatusIn(
-                                            patientId,
-                                            psychoanalyst.getId(),
-                                            READ_RELATIONSHIP_STATUSES
-                                    )
-            )
-            .orElse(false);
-}
-
-public boolean canWriteClinicalData(
-        Authentication authentication,
-        Long patientId
-) {
-
-    if (
-            !context.hasRole(
-                    authentication,
-                    "PSYCHOANALYST"
-            )
+    public boolean canReadPatientClinicalData(
+            Authentication authentication,
+            Long patientId
     ) {
 
-        return false;
+        Long userId = contextService
+                .userId(authentication)
+                .orElse(null);
+
+        if (userId == null) {
+            log.debug("Acesso negado: userId não encontrado");
+            return false;
+        }
+
+        if (!contextService.hasRole(authentication, "PSYCHOANALYST")) {
+            log.debug("Acesso negado: usuário não tem role PSYCHOANALYST");
+            return false;
+        }
+
+        Psychoanalyst psychoanalyst = psychoanalystRepository
+                .findByUserId(userId)
+                .orElse(null);
+
+        if (psychoanalyst == null) {
+            log.debug("Acesso negado: usuário não é psicanalista");
+            return false;
+        }
+
+        // Verificar se tem vínculo ACTIVE ou SUSPENDED com paciente
+        return psychoanalystRepository.existsTherapeuticRelationship(
+                psychoanalyst.getId(),
+                patientId
+        );
     }
-
-    Long userId =
-            context
-                    .userId(authentication)
-                    .orElse(null);
-
-    if (userId == null) {
-        return false;
-    }
-
-    return psychoanalystRepository
-            .findByUserId(userId)
-            .map(
-                    psychoanalyst ->
-                            relationshipRepository
-                                    .findByPatientIdAndPsychoanalystIdAndStatus(
-                                            patientId,
-                                            psychoanalyst.getId(),
-                                            TherapeuticRelationshipStatus.ACTIVE
-                                    )
-                                    .isPresent()
-            )
-            .orElse(false);
-}
-
-public boolean canReadAppointment(
-        Authentication authentication,
-        Long appointmentId
-) {
-
-    Long userId =
-            context
-                    .userId(authentication)
-                    .orElse(null);
-
-    if (userId == null) {
-        return false;
-    }
-
-    if (
-            context.hasRole(
-                    authentication,
-                    "PATIENT"
-            )
-    ) {
-
-        return appointmentRepository
-                .existsByIdAndPatientUserId(
-                        appointmentId,
-                        userId
-                );
-    }
-
-    if (
-            context.hasRole(
-                    authentication,
-                    "PSYCHOANALYST"
-            )
-    ) {
-
-        return appointmentRepository
-                .existsByIdAndPsychoanalystUserId(
-                        appointmentId,
-                        userId
-                );
-    }
-
-    if (
-            context.hasRole(
-                    authentication,
-                    "CLINIC_ADMIN"
-            )
-    ) {
-
-        return appointmentRepository
-                .findClinicIdByAppointmentId(
-                        appointmentId
-                )
-                .map(
-                        clinicId ->
-                                clinicUserMembershipRepository
-                                        .existsByClinicIdAndUserIdAndAccessRoleAndStatus(
-                                                clinicId,
-                                                userId,
-                                                ClinicAccessRole.ADMIN,
-                                                ClinicUserMembershipStatus.ACTIVE
-                                        )
-                )
-                .orElse(false);
-    }
-
-    return false;
-}
 }

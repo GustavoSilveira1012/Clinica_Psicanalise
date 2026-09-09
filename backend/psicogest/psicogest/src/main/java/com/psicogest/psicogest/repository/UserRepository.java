@@ -1,4 +1,4 @@
-﻿package com.psicogest.psicogest.repository;
+package com.psicogest.psicogest.repository;
 
 import com.psicogest.psicogest.model.entity.User;
 import jakarta.persistence.LockModeType;

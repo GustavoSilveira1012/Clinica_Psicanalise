@@ -1,4 +1,4 @@
-﻿package com.psicogest.psicogest.infrastructure.redis;
+package com.psicogest.psicogest.infrastructure.redis;
 
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;

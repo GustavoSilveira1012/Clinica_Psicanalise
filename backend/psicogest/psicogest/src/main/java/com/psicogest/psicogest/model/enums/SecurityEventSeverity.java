@@ -1,4 +1,4 @@
-﻿package com.psicogest.psicogest.model.enums;
+package com.psicogest.psicogest.model.enums;
 
 public enum SecurityEventSeverity {
     INFO,

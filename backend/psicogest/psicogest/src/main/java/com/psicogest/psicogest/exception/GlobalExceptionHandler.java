@@ -1,4 +1,4 @@
-﻿package com.psicogest.psicogest.exception;
+package com.psicogest.psicogest.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

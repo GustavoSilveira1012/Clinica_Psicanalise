@@ -1,4 +1,4 @@
-﻿package com.psicogest.psicogest.security.request;
+package com.psicogest.psicogest.security.request;
 
 import com.psicogest.psicogest.infrastructure.security.SecurityHashService;
 import jakarta.servlet.http.HttpServletRequest;

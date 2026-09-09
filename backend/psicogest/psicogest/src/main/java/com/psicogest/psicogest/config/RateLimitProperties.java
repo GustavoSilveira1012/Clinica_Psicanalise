@@ -1,4 +1,4 @@
-﻿package com.psicogest.psicogest.config;
+package com.psicogest.psicogest.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
