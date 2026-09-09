@@ -1,4 +1,4 @@
-package com.psicogest.psicogest.dto;
+package com.psicogest.psicogest.dto.medicalrecord;
 
 import com.psicogest.psicogest.model.enums.MedicalRecordStatus;
 

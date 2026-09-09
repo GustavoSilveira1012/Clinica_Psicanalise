@@ -40,4 +40,35 @@ public class ClinicalAccessDetector {
         // - Comparar com baseline histórico
         // - Alertar se suspeito
     }
+
+    /**
+     * 26. Registra exportação clínica para detecção de MASS_EXPORT
+     *
+     * Uma exportação vale risco maior que simplesmente abrir um prontuário.
+     *
+     * Exemplos:
+     * - 1 export → normal
+     * - 3 pacientes diferentes em poucos minutos → MEDIUM/HIGH
+     * - 5+ → MASS_EXPORT
+     */
+    public void recordClinicalExport(
+            Long userId,
+            UUID sessionId,
+            Long patientId,
+            String sourceIp
+    ) {
+
+        log.warn(
+                "Clinical export: userId={}, sessionId={}, patientId={}, sourceIp={}",
+                userId,
+                sessionId,
+                patientId,
+                sourceIp
+        );
+
+        // TODO: Implementar detecção de MASS_EXPORT
+        // - Rastrear exportações por usuário em janela de tempo
+        // - Detectar múltiplos pacientes
+        // - Escalar se padrão de exfiltração
+    }
 }

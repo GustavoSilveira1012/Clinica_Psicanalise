@@ -20,6 +20,10 @@ BEGIN
             NEW.therapeutic_relationship_id IS DISTINCT FROM OLD.therapeutic_relationship_id
             OR
             NEW.appointment_id IS DISTINCT FROM OLD.appointment_id
+            OR
+            NEW.current_revision_number IS DISTINCT FROM OLD.current_revision_number
+            OR
+            NEW.finalized_revision_number IS DISTINCT FROM OLD.finalized_revision_number
         THEN
 
             RAISE EXCEPTION

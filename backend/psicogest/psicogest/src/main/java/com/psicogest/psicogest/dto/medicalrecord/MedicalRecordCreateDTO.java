@@ -5,18 +5,10 @@ import jakarta.validation.constraints.Size;
 
 public record MedicalRecordCreateDTO(
 
-        Long appointmentId,
+        @NotBlank( message = "Conteúdo clínico não pode estar vazio" )
+        @Size( min = 1, max = 100000, message = "Conteúdo deve ter entre 1 e 100000 caracteres" )
+        String content,
 
-        @NotBlank(
-                message = "Conteúdo clínico é obrigatório"
-        )
-
-        @Size(
-                max = 100_000,
-                message = "Conteúdo clínico excede o limite permitido"
-        )
-
-        String content
-
+        Long appointmentId
 ) {
 }

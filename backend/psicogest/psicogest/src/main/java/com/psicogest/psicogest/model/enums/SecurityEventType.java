@@ -1,5 +1,15 @@
 package com.psicogest.psicogest.model.enums;
 
+/**
+ * 32. Tipos de evento de segurança
+ * 
+ * Eventos de exportação clínica:
+ * - CLINICAL_EXPORT_REQUESTED: solicitação criada
+ * - CLINICAL_EXPORT_DOWNLOADED: arquivo baixado
+ * - CLINICAL_EXPORT_INTEGRITY_FAILURE: SHA-256 não bate
+ * - CLINICAL_EXPORT_EXPIRED: arquivo expirou (90 dias)
+ * - MASS_EXPORT_DETECTED: padrão de exfiltração
+ */
 public enum SecurityEventType {
     LOGIN_SUCCESS,
     LOGIN_FAILURE,
@@ -14,5 +24,10 @@ public enum SecurityEventType {
     SECURITY_ALERT,
     AUDIT_LOG_ACCESSED,
     AUDIT_INTEGRITY_FAILURE,
-    AUDIT_VERIFICATION_COMPLETED
+    AUDIT_VERIFICATION_COMPLETED,
+    CLINICAL_EXPORT_REQUESTED,
+    CLINICAL_EXPORT_DOWNLOADED,
+    CLINICAL_EXPORT_INTEGRITY_FAILURE,
+    CLINICAL_EXPORT_EXPIRED,
+    MASS_EXPORT_DETECTED
 }

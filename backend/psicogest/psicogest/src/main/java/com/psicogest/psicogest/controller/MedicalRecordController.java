@@ -1,7 +1,7 @@
 package com.psicogest.psicogest.controller;
 
-import com.psicogest.psicogest.dto.MedicalRecordCreateDTO;
-import com.psicogest.psicogest.dto.MedicalRecordSummaryDTO;
+import com.psicogest.psicogest.dto.medicalrecord.MedicalRecordCreateDTO;
+import com.psicogest.psicogest.dto.medicalrecord.MedicalRecordSummaryDTO;
 import com.psicogest.psicogest.security.SecurityActor;
 import com.psicogest.psicogest.security.SecurityActorFactory;
 import com.psicogest.psicogest.service.MedicalRecordService;

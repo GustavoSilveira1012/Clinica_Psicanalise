@@ -107,6 +107,17 @@ public class MedicalRecord {
     private Long version;
 
     @Column(
+            name = "current_revision_number",
+            nullable = false
+    )
+    private Long currentRevisionNumber;
+
+    @Column(
+            name = "finalized_revision_number"
+    )
+    private Long finalizedRevisionNumber;
+
+    @Column(
             name = "created_at",
             nullable = false,
             updatable = false
@@ -178,10 +189,41 @@ public class MedicalRecord {
         status =
                 MedicalRecordStatus.FINALIZED;
 
+        // Registra qual snapshot originou o documento final
+        finalizedRevisionNumber =
+                currentRevisionNumber;
+
         finalizedAt =
                 Instant.now();
 
         updatedAt =
                 finalizedAt;
+    }
+
+    /**
+     * Gera próximo número de revisão
+     * 
+     * Usado em edições concorrentes (aba A + aba B).
+     * Com @Version do JPA, conflitos são detectados automaticamente.
+     * 
+     * @return Próximo número de revisão
+     * @throws IllegalStateException Se prontuário está finalizado
+     */
+    public long nextRevisionNumber() {
+
+        if (
+                status
+                != MedicalRecordStatus.DRAFT
+        ) {
+
+            throw new IllegalStateException(
+                    "Prontuário finalizado não pode gerar nova revisão"
+            );
+        }
+
+        currentRevisionNumber =
+                currentRevisionNumber + 1;
+
+        return currentRevisionNumber;
     }
 }

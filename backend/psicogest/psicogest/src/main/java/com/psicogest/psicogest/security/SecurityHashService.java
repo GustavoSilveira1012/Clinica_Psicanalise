@@ -39,4 +39,34 @@ public class SecurityHashService {
             );
         }
     }
+
+    /**
+     * 31. Overload para byte[] (integridade de arquivo)
+     * 
+     * Calcula SHA-256 de conteúdo binário
+     * Usado para verificar integridade de exports
+     */
+    public String sha256(
+            byte[] value
+    ) {
+
+        try {
+
+            MessageDigest digest =
+                    MessageDigest.getInstance(
+                            "SHA-256"
+                    );
+
+            return HexFormat.of()
+                    .formatHex(
+                            digest.digest(value)
+                    );
+
+        } catch (NoSuchAlgorithmException exception) {
+
+            throw new IllegalStateException(
+                    exception
+            );
+        }
+    }
 }

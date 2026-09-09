@@ -1,10 +1,10 @@
 package com.psicogest.psicogest.service;
 
 import com.psicogest.psicogest.domain.medicalrecord.MedicalRecordStateMachine;
-import com.psicogest.psicogest.dto.MedicalRecordCreateDTO;
-import com.psicogest.psicogest.dto.MedicalRecordResponseDTO;
-import com.psicogest.psicogest.dto.MedicalRecordSummaryDTO;
-import com.psicogest.psicogest.dto.MedicalRecordUpdateDTO;
+import com.psicogest.psicogest.dto.medicalrecord.MedicalRecordCreateDTO;
+import com.psicogest.psicogest.dto.medicalrecord.MedicalRecordResponseDTO;
+import com.psicogest.psicogest.dto.medicalrecord.MedicalRecordSummaryDTO;
+import com.psicogest.psicogest.dto.medicalrecord.MedicalRecordUpdateDTO;
 import com.psicogest.psicogest.exception.AccessDeniedException;
 import com.psicogest.psicogest.exception.MedicalRecordConflictException;
 import com.psicogest.psicogest.exception.ResourceNotFoundException;
@@ -43,6 +43,7 @@ public class MedicalRecordService {
     private final AuditService auditService;
     private final MedicalRecordStateMachine stateMachine;
     private final ClinicalAccessDetector accessDetector;
+    private final MedicalRecordRevisionService revisionService;
 
     public MedicalRecordService(
             MedicalRecordRepository medicalRecordRepository,
@@ -53,7 +54,8 @@ public class MedicalRecordService {
             ClinicalEncryptionService encryptionService,
             AuditService auditService,
             MedicalRecordStateMachine stateMachine,
-            ClinicalAccessDetector accessDetector
+            ClinicalAccessDetector accessDetector,
+            MedicalRecordRevisionService revisionService
     ) {
         this.medicalRecordRepository = medicalRecordRepository;
         this.patientRepository = patientRepository;
@@ -64,6 +66,7 @@ public class MedicalRecordService {
         this.auditService = auditService;
         this.stateMachine = stateMachine;
         this.accessDetector = accessDetector;
+        this.revisionService = revisionService;
     }
 
     @Transactional
@@ -136,11 +139,21 @@ public class MedicalRecordService {
                 .cryptoAlgorithm(encrypted.algorithm())
                 .keyId(encrypted.keyId())
                 .version(0L)
+                .currentRevisionNumber(1L)
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
 
         MedicalRecord saved = medicalRecordRepository.saveAndFlush(record);
+
+        // 11. Criar snapshot inicial (revisão 1)
+        // Nota: não registra MEDICAL_RECORD_REVISION_CREATED pois a criação é coberta por MEDICAL_RECORD_CREATED
+        revisionService.createSnapshot(
+                saved,
+                psychoanalyst,
+                1L,
+                dto.content()
+        );
 
         auditService.recordCriticalWrite(new AuditCommand(
                 actor.userId(),
@@ -233,6 +246,11 @@ public class MedicalRecordService {
             throw new AccessDeniedException("Acesso negado");
         }
 
+        // 13-14. Fluxo de revisão
+        // Gera novo número de revisão
+        long revisionNumber = record.nextRevisionNumber();
+
+        // Criptografa novo conteúdo para o MedicalRecord atual
         EncryptionContext context = encryptionContextFor(record);
         EncryptedEnvelope encrypted = encryptionService.encrypt(dto.content(), context);
 
@@ -247,10 +265,19 @@ public class MedicalRecordService {
 
         MedicalRecord saved = medicalRecordRepository.saveAndFlush(record);
 
+        // Cria snapshot da revisão
+        revisionService.createSnapshot(
+                record,
+                psychoanalyst,
+                revisionNumber,
+                dto.content()
+        );
+
+        // 15. Audit da revisão com revisionNumber
         auditService.recordCriticalWrite(new AuditCommand(
                 actor.userId(),
                 actor.sessionId(),
-                AuditAction.MEDICAL_RECORD_UPDATED,
+                AuditAction.MEDICAL_RECORD_REVISION_CREATED,
                 "MEDICAL_RECORD",
                 record.getId().toString(),
                 record.getPatient().getId(),
@@ -259,11 +286,11 @@ public class MedicalRecordService {
                 actor.correlationId(),
                 actor.sourceIp(),
                 actor.userAgentHash(),
-                Map.of("version", saved.getVersion())
+                Map.of("revisionNumber", revisionNumber)
         ));
 
-        log.info("Prontuário atualizado: recordId={}, patientId={}, psychoanalystId={}, correlationId={}",
-                saved.getId(), record.getPatient().getId(), psychoanalyst.getId(), actor.correlationId());
+        log.info("Prontuário atualizado com revisão: recordId={}, patientId={}, psychoanalystId={}, revisionNumber={}, correlationId={}",
+                saved.getId(), record.getPatient().getId(), psychoanalyst.getId(), revisionNumber, actor.correlationId());
 
         return toResponseDTO(saved, dto.content());
     }

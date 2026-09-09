@@ -11,15 +11,21 @@ public record MedicalRecordResponseDTO(
 
         Long patientId,
 
-        Long authorPsychoanalystId,
+        Long psychoanalystId,
 
-        String authorName,
+        Long therapeuticRelationshipId,
 
         Long appointmentId,
 
         MedicalRecordStatus status,
 
         String content,
+
+        Integer cryptoVersion,
+
+        String cryptoAlgorithm,
+
+        String keyId,
 
         Long version,
 
@@ -28,6 +34,5 @@ public record MedicalRecordResponseDTO(
         Instant updatedAt,
 
         Instant finalizedAt
-
 ) {
 }
