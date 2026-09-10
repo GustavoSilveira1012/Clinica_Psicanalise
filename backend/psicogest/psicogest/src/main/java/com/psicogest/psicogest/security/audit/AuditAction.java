@@ -33,8 +33,29 @@ public enum AuditAction {
     CLINICAL_EXPORT_DOWNLOADED,
     MEDICAL_RECORD_EXPORTED,
 
+    /**
+     * 31. Eventos financeiros (auditoria de transações)
+     * 
+     * Metadados incluem: amount, currency, paymentMethod
+     * 
+     * NUNCA auditar:
+     * - Dados completos de cartão ❌
+     * - CVV ❌
+     * - Token de pagamento ❌
+     * - Chave privada/provider secret ❌
+     */
+    RECEIVABLE_CREATED,
+    RECEIVABLE_CANCELLED,
+
     PAYMENT_CREATED,
-    PAYMENT_REFUNDED,
+    PAYMENT_CONFIRMED,
+    PAYMENT_FAILED,
+    PAYMENT_CANCELLED,
+
+    PAYMENT_ALLOCATED,
+
+    REFUND_REQUESTED,
+    REFUND_CONFIRMED,
 
     INVOICE_ISSUED,
     INVOICE_CANCELLED,

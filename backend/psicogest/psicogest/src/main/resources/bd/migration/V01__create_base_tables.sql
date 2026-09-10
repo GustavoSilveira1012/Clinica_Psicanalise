@@ -111,20 +111,7 @@ CREATE TABLE medical_records (
     CONSTRAINT fk_record_psychoanalyst FOREIGN KEY (psychoanalyst_id) REFERENCES psychoanalysts(id) ON DELETE RESTRICT
 );
 
-CREATE TABLE payments (
-    id BIGSERIAL PRIMARY KEY,
-    appointment_id BIGINT NOT NULL,
-    patient_id BIGINT NOT NULL,
-    amount DECIMAL(10,2) NOT NULL,
-    status payment_status NOT NULL DEFAULT 'PENDING',
-    payment_method payment_method,
-    paid_at TIMESTAMP,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_payment_appointment FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE RESTRICT,
-    CONSTRAINT fk_payment_patient FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE RESTRICT,
-    CONSTRAINT check_payment_amount CHECK (amount >= 0)
-);
+-- REMOVED: payments table moved to V26__create_finance_core.sql for complete redesign
 
 CREATE TABLE availability (
     id BIGSERIAL PRIMARY KEY,

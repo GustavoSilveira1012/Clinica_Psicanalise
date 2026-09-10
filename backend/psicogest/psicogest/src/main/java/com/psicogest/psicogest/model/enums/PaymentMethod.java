@@ -10,6 +10,7 @@ public enum PaymentMethod {
 
     CASH,
 
-    TRANSFER
+    BANK_TRANSFER,
 
+    BOLETO
 }
