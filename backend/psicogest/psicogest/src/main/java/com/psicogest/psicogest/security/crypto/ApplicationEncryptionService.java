@@ -11,7 +11,7 @@ import java.security.SecureRandom;
 import java.util.Arrays;
 
 @Service
-public class ClinicalEncryptionService {
+public class ApplicationEncryptionService {
 
     private static final String ALGORITHM = "AES-256-GCM";
     private static final String CIPHER = "AES/GCM/NoPadding";
@@ -22,7 +22,7 @@ public class ClinicalEncryptionService {
     private final SecureRandom random = new SecureRandom();
     private final DataKeyProvider keyProvider;
 
-    public ClinicalEncryptionService(
+    public ApplicationEncryptionService(
             DataKeyProvider keyProvider
     ) {
         this.keyProvider = keyProvider;

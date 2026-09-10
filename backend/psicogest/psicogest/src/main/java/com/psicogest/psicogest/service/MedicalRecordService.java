@@ -18,7 +18,7 @@ import com.psicogest.psicogest.security.audit.AuditAction;
 import com.psicogest.psicogest.security.audit.AuditCommand;
 import com.psicogest.psicogest.security.audit.AuditOutcome;
 import com.psicogest.psicogest.security.audit.AuditService;
-import com.psicogest.psicogest.security.crypto.ClinicalEncryptionService;
+import com.psicogest.psicogest.security.crypto.ApplicationEncryptionService;
 import com.psicogest.psicogest.security.crypto.EncryptionContext;
 import com.psicogest.psicogest.security.crypto.EncryptedEnvelope;
 import lombok.extern.slf4j.Slf4j;
@@ -39,7 +39,7 @@ public class MedicalRecordService {
     private final PsychoanalystRepository psychoanalystRepository;
     private final TherapeuticRelationshipRepository relationshipRepository;
     private final AppointmentRepository appointmentRepository;
-    private final ClinicalEncryptionService encryptionService;
+    private final ApplicationEncryptionService encryptionService;
     private final AuditService auditService;
     private final MedicalRecordStateMachine stateMachine;
     private final ClinicalAccessDetector accessDetector;
@@ -51,7 +51,7 @@ public class MedicalRecordService {
             PsychoanalystRepository psychoanalystRepository,
             TherapeuticRelationshipRepository relationshipRepository,
             AppointmentRepository appointmentRepository,
-            ClinicalEncryptionService encryptionService,
+            ApplicationEncryptionService encryptionService,
             AuditService auditService,
             MedicalRecordStateMachine stateMachine,
             ClinicalAccessDetector accessDetector,
@@ -118,8 +118,8 @@ public class MedicalRecordService {
         EncryptionContext encryptionContext = new EncryptionContext(
                 "MEDICAL_RECORD",
                 recordId.toString(),
-                patientId,
-                "content"
+                "content",
+                Map.of("patientId", patientId.toString())
         );
 
         EncryptedEnvelope encrypted = encryptionService.encrypt(dto.content(), encryptionContext);
@@ -387,8 +387,11 @@ public class MedicalRecordService {
         return new EncryptionContext(
                 "MEDICAL_RECORD",
                 record.getId().toString(),
-                record.getPatient().getId(),
-                "content"
+                "content",
+                Map.of(
+                        "patientId",
+                        record.getPatient().getId().toString()
+                )
         );
     }
 

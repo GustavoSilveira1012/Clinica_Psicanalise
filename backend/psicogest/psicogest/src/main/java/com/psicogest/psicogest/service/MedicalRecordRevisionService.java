@@ -13,7 +13,7 @@ import com.psicogest.psicogest.security.audit.AuditAction;
 import com.psicogest.psicogest.security.audit.AuditCommand;
 import com.psicogest.psicogest.security.audit.AuditOutcome;
 import com.psicogest.psicogest.security.audit.AuditService;
-import com.psicogest.psicogest.security.crypto.ClinicalEncryptionService;
+import com.psicogest.psicogest.security.crypto.ApplicationEncryptionService;
 import com.psicogest.psicogest.security.crypto.EncryptionContext;
 import com.psicogest.psicogest.security.crypto.EncryptedEnvelope;
 import lombok.extern.slf4j.Slf4j;
@@ -40,13 +40,13 @@ import java.util.UUID;
 public class MedicalRecordRevisionService {
 
     private final MedicalRecordRevisionRepository revisionRepository;
-    private final ClinicalEncryptionService encryptionService;
+    private final ApplicationEncryptionService encryptionService;
     private final AuditService auditService;
     private final ClinicalAccessDetector accessDetector;
 
     public MedicalRecordRevisionService(
             MedicalRecordRevisionRepository revisionRepository,
-            ClinicalEncryptionService encryptionService,
+            ApplicationEncryptionService encryptionService,
             AuditService auditService,
             ClinicalAccessDetector accessDetector
     ) {
@@ -81,8 +81,8 @@ public class MedicalRecordRevisionService {
         EncryptionContext context = new EncryptionContext(
                 "MEDICAL_RECORD_REVISION",
                 revisionId.toString(),
-                record.getPatient().getId(),
-                "content"
+                "content",
+                Map.of("patientId", record.getPatient().getId().toString())
         );
 
         // Criptografa com DEK nova
@@ -148,8 +148,8 @@ public class MedicalRecordRevisionService {
         EncryptionContext context = new EncryptionContext(
                 "MEDICAL_RECORD_REVISION",
                 revision.getId().toString(),
-                revision.getMedicalRecord().getPatient().getId(),
-                "content"
+                "content",
+                Map.of("patientId", revision.getMedicalRecord().getPatient().getId().toString())
         );
 
         EncryptedEnvelope envelope = new EncryptedEnvelope(

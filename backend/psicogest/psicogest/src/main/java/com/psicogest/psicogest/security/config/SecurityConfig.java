@@ -124,6 +124,9 @@ public class SecurityConfig {
                         csrf -> csrf
                                 .csrfTokenRepository(csrfRepository)
                                 .requireCsrfProtectionMatcher(authCsrfMatcher)
+                                .ignoringRequestMatchers(
+                                        "/webhooks/payments/**"
+                                )
                 )
 
                 .cors(

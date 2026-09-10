@@ -17,7 +17,7 @@ import com.psicogest.psicogest.security.audit.AuditAction;
 import com.psicogest.psicogest.security.audit.AuditCommand;
 import com.psicogest.psicogest.security.audit.AuditOutcome;
 import com.psicogest.psicogest.security.audit.AuditService;
-import com.psicogest.psicogest.security.crypto.ClinicalEncryptionService;
+import com.psicogest.psicogest.security.crypto.ApplicationEncryptionService;
 import com.psicogest.psicogest.security.crypto.EncryptionContext;
 import com.psicogest.psicogest.security.crypto.EncryptedEnvelope;
 import lombok.extern.slf4j.Slf4j;
@@ -36,7 +36,7 @@ public class AddendumService {
     private final AddendumRepository addendumRepository;
     private final MedicalRecordRepository medicalRecordRepository;
     private final PsychoanalystRepository psychoanalystRepository;
-    private final ClinicalEncryptionService encryptionService;
+    private final ApplicationEncryptionService encryptionService;
     private final AuditService auditService;
     private final ClinicalAccessDetector accessDetector;
 
@@ -44,7 +44,7 @@ public class AddendumService {
             AddendumRepository addendumRepository,
             MedicalRecordRepository medicalRecordRepository,
             PsychoanalystRepository psychoanalystRepository,
-            ClinicalEncryptionService encryptionService,
+            ApplicationEncryptionService encryptionService,
             AuditService auditService,
             ClinicalAccessDetector accessDetector
     ) {
@@ -99,8 +99,8 @@ public class AddendumService {
         EncryptionContext encryptionContext = new EncryptionContext(
                 "MEDICAL_RECORD_ADDENDUM",
                 addendumId.toString(),
-                record.getPatient().getId(),
-                "content"
+                "content",
+                Map.of("patientId", record.getPatient().getId().toString())
         );
 
         // Criptografar
@@ -170,8 +170,8 @@ public class AddendumService {
         EncryptionContext context = new EncryptionContext(
                 "MEDICAL_RECORD_ADDENDUM",
                 addendum.getId().toString(),
-                addendum.getMedicalRecord().getPatient().getId(),
-                "content"
+                "content",
+                Map.of("patientId", addendum.getMedicalRecord().getPatient().getId().toString())
         );
 
         EncryptedEnvelope envelope = new EncryptedEnvelope(

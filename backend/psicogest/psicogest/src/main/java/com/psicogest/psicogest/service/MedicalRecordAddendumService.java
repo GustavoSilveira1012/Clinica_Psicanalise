@@ -7,7 +7,7 @@ import com.psicogest.psicogest.repository.AddendumRepository;
 import com.psicogest.psicogest.repository.MedicalRecordRepository;
 import com.psicogest.psicogest.repository.PsychoanalystRepository;
 import com.psicogest.psicogest.security.audit.AuditService;
-import com.psicogest.psicogest.security.crypto.ClinicalEncryptionService;
+import com.psicogest.psicogest.security.crypto.ApplicationEncryptionService;
 
 @Service
 public class MedicalRecordAddendumService {
@@ -21,7 +21,7 @@ public class MedicalRecordAddendumService {
     private final PsychoanalystRepository
             psychoanalystRepository;
 
-    private final ClinicalEncryptionService
+    private final ApplicationEncryptionService
             encryptionService;
 
     private final AuditService
@@ -34,7 +34,7 @@ public class MedicalRecordAddendumService {
             MedicalRecordRepository medicalRecordRepository,
             AddendumRepository addendumRepository,
             PsychoanalystRepository psychoanalystRepository,
-            ClinicalEncryptionService encryptionService,
+            ApplicationEncryptionService encryptionService,
             AuditService auditService,
             ClinicalAccessDetector accessDetector
     ) {

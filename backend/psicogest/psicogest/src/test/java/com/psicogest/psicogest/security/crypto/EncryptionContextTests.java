@@ -12,25 +12,51 @@ import static org.assertj.core.api.Assertions.*;
 public class EncryptionContextTests {
 
     @Test
-    @DisplayName( "AAD é canonicalizado corretamente" )
+    @DisplayName( "AAD é canonicalizado corretamente com attributes" )
     void shouldGenerateCanonicalAad() {
         String resourceId = UUID.randomUUID().toString();
         EncryptionContext context = new EncryptionContext(
                 "MEDICAL_RECORD",
                 resourceId,
-                100L,
-                "content"
+                "content",
+                Map.of("patientId", "100")
         );
 
         byte[] aad = context.aad();
         String aadString = new String( aad );
 
         assertThat( aadString )
-                .contains( "PSICOGEST-CLINICAL-V1" )
+                .contains( "PSICOGEST-ENCRYPTION-V1" )
                 .contains( "resourceType=MEDICAL_RECORD" )
                 .contains( "resourceId=" + resourceId )
                 .contains( "patientId=100" )
                 .contains( "fieldName=content" );
+    }
+
+    @Test
+    @DisplayName( "AAD com webhook provider" )
+    void shouldGenerateAadForWebhook() {
+        String inboxId = UUID.randomUUID().toString();
+        EncryptionContext context = new EncryptionContext(
+                "PAYMENT_WEBHOOK",
+                inboxId,
+                "payload",
+                Map.of(
+                        "provider", "STRIPE",
+                        "eventId", "evt_ABC123"
+                )
+        );
+
+        byte[] aad = context.aad();
+        String aadString = new String( aad );
+
+        assertThat( aadString )
+                .contains( "PSICOGEST-ENCRYPTION-V1" )
+                .contains( "resourceType=PAYMENT_WEBHOOK" )
+                .contains( "resourceId=" + inboxId )
+                .contains( "fieldName=payload" )
+                .contains( "provider=STRIPE" )
+                .contains( "eventId=evt_ABC123" );
     }
 
     @Test
@@ -40,8 +66,8 @@ public class EncryptionContextTests {
         EncryptionContext context = new EncryptionContext(
                 "MEDICAL_RECORD",
                 resourceId,
-                100L,
-                "content"
+                "content",
+                Map.of("patientId", "100")
         );
 
         Map<String, String> kmsContext = context.keyManagementContext();
@@ -55,20 +81,20 @@ public class EncryptionContextTests {
     }
 
     @Test
-    @DisplayName( "AAD muda quando patientId muda" )
-    void shouldProduceDifferentAadForDifferentPatients() {
+    @DisplayName( "AAD muda quando attributes mudam" )
+    void shouldProduceDifferentAadForDifferentAttributes() {
         String resourceId = UUID.randomUUID().toString();
         EncryptionContext context1 = new EncryptionContext(
                 "MEDICAL_RECORD",
                 resourceId,
-                100L,
-                "content"
+                "content",
+                Map.of("patientId", "100")
         );
         EncryptionContext context2 = new EncryptionContext(
                 "MEDICAL_RECORD",
                 resourceId,
-                200L,
-                "content"
+                "content",
+                Map.of("patientId", "200")
         );
 
         assertThat( context1.aad() )
@@ -81,14 +107,14 @@ public class EncryptionContextTests {
         EncryptionContext context1 = new EncryptionContext(
                 "MEDICAL_RECORD",
                 UUID.randomUUID().toString(),
-                100L,
-                "content"
+                "content",
+                Map.of("patientId", "100")
         );
         EncryptionContext context2 = new EncryptionContext(
                 "MEDICAL_RECORD",
                 UUID.randomUUID().toString(),
-                100L,
-                "content"
+                "content",
+                Map.of("patientId", "100")
         );
 
         assertThat( context1.aad() )
@@ -102,14 +128,14 @@ public class EncryptionContextTests {
         EncryptionContext context1 = new EncryptionContext(
                 "MEDICAL_RECORD",
                 resourceId,
-                100L,
-                "content"
+                "content",
+                Map.of("patientId", "100")
         );
         EncryptionContext context2 = new EncryptionContext(
                 "MEDICAL_RECORD",
                 resourceId,
-                100L,
-                "addendum"
+                "addendum",
+                Map.of("patientId", "100")
         );
 
         assertThat( context1.aad() )
@@ -122,8 +148,8 @@ public class EncryptionContextTests {
         assertThatThrownBy( () -> new EncryptionContext(
                 null,
                 UUID.randomUUID().toString(),
-                100L,
-                "content"
+                "content",
+                Map.of()
         ) )
                 .isInstanceOf( NullPointerException.class );
     }
@@ -134,20 +160,8 @@ public class EncryptionContextTests {
         assertThatThrownBy( () -> new EncryptionContext(
                 "MEDICAL_RECORD",
                 null,
-                100L,
-                "content"
-        ) )
-                .isInstanceOf( NullPointerException.class );
-    }
-
-    @Test
-    @DisplayName( "patientId null → NullPointerException" )
-    void shouldRejectNullPatientId() {
-        assertThatThrownBy( () -> new EncryptionContext(
-                "MEDICAL_RECORD",
-                UUID.randomUUID().toString(),
-                null,
-                "content"
+                "content",
+                Map.of()
         ) )
                 .isInstanceOf( NullPointerException.class );
     }
@@ -158,10 +172,24 @@ public class EncryptionContextTests {
         assertThatThrownBy( () -> new EncryptionContext(
                 "MEDICAL_RECORD",
                 UUID.randomUUID().toString(),
-                100L,
-                null
+                null,
+                Map.of()
         ) )
                 .isInstanceOf( NullPointerException.class );
+    }
+
+    @Test
+    @DisplayName( "attributes null → convertido para empty Map" )
+    void shouldConvertNullAttributesToEmptyMap() {
+        EncryptionContext context = new EncryptionContext(
+                "MEDICAL_RECORD",
+                UUID.randomUUID().toString(),
+                "content",
+                null
+        );
+
+        assertThat( context.attributes() )
+                .isEmpty();
     }
 
     @Test
@@ -171,16 +199,53 @@ public class EncryptionContextTests {
         EncryptionContext context1 = new EncryptionContext(
                 "MEDICAL_RECORD",
                 resourceId,
-                100L,
-                "content"
+                "content",
+                Map.of("patientId", "100")
         );
         EncryptionContext context2 = new EncryptionContext(
                 "MEDICAL_RECORD",
                 resourceId,
-                100L,
-                "content"
+                "content",
+                Map.of("patientId", "100")
         );
 
+        assertThat( context1.aad() )
+                .isEqualTo( context2.aad() );
+    }
+
+    @Test
+    @DisplayName( "attributes são ordenados lexicograficamente na AAD" )
+    void shouldSortAttributesLexicographicallyInAad() {
+        String resourceId = UUID.randomUUID().toString();
+        
+        // Criar com ordem diferente
+        Map<String, String> attrs1 = Map.of(
+                "zebra", "1",
+                "apple", "2",
+                "monkey", "3"
+        );
+        
+        Map<String, String> attrs2 = Map.of(
+                "apple", "2",
+                "monkey", "3",
+                "zebra", "1"
+        );
+        
+        EncryptionContext context1 = new EncryptionContext(
+                "MEDICAL_RECORD",
+                resourceId,
+                "content",
+                attrs1
+        );
+        
+        EncryptionContext context2 = new EncryptionContext(
+                "MEDICAL_RECORD",
+                resourceId,
+                "content",
+                attrs2
+        );
+
+        // AAD deve ser idêntico (ordenado)
         assertThat( context1.aad() )
                 .isEqualTo( context2.aad() );
     }
@@ -191,8 +256,8 @@ public class EncryptionContextTests {
         EncryptionContext context = new EncryptionContext(
                 "MEDICAL_RECORD",
                 UUID.randomUUID().toString(),
-                100L,
-                "content"
+                "content",
+                Map.of("patientId", "100")
         );
 
         Map<String, String> kmsContext = context.keyManagementContext();
