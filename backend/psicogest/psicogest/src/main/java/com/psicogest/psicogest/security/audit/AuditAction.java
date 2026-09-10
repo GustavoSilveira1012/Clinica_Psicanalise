@@ -104,5 +104,37 @@ public enum AuditAction {
     PROVIDER_SETTLEMENT_VALIDATED,
     PROVIDER_SETTLEMENT_MISMATCH_DETECTED,
     PROVIDER_SETTLEMENT_SETTLED,
-    PROVIDER_SETTLEMENT_RECONCILED
+    PROVIDER_SETTLEMENT_RECONCILED,
+
+    /**
+     * 35. Eventos de integração fiscal NFS-e
+     * 
+     * Metadados:
+     * - IDs (não credenciais, certificados, XML completo)
+     * - Códigos e hashes
+     * - Timestamps e status transitions
+     * 
+     * NUNCA auditar:
+     * - Certificado ❌
+     * - Credenciais ❌
+     * - Private key ❌
+     * - XML fiscal completo ❌
+     * - CPF completo ❌
+     * - Justificativa completa (usar hash/resumo) ❌
+     */
+    FISCAL_ISSUER_CREATED,
+    FISCAL_CONFIGURATION_CREATED,
+    SERVICE_INVOICE_CREATED,
+    SERVICE_INVOICE_UPDATED,
+    SERVICE_INVOICE_ISSUE_REQUESTED,
+    SERVICE_INVOICE_AUTHORIZED,
+    SERVICE_INVOICE_REJECTED,
+    SERVICE_INVOICE_RECONCILIATION_REQUIRED,
+    SERVICE_INVOICE_READ,
+    SERVICE_INVOICE_CANCEL_REQUESTED,
+    SERVICE_INVOICE_CANCELLED,
+    SERVICE_INVOICE_SUBSTITUTION_REQUESTED,
+    SERVICE_INVOICE_SUBSTITUTED,
+    FISCAL_DOCUMENT_DOWNLOADED,
+    FISCAL_MANUAL_TAX_OVERRIDE
 }
