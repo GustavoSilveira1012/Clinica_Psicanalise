@@ -13,9 +13,11 @@ import com.psicogest.psicogest.model.entity.Payment.PaymentStatus;
 import com.psicogest.psicogest.model.entity.PaymentAllocation;
 import com.psicogest.psicogest.model.entity.Receivable;
 import com.psicogest.psicogest.model.entity.Receivable.ReceivableStatus;
+import com.psicogest.psicogest.model.entity.Refund.RefundStatus;
 import com.psicogest.psicogest.repository.PaymentAllocationRepository;
 import com.psicogest.psicogest.repository.PaymentRepository;
 import com.psicogest.psicogest.repository.ReceivableRepository;
+import com.psicogest.psicogest.repository.RefundRepository;
 import com.psicogest.psicogest.security.SecurityActor;
 import com.psicogest.psicogest.security.audit.AuditAction;
 import com.psicogest.psicogest.security.audit.AuditCommand;
@@ -48,6 +50,7 @@ public class PaymentAllocationService {
 
     private final PaymentAllocationRepository allocationRepository;
     private final PaymentRepository paymentRepository;
+    private final RefundRepository refundRepository;
     private final ReceivableRepository receivableRepository;
     private final FinanceBalanceService balanceService;
     private final ReceivableStateMachine receivableStateMachine;
@@ -56,6 +59,7 @@ public class PaymentAllocationService {
     public PaymentAllocationService(
             PaymentAllocationRepository allocationRepository,
             PaymentRepository paymentRepository,
+            RefundRepository refundRepository,
             ReceivableRepository receivableRepository,
             FinanceBalanceService balanceService,
             ReceivableStateMachine receivableStateMachine,
@@ -63,6 +67,7 @@ public class PaymentAllocationService {
     ) {
         this.allocationRepository = allocationRepository;
         this.paymentRepository = paymentRepository;
+        this.refundRepository = refundRepository;
         this.receivableRepository = receivableRepository;
         this.balanceService = balanceService;
         this.receivableStateMachine = receivableStateMachine;
@@ -114,10 +119,29 @@ public class PaymentAllocationService {
         if (
                 payment.getStatus()
                         != PaymentStatus.CONFIRMED
+
+                &&
+
+                payment.getStatus()
+                        != PaymentStatus.PARTIALLY_REFUNDED
         ) {
 
             throw new FinanceConflictException(
-                    "Somente pagamentos confirmados podem ser alocados"
+                    "Pagamento não está disponível para alocação"
+            );
+        }
+
+        // 40. Validar que não existe refund pendente
+        if (
+                refundRepository
+                        .existsByPaymentIdAndStatus(
+                                paymentId,
+                                RefundStatus.PENDING
+                        )
+        ) {
+
+            throw new FinanceConflictException(
+                    "Pagamento possui devolução pendente"
             );
         }
 
@@ -203,22 +227,12 @@ public class PaymentAllocationService {
         }
 
         // 25. Validar saldo disponível do pagamento
-        BigDecimal paymentAllocated =
-                allocationRepository
-                        .sumAllocatedByPayment(
-                                payment.getId()
-                        );
-
+        // 41. Usar balanceService para cálculo oficial
         BigDecimal paymentAvailable =
-                payment.getAmount()
-                        .subtract(
-                                paymentAllocated
+                balanceService
+                        .availablePaymentAmount(
+                                payment
                         );
-
-        paymentAvailable =
-                MoneyRules.normalize(
-                        paymentAvailable
-                );
 
         if (
                 requested.compareTo(

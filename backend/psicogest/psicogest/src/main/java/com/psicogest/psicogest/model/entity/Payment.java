@@ -212,6 +212,55 @@ public class Payment {
     }
 
     /**
+     * 36. Marca pagamento como parcialmente reembolsado
+     * Transição: CONFIRMED/PARTIALLY_REFUNDED → PARTIALLY_REFUNDED
+     */
+    public void markPartiallyRefunded(
+            Instant now
+    ) {
+
+        if (
+                status != PaymentStatus.CONFIRMED
+                &&
+                status != PaymentStatus.PARTIALLY_REFUNDED
+        ) {
+
+            throw new InvalidFinanceTransitionException(
+                    "Pagamento não pode ser parcialmente devolvido"
+            );
+        }
+
+        this.status =
+                PaymentStatus.PARTIALLY_REFUNDED;
+
+        this.updatedAt = now;
+    }
+
+    /**
+     * 36. Marca pagamento como totalmente reembolsado
+     * Transição: CONFIRMED/PARTIALLY_REFUNDED → REFUNDED
+     */
+    public void markRefunded(
+            Instant now
+    ) {
+
+        if (
+                status != PaymentStatus.CONFIRMED
+                &&
+                status != PaymentStatus.PARTIALLY_REFUNDED
+        ) {
+
+            throw new InvalidFinanceTransitionException(
+                    "Pagamento não pode ser totalmente devolvido"
+            );
+        }
+
+        this.status = PaymentStatus.REFUNDED;
+
+        this.updatedAt = now;
+    }
+
+    /**
      * Forma de pagamento
      */
     public enum PaymentMethod {
