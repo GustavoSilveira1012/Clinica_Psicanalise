@@ -3,8 +3,11 @@ package com.psicogest.psicogest.repository;
 import com.psicogest.psicogest.infrastructure.payment.provider.PaymentProviderType;
 import com.psicogest.psicogest.infrastructure.payment.provider.webhook.WebhookInboxStatus;
 import com.psicogest.psicogest.model.entity.PaymentWebhookInbox;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
@@ -71,5 +74,22 @@ public interface PaymentWebhookInboxRepository
     long countByStatusAndAttemptCountEquals(
             WebhookInboxStatus status,
             Integer attemptCount
+    );
+
+    /**
+     * Busca webhook com lock pessimista
+     * 
+     * Essencial para atomic claim durante processamento
+     * Garante que apenas uma thread processa cada webhook
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT w
+            FROM PaymentWebhookInbox w
+            WHERE w.id = :id
+            """)
+    Optional<PaymentWebhookInbox> findByIdForUpdate(
+            @Param("id")
+            UUID id
     );
 }

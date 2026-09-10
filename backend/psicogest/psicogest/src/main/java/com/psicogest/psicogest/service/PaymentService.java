@@ -6,6 +6,7 @@ import com.psicogest.psicogest.dto.PaymentResponseDTO;
 import com.psicogest.psicogest.exception.FinanceValidationException;
 import com.psicogest.psicogest.exception.IdempotencyConflictException;
 import com.psicogest.psicogest.exception.ResourceNotFoundException;
+import com.psicogest.psicogest.infrastructure.payment.provider.PaymentProviderType;
 import com.psicogest.psicogest.model.entity.Clinic;
 import com.psicogest.psicogest.model.entity.Patient;
 import com.psicogest.psicogest.model.entity.Payment;
@@ -557,6 +558,165 @@ public class PaymentService {
                 payment.getReceivedAt(),
 
                 payment.getCreatedAt()
+        );
+    }
+
+    /**
+     * 35. Confirma pagamento recebido do provider
+     * 
+     * Chamado pelo webhook processor após verificação de assinatura
+     * Implementa idempotência em 2 camadas:
+     * 1. Inbox (UNIQUE provider + providerEventId)
+     * 2. State Machine (transições legítimas)
+     * 
+     * Transição: PENDING → CONFIRMED
+     * Ou: já confirmado → retorna (webhook duplicado)
+     * 
+     * @param provider tipo de provider
+     * @param providerTransactionId ID da transação no provider
+     * @param occurredAt quando ocorreu no provider
+     * @throws ResourceNotFoundException se transação não encontrada
+     * @throws InvalidFinanceTransitionException se transição inválida
+     */
+    @Transactional
+    public void confirmFromProvider(
+            PaymentProviderType provider,
+            String providerTransactionId,
+            Instant occurredAt
+    ) {
+
+        // 35. Buscar pagamento com lock pessimista
+        Payment payment =
+                paymentRepository
+                        .findByProviderAndProviderTransactionIdForUpdate(
+                                provider.name(),
+                                providerTransactionId
+                        )
+                        .orElseThrow(
+                                () ->
+                                        new ResourceNotFoundException(
+                                                "Transação financeira externa não encontrada"
+                                        )
+                        );
+
+        // 35. Webhook repetido = operação idempotente
+        if (
+                payment.getStatus() == PaymentStatus.CONFIRMED
+                ||
+                payment.getStatus() == PaymentStatus.PARTIALLY_REFUNDED
+                ||
+                payment.getStatus() == PaymentStatus.REFUNDED
+        ) {
+
+            log.info(
+                    "Pagamento já confirmado (webhook duplicado): " +
+                            "provider={}, providerTransactionId={}, status={}",
+                    provider,
+                    providerTransactionId,
+                    payment.getStatus()
+            );
+
+            return;
+        }
+
+        // 35. Validar transição de estado
+        paymentStateMachine.validateTransition(
+                payment.getStatus(),
+                PaymentStatus.CONFIRMED
+        );
+
+        // 35. Confirmar pagamento
+        payment.confirm(occurredAt);
+
+        paymentRepository.saveAndFlush(payment);
+
+        log.info(
+                "Pagamento confirmado do provider: " +
+                        "id={}, provider={}, providerTransactionId={}, amount={}, occurredAt={}",
+                payment.getId(),
+                provider,
+                providerTransactionId,
+                payment.getAmount(),
+                occurredAt
+        );
+    }
+
+    /**
+     * Marca pagamento como falho recebido do provider
+     * 
+     * Chamado pelo webhook processor quando provider informa falha
+     * 
+     * Transição: PENDING → FAILED
+     * Ou: já em estado terminal → retorna (webhook duplicado/obsoleto)
+     * 
+     * @param provider tipo de provider
+     * @param providerTransactionId ID da transação no provider
+     * @param occurredAt quando ocorreu no provider
+     */
+    @Transactional
+    public void failFromProvider(
+            PaymentProviderType provider,
+            String providerTransactionId,
+            Instant occurredAt
+    ) {
+
+        // Buscar pagamento com lock pessimista
+        Payment payment =
+                paymentRepository
+                        .findByProviderAndProviderTransactionIdForUpdate(
+                                provider.name(),
+                                providerTransactionId
+                        )
+                        .orElseThrow(
+                                () ->
+                                        new ResourceNotFoundException(
+                                                "Transação financeira externa não encontrada"
+                                        )
+                        );
+
+        // Webhook repetido ou estado terminal
+        if (
+                payment.getStatus() == PaymentStatus.FAILED
+                ||
+                payment.getStatus() == PaymentStatus.CANCELLED
+                ||
+                payment.getStatus() == PaymentStatus.CONFIRMED
+                ||
+                payment.getStatus() == PaymentStatus.PARTIALLY_REFUNDED
+                ||
+                payment.getStatus() == PaymentStatus.REFUNDED
+        ) {
+
+            log.info(
+                    "Pagamento já em estado terminal (webhook descartado): " +
+                            "provider={}, providerTransactionId={}, status={}",
+                    provider,
+                    providerTransactionId,
+                    payment.getStatus()
+            );
+
+            return;
+        }
+
+        // Validar transição de estado
+        paymentStateMachine.validateTransition(
+                payment.getStatus(),
+                PaymentStatus.FAILED
+        );
+
+        // Marcar como falho
+        payment.fail();
+
+        paymentRepository.saveAndFlush(payment);
+
+        log.info(
+                "Pagamento marcado como falho do provider: " +
+                        "id={}, provider={}, providerTransactionId={}, amount={}, occurredAt={}",
+                payment.getId(),
+                provider,
+                providerTransactionId,
+                payment.getAmount(),
+                occurredAt
         );
     }
 }

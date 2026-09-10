@@ -7,6 +7,7 @@ import com.psicogest.psicogest.dto.RefundCreateDTO;
 import com.psicogest.psicogest.exception.FinanceConflictException;
 import com.psicogest.psicogest.exception.FinanceValidationException;
 import com.psicogest.psicogest.exception.ResourceNotFoundException;
+import com.psicogest.psicogest.infrastructure.payment.provider.PaymentProviderType;
 import com.psicogest.psicogest.model.entity.Payment;
 import com.psicogest.psicogest.model.entity.Payment.PaymentStatus;
 import com.psicogest.psicogest.model.entity.PaymentAllocation;
@@ -837,5 +838,163 @@ public class RefundService {
         );
 
         return saved;
+    }
+
+    /**
+     * Confirma reembolso recebido do provider
+     * 
+     * Chamado pelo webhook processor após verificação de assinatura
+     * 
+     * Transição: PENDING → CONFIRMED
+     * Ou: já confirmado → retorna (webhook duplicado)
+     * 
+     * @param providerRefundId ID do refund no provider
+     * @param provider tipo de provider
+     * @param occurredAt quando ocorreu no provider
+     */
+    @Transactional
+    public void confirmFromProvider(
+            String providerRefundId,
+            PaymentProviderType provider,
+            Instant occurredAt
+    ) {
+
+        // Buscar refund com lock pessimista
+        Refund refund =
+                refundRepository
+                        .findByProviderAndProviderRefundIdForUpdate(
+                                provider.name(),
+                                providerRefundId
+                        )
+                        .orElseThrow(
+                                () ->
+                                        new ResourceNotFoundException(
+                                                "Reembolso externo não encontrado"
+                                        )
+                        );
+
+        // Webhook repetido = operação idempotente
+        if (refund.getStatus() == RefundStatus.CONFIRMED) {
+
+            log.info(
+                    "Reembolso já confirmado (webhook duplicado): " +
+                            "provider={}, providerRefundId={}, status={}",
+                    provider,
+                    providerRefundId,
+                    refund.getStatus()
+            );
+
+            return;
+        }
+
+        // Validar transição de estado
+        refundStateMachine.validateTransition(
+                refund.getStatus(),
+                RefundStatus.CONFIRMED
+        );
+
+        // Confirmar reembolso
+        refund.confirm(occurredAt);
+
+        refundRepository.saveAndFlush(refund);
+
+        // Buscar Payment para logging
+        Payment payment =
+                paymentRepository
+                        .findById(refund.getPayment().getId())
+                        .orElseThrow();
+
+        log.info(
+                "Reembolso confirmado do provider: " +
+                        "id={}, provider={}, providerRefundId={}, amount={}, payment={}, occurredAt={}",
+                refund.getId(),
+                provider,
+                providerRefundId,
+                refund.getAmount(),
+                payment.getId(),
+                occurredAt
+        );
+    }
+
+    /**
+     * Marca reembolso como falho recebido do provider
+     * 
+     * Chamado pelo webhook processor quando provider informa falha no refund
+     * 
+     * Transição: PENDING → FAILED
+     * Ou: já em estado terminal → retorna (webhook duplicado/obsoleto)
+     * 
+     * @param providerRefundId ID do refund no provider
+     * @param provider tipo de provider
+     * @param occurredAt quando ocorreu no provider
+     */
+    @Transactional
+    public void failFromProvider(
+            String providerRefundId,
+            PaymentProviderType provider,
+            Instant occurredAt
+    ) {
+
+        // Buscar refund com lock pessimista
+        Refund refund =
+                refundRepository
+                        .findByProviderAndProviderRefundIdForUpdate(
+                                provider.name(),
+                                providerRefundId
+                        )
+                        .orElseThrow(
+                                () ->
+                                        new ResourceNotFoundException(
+                                                "Reembolso externo não encontrado"
+                                        )
+                        );
+
+        // Webhook repetido ou estado terminal
+        if (
+                refund.getStatus() == RefundStatus.FAILED
+                ||
+                refund.getStatus() == RefundStatus.CANCELLED
+                ||
+                refund.getStatus() == RefundStatus.CONFIRMED
+        ) {
+
+            log.info(
+                    "Reembolso já em estado terminal (webhook descartado): " +
+                            "provider={}, providerRefundId={}, status={}",
+                    provider,
+                    providerRefundId,
+                    refund.getStatus()
+            );
+
+            return;
+        }
+
+        // Validar transição de estado
+        refundStateMachine.validateTransition(
+                refund.getStatus(),
+                RefundStatus.FAILED
+        );
+
+        // Marcar como falho
+        refund.fail(occurredAt);
+
+        refundRepository.saveAndFlush(refund);
+
+        // Buscar Payment para logging
+        Payment payment =
+                paymentRepository
+                        .findById(refund.getPayment().getId())
+                        .orElseThrow();
+
+        log.info(
+                "Reembolso marcado como falho do provider: " +
+                        "id={}, provider={}, providerRefundId={}, amount={}, payment={}, occurredAt={}",
+                refund.getId(),
+                provider,
+                providerRefundId,
+                refund.getAmount(),
+                payment.getId(),
+                occurredAt
+        );
     }
 }

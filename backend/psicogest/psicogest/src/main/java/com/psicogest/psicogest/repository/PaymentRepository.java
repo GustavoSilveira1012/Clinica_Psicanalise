@@ -32,4 +32,22 @@ public interface PaymentRepository
             @Param("paymentId")
             UUID paymentId
     );
+
+    /**
+     * Busca pagamento por provider e provider transaction ID com lock pessimista
+     * Essencial para confirmação via webhook
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT p
+            FROM Payment p
+            WHERE p.provider = :provider
+            AND p.providerTransactionId = :providerTransactionId
+            """)
+    Optional<Payment> findByProviderAndProviderTransactionIdForUpdate(
+            @Param("provider")
+            String provider,
+            @Param("providerTransactionId")
+            String providerTransactionId
+    );
 }

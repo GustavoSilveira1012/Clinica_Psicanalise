@@ -68,5 +68,26 @@ public enum AuditAction {
     CONSENT_ACCEPTED,
     CONSENT_REVOKED,
 
-    DATA_EXPORTED
+    DATA_EXPORTED,
+
+    /**
+     * 32. Eventos de reconciliação bancária
+     * 
+     * Metadados: fileHash, parser type, transaction count, import count
+     */
+    BANK_STATEMENT_IMPORTED,
+    BANK_STATEMENT_IMPORT_FAILED,
+
+    /**
+     * 33. Eventos de reconciliação manual de lançamentos
+     * 
+     * BANK_TRANSACTION_RECONCILED: alocação resultou em 100%
+     * BANK_TRANSACTION_PARTIALLY_RECONCILED: alocação resultou em < 100%
+     * BANK_TRANSACTION_IGNORED: marcado para ignorar (tarifa, juros, etc)
+     * BANK_RECONCILIATION_REVERSED: reverter alocação
+     */
+    BANK_TRANSACTION_RECONCILED,
+    BANK_TRANSACTION_PARTIALLY_RECONCILED,
+    BANK_TRANSACTION_IGNORED,
+    BANK_RECONCILIATION_REVERSED
 }

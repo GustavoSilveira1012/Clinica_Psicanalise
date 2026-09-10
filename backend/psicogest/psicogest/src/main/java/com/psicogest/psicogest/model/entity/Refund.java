@@ -96,6 +96,20 @@ public class Refund {
     private String requestFingerprint;
 
     /**
+     * Gateway/Provider do refund (ASAAS, MERCADO_PAGO, etc)
+     * Será preenchido quando confirmado via webhook
+     */
+    @Column(name = "provider", length = 50)
+    private String provider;
+
+    /**
+     * ID do reembolso no provider
+     * Essencial para webhooks: permite correlacionar webhook com refund local
+     */
+    @Column(name = "provider_refund_id", length = 255)
+    private String providerRefundId;
+
+    /**
      * Quando foi solicitado
      */
     @Column(name = "requested_at")

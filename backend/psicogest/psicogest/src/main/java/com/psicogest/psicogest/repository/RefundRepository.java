@@ -81,4 +81,22 @@ public interface RefundRepository extends JpaRepository<Refund, UUID> {
             @Param("paymentId")
             UUID paymentId
     );
+
+    /**
+     * Busca refund por provider e provider refund ID com lock pessimista
+     * Essencial para confirmação de refund via webhook
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT r
+            FROM Refund r
+            WHERE r.provider = :provider
+            AND r.providerRefundId = :providerRefundId
+            """)
+    Optional<Refund> findByProviderAndProviderRefundIdForUpdate(
+            @Param("provider")
+            String provider,
+            @Param("providerRefundId")
+            String providerRefundId
+    );
 }
