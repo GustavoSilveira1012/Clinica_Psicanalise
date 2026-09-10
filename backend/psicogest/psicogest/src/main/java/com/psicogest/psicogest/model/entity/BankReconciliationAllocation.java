@@ -24,6 +24,7 @@ import java.util.UUID;
                 @Index(name = "idx_bank_transaction_allocation", columnList = "bank_transaction_id"),
                 @Index(name = "idx_payment_allocation", columnList = "payment_id"),
                 @Index(name = "idx_refund_allocation", columnList = "refund_id"),
+                @Index(name = "idx_settlement_allocation", columnList = "provider_settlement_id"),
                 @Index(name = "idx_allocation_status", columnList = "status"),
         }
 )
@@ -60,6 +61,13 @@ public class BankReconciliationAllocation {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "refund_id", updatable = false)
     private Refund refund;
+
+    /**
+     * Repasse de gateway alocado (pode ser null se for payment/refund)
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "provider_settlement_id", updatable = false)
+    private ProviderSettlement providerSettlement;
 
     /**
      * Valor alocado (pode ser parcial do lançamento)

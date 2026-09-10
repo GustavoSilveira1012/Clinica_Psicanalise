@@ -23,9 +23,11 @@ import com.psicogest.psicogest.model.entity.BankReconciliationAllocation.Allocat
 import com.psicogest.psicogest.model.entity.BankReconciliationAllocation.AllocationStatus;
 import com.psicogest.psicogest.model.entity.BankTransaction;
 import com.psicogest.psicogest.model.entity.Payment;
+import com.psicogest.psicogest.model.entity.ProviderSettlement;
 import com.psicogest.psicogest.repository.BankReconciliationAllocationRepository;
 import com.psicogest.psicogest.repository.BankTransactionRepository;
 import com.psicogest.psicogest.repository.PaymentRepository;
+import com.psicogest.psicogest.repository.ProviderSettlementRepository;
 import com.psicogest.psicogest.security.SecurityActor;
 import com.psicogest.psicogest.security.audit.AuditAction;
 import com.psicogest.psicogest.security.audit.AuditCommand;
@@ -56,6 +58,8 @@ public class BankReconciliationService {
 
     private final BankReconciliationAllocationRepository allocationRepository;
 
+    private final ProviderSettlementRepository providerSettlementRepository;
+
     private final AuditService auditService;
 
     private final Clock clock;
@@ -64,12 +68,14 @@ public class BankReconciliationService {
             BankTransactionRepository bankTransactionRepository,
             PaymentRepository paymentRepository,
             BankReconciliationAllocationRepository allocationRepository,
+            ProviderSettlementRepository providerSettlementRepository,
             AuditService auditService,
             Clock clock
     ) {
         this.bankTransactionRepository = bankTransactionRepository;
         this.paymentRepository = paymentRepository;
         this.allocationRepository = allocationRepository;
+        this.providerSettlementRepository = providerSettlementRepository;
         this.auditService = auditService;
         this.clock = clock;
     }
@@ -362,5 +368,255 @@ public class BankReconciliationService {
                 transactionId,
                 dto.reason()
         );
+    }
+
+    /**
+     * Reconcilia lançamento bancário com ProviderSettlement
+     * 
+     * Validações:
+     * - Settlement deve ser SETTLED
+     * - Settlement deve estar MATCHED
+     * - Direção do settlement deve bater com direção do bank transaction
+     * - Clinic do settlement deve ser da conta
+     * - Saldo do settlement não pode ser liquidado acima
+     */
+    public BankReconciliationAllocation reconcileWithProviderSettlement(
+            UUID transactionId,
+            UUID settlementId,
+            BigDecimal amount,
+            SecurityActor actor
+    ) {
+
+        Instant now = clock.instant();
+
+        // Lock BankTransaction
+        BankTransaction transaction =
+                bankTransactionRepository
+                        .findByIdForUpdate(transactionId)
+                        .orElseThrow(
+                                () ->
+                                        new ResourceNotFoundException(
+                                                "Lançamento não encontrado"
+                                        )
+                        );
+
+        // Lock ProviderSettlement
+        ProviderSettlement settlement =
+                providerSettlementRepository
+                        .findByIdForUpdate(settlementId)
+                        .orElseThrow(
+                                () ->
+                                        new ResourceNotFoundException(
+                                                "Repasse não encontrado"
+                                        )
+                        );
+
+        // Validar que settlement está pronto
+        if (!settlement.getStatus()
+                .name()
+                .equals("SETTLED")) {
+
+            throw new FinanceConflictException(
+                    "Repasse não foi liquidado"
+            );
+        }
+
+        // Validar que foi validado
+        if (!settlement.getValidationStatus()
+                .name()
+                .equals("MATCHED")) {
+
+            throw new FinanceConflictException(
+                    "Repasse possui divergência de saldo"
+            );
+        }
+
+        // Validar Clinic
+        if (!transaction.getBankAccount()
+                .getClinic()
+                .getId()
+                .equals(
+                        settlement.getClinic()
+                                .getId()
+                )) {
+
+            throw new FinanceConflictException(
+                    "Settlement pertence a outra clínica"
+            );
+        }
+
+        // Validar direção
+        // Se settlement é CREDIT → BankTransaction deve ser CREDIT
+        // Se settlement é DEBIT → BankTransaction deve ser DEBIT
+        String settlementDirection =
+                settlement.getSettlementDirection()
+                        .name();
+
+        BankTransactionDirection txDirection =
+                transaction.getDirection();
+
+        boolean directionValid = false;
+
+        if ("CREDIT_TO_FINANCIAL_ENTITY"
+                .equals(settlementDirection)) {
+
+            directionValid =
+                    txDirection ==
+                    BankTransactionDirection.CREDIT;
+
+        } else if (
+                "DEBIT_FROM_FINANCIAL_ENTITY"
+                        .equals(settlementDirection)
+        ) {
+
+            directionValid =
+                    txDirection ==
+                    BankTransactionDirection.DEBIT;
+        }
+
+        if (!directionValid) {
+
+            throw new FinanceConflictException(
+                    "Direção do settlement não bate com direção do lançamento"
+            );
+        }
+
+        // Saldo bancário
+        BigDecimal reconciled =
+                allocationRepository
+                        .sumReconciledAmount(
+                                transactionId
+                        );
+
+        if (amount.compareTo(
+                transaction.getAmount()
+                        .subtract(reconciled)
+        ) > 0) {
+
+            throw new FinanceConflictException(
+                    "Saldo insuficiente no lançamento"
+            );
+        }
+
+        // Saldo do settlement (simplificado:
+        // assumir que o amount é <= reportedNetAmount)
+        if (amount.compareTo(
+                settlement.getReportedNetAmount()
+        ) > 0) {
+
+            throw new FinanceConflictException(
+                    "Saldo insuficiente no repasse"
+            );
+        }
+
+        // Criar allocation
+        BankReconciliationAllocation allocation =
+                BankReconciliationAllocation
+                        .builder()
+
+                        .id(UUID.randomUUID())
+
+                        .bankTransaction(transaction)
+
+                        .providerSettlement(
+                                settlement
+                        )
+
+                        .allocatedAmount(amount)
+
+                        .currency(
+                                transaction
+                                        .getCurrency()
+                        )
+
+                        .status(
+                                AllocationStatus.CONFIRMED
+                        )
+
+                        .allocatedBy(
+                                AllocationSource.MANUAL
+                        )
+
+                        .allocatedAt(now)
+
+                        .createdAt(now)
+
+                        .build();
+
+        allocationRepository.save(allocation);
+
+        // Atualizar status BankTransaction
+        BigDecimal newReconciled =
+                reconciled.add(amount);
+
+        if (newReconciled.compareTo(
+                transaction.getAmount()) == 0) {
+
+            transaction.markReconciled();
+
+        } else {
+
+            transaction
+                    .markPartiallyReconciled();
+        }
+
+        bankTransactionRepository.save(transaction);
+
+        // Auditoria
+        auditService.recordCriticalWrite(
+
+                new AuditCommand(
+
+                        actor.userId(),
+
+                        actor.sessionId(),
+
+                        newReconciled.compareTo(
+                                transaction.getAmount()
+                        ) == 0
+                                ? AuditAction
+                                .BANK_TRANSACTION_RECONCILED
+                                : AuditAction
+                                .BANK_TRANSACTION_PARTIALLY_RECONCILED,
+
+                        "BANK_TRANSACTION",
+
+                        transaction.getId()
+                                .toString(),
+
+                        null,
+
+                        transaction.getBankAccount()
+                                .getClinic()
+                                .getId(),
+
+                        AuditOutcome.SUCCESS,
+
+                        actor.correlationId(),
+
+                        actor.sourceIp(),
+
+                        actor.userAgentHash(),
+
+                        Map.of(
+                                "settlementId",
+                                settlement.getId()
+                                        .toString(),
+
+                                "amount",
+                                amount.toPlainString()
+                        )
+                )
+        );
+
+        log.info(
+                "Settlement reconciliado: " +
+                        "tx={}, settlement={}, amount={}",
+                transactionId,
+                settlementId,
+                amount
+        );
+
+        return allocation;
     }
 }

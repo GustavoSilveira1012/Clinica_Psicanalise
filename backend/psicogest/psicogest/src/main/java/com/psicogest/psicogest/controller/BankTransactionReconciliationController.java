@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.psicogest.psicogest.dto.IgnoreBankTransactionDTO;
 import com.psicogest.psicogest.dto.ReconcilePaymentDTO;
+import com.psicogest.psicogest.dto.ReconcileProviderSettlementDTO;
 import com.psicogest.psicogest.dto.ReconciliationSuggestionDTO;
 import com.psicogest.psicogest.model.entity.BankReconciliationAllocation;
 import com.psicogest.psicogest.security.SecurityActor;
@@ -177,5 +178,57 @@ public class BankTransactionReconciliationController {
         return ResponseEntity
                 .noContent()
                 .build();
+    }
+
+    /**
+     * Reconcilia lançamento bancário com ProviderSettlement
+     * 
+     * POST /bank-transactions/{id}/reconcile/provider-settlement
+     * 
+     * @param transactionId ID do lançamento
+     * @param dto dados de reconciliação (settlementId, amount)
+     * @param authentication contexto de segurança
+     * @param request requisição HTTP
+     * @return allocation criada
+     */
+    @PostMapping("/reconcile/provider-settlement")
+    public ResponseEntity<BankReconciliationAllocation>
+            reconcileWithProviderSettlement(
+                    @PathVariable
+                    UUID transactionId,
+
+                    @Valid
+                    @RequestBody
+                    ReconcileProviderSettlementDTO dto,
+
+                    Authentication authentication,
+
+                    HttpServletRequest request
+            ) {
+
+        SecurityActor actor =
+                securityActorFactory
+                        .from(authentication, request);
+
+        log.info(
+                "Reconciliando lançamento bancário com repasse: " +
+                        "transactionId={}, settlementId={}, amount={}",
+                transactionId,
+                dto.settlementId(),
+                dto.amount()
+        );
+
+        BankReconciliationAllocation allocation =
+                reconciliationService
+                        .reconcileWithProviderSettlement(
+                                transactionId,
+                                dto.settlementId(),
+                                dto.amount(),
+                                actor
+                        );
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(allocation);
     }
 }

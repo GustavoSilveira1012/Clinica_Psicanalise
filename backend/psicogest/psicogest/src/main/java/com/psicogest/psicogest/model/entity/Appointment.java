@@ -111,4 +111,247 @@ public class Appointment {
         protected void onUpdate() {
                 updatedAt = LocalDateTime.now();
         }
+
+        // Lombok-generated methods (explicitly added due to annotation processor issue)
+        public Long getId() {
+                return id;
+        }
+
+        public LocalDateTime getScheduledStart() {
+                return scheduledStart;
+        }
+
+        public LocalDateTime getScheduledEnd() {
+                return scheduledEnd;
+        }
+
+        public LocalDateTime getCompletedAt() {
+                return completedAt;
+        }
+
+        public void setCompletedAt(LocalDateTime completedAt) {
+                this.completedAt = completedAt;
+        }
+
+        public LocalDateTime getNoShowAt() {
+                return noShowAt;
+        }
+
+        public void setNoShowAt(LocalDateTime noShowAt) {
+                this.noShowAt = noShowAt;
+        }
+
+        public LocalDateTime getRescheduledAt() {
+                return rescheduledAt;
+        }
+
+        public void setRescheduledAt(LocalDateTime rescheduledAt) {
+                this.rescheduledAt = rescheduledAt;
+        }
+
+        public LocalDateTime getCancelledAt() {
+                return cancelledAt;
+        }
+
+        public void setCancelledAt(LocalDateTime cancelledAt) {
+                this.cancelledAt = cancelledAt;
+        }
+
+        public void setCancellationReason(String cancellationReason) {
+                this.cancellationReason = cancellationReason;
+        }
+
+        public Patient getPatient() {
+                return patient;
+        }
+
+        public Psychoanalyst getPsychoanalyst() {
+                return psychoanalyst;
+        }
+
+        public ClinicMembership getClinicMembership() {
+                return clinicMembership;
+        }
+
+        public Appointment getOriginalAppointment() {
+                return originalAppointment;
+        }
+
+        public AppointmentSeries getAppointmentSeries() {
+                return appointmentSeries;
+        }
+
+        public Integer getOccurrenceNumber() {
+                return occurrenceNumber;
+        }
+
+        public AppointmentType getAppointmentType() {
+                return appointmentType;
+        }
+
+        public AppointmentStatus getStatus() {
+                return status;
+        }
+
+        public void setStatus(AppointmentStatus status) {
+                this.status = status;
+        }
+
+        public String getCancellationReason() {
+                return cancellationReason;
+        }
+
+        public LocalDateTime getConfirmedAt() {
+                return confirmedAt;
+        }
+
+        public void setConfirmedAt(LocalDateTime confirmedAt) {
+                this.confirmedAt = confirmedAt;
+        }
+
+        // Builder pattern support
+        public static AppointmentBuilder builder() {
+                return new AppointmentBuilder();
+        }
+
+        public static class AppointmentBuilder {
+                private Long id;
+                private Patient patient;
+                private Psychoanalyst psychoanalyst;
+                private ClinicMembership clinicMembership;
+                private Appointment originalAppointment;
+                private AppointmentSeries appointmentSeries;
+                private Integer occurrenceNumber;
+                private LocalDateTime scheduledStart;
+                private LocalDateTime scheduledEnd;
+                private AppointmentStatus status;
+                private AppointmentType appointmentType;
+                private String cancellationReason;
+                private LocalDateTime cancelledAt;
+                private LocalDateTime createdAt;
+                private LocalDateTime updatedAt;
+                private LocalDateTime confirmedAt;
+                private LocalDateTime completedAt;
+                private LocalDateTime noShowAt;
+                private LocalDateTime rescheduledAt;
+
+                public AppointmentBuilder id(Long id) {
+                        this.id = id;
+                        return this;
+                }
+
+                public AppointmentBuilder patient(Patient patient) {
+                        this.patient = patient;
+                        return this;
+                }
+
+                public AppointmentBuilder psychoanalyst(Psychoanalyst psychoanalyst) {
+                        this.psychoanalyst = psychoanalyst;
+                        return this;
+                }
+
+                public AppointmentBuilder clinicMembership(ClinicMembership clinicMembership) {
+                        this.clinicMembership = clinicMembership;
+                        return this;
+                }
+
+                public AppointmentBuilder originalAppointment(Appointment originalAppointment) {
+                        this.originalAppointment = originalAppointment;
+                        return this;
+                }
+
+                public AppointmentBuilder appointmentSeries(AppointmentSeries appointmentSeries) {
+                        this.appointmentSeries = appointmentSeries;
+                        return this;
+                }
+
+                public AppointmentBuilder occurrenceNumber(Integer occurrenceNumber) {
+                        this.occurrenceNumber = occurrenceNumber;
+                        return this;
+                }
+
+                public AppointmentBuilder scheduledStart(LocalDateTime scheduledStart) {
+                        this.scheduledStart = scheduledStart;
+                        return this;
+                }
+
+                public AppointmentBuilder scheduledEnd(LocalDateTime scheduledEnd) {
+                        this.scheduledEnd = scheduledEnd;
+                        return this;
+                }
+
+                public AppointmentBuilder status(AppointmentStatus status) {
+                        this.status = status;
+                        return this;
+                }
+
+                public AppointmentBuilder appointmentType(AppointmentType appointmentType) {
+                        this.appointmentType = appointmentType;
+                        return this;
+                }
+
+                public AppointmentBuilder cancellationReason(String cancellationReason) {
+                        this.cancellationReason = cancellationReason;
+                        return this;
+                }
+
+                public AppointmentBuilder cancelledAt(LocalDateTime cancelledAt) {
+                        this.cancelledAt = cancelledAt;
+                        return this;
+                }
+
+                public AppointmentBuilder createdAt(LocalDateTime createdAt) {
+                        this.createdAt = createdAt;
+                        return this;
+                }
+
+                public AppointmentBuilder updatedAt(LocalDateTime updatedAt) {
+                        this.updatedAt = updatedAt;
+                        return this;
+                }
+
+                public AppointmentBuilder confirmedAt(LocalDateTime confirmedAt) {
+                        this.confirmedAt = confirmedAt;
+                        return this;
+                }
+
+                public AppointmentBuilder completedAt(LocalDateTime completedAt) {
+                        this.completedAt = completedAt;
+                        return this;
+                }
+
+                public AppointmentBuilder noShowAt(LocalDateTime noShowAt) {
+                        this.noShowAt = noShowAt;
+                        return this;
+                }
+
+                public AppointmentBuilder rescheduledAt(LocalDateTime rescheduledAt) {
+                        this.rescheduledAt = rescheduledAt;
+                        return this;
+                }
+
+                public Appointment build() {
+                        Appointment appointment = new Appointment();
+                        appointment.id = this.id;
+                        appointment.patient = this.patient;
+                        appointment.psychoanalyst = this.psychoanalyst;
+                        appointment.clinicMembership = this.clinicMembership;
+                        appointment.originalAppointment = this.originalAppointment;
+                        appointment.appointmentSeries = this.appointmentSeries;
+                        appointment.occurrenceNumber = this.occurrenceNumber;
+                        appointment.scheduledStart = this.scheduledStart;
+                        appointment.scheduledEnd = this.scheduledEnd;
+                        appointment.status = this.status;
+                        appointment.appointmentType = this.appointmentType;
+                        appointment.cancellationReason = this.cancellationReason;
+                        appointment.cancelledAt = this.cancelledAt;
+                        appointment.createdAt = this.createdAt;
+                        appointment.updatedAt = this.updatedAt;
+                        appointment.confirmedAt = this.confirmedAt;
+                        appointment.completedAt = this.completedAt;
+                        appointment.noShowAt = this.noShowAt;
+                        appointment.rescheduledAt = this.rescheduledAt;
+                        return appointment;
+                }
+        }
 }
