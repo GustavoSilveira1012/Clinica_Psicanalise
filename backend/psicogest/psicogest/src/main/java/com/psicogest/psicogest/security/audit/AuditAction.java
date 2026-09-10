@@ -59,6 +59,9 @@ public enum AuditAction {
     REFUND_FAILED,
     REFUND_CANCELLED,
 
+    CREDIT_CREATED,
+    CREDIT_APPLIED,
+
     INVOICE_ISSUED,
     INVOICE_CANCELLED,
 

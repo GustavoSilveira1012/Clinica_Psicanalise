@@ -21,13 +21,26 @@ public class ReceivableStateMachine {
                             ||
                             target == ReceivableStatus.PAID
                             ||
-                            target == ReceivableStatus.CANCELLED;
+                            target == ReceivableStatus.CANCELLED
+                            ||
+                            target == ReceivableStatus.CANCELLATION_PENDING;
 
                     case PARTIALLY_PAID ->
-                            target == ReceivableStatus.PAID;
+                            target == ReceivableStatus.PAID
+                            ||
+                            target == ReceivableStatus.CANCELLED
+                            ||
+                            target == ReceivableStatus.CANCELLATION_PENDING;
 
-                    case PAID,
-                         CANCELLED ->
+                    case PAID ->
+                            target == ReceivableStatus.CANCELLED
+                            ||
+                            target == ReceivableStatus.CANCELLATION_PENDING;
+
+                    case CANCELLATION_PENDING ->
+                            target == ReceivableStatus.CANCELLED;
+
+                    case CANCELLED ->
                             false;
                 };
 

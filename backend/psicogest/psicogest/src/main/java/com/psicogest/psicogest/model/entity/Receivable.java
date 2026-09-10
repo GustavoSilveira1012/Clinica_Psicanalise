@@ -126,7 +126,7 @@ public class Receivable {
     private LocalDate dueDate;
 
     /**
-     * Status: OPEN, PARTIALLY_PAID, PAID, CANCELLED
+     * Status: OPEN, PARTIALLY_PAID, PAID, CANCELLED, CANCELLATION_PENDING
      */
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -205,6 +205,50 @@ public class Receivable {
     }
 
     /**
+     * 33. Marca como CANCELLATION_PENDING
+     * Estado intermediário durante cancelamento com refund
+     */
+    public void markCancellationPending() {
+
+        if (
+                status != ReceivableStatus.OPEN
+                &&
+                status != ReceivableStatus.PARTIALLY_PAID
+                &&
+                status != ReceivableStatus.PAID
+        ) {
+
+            throw new InvalidFinanceTransitionException(
+                    "Cobrança não pode iniciar cancelamento"
+            );
+        }
+
+        this.status =
+                ReceivableStatus.CANCELLATION_PENDING;
+
+        this.updatedAt = Instant.now();
+    }
+
+    /**
+     * 28. Cancela a cobrança
+     */
+    public void cancel(Instant now) {
+
+        if (status == ReceivableStatus.CANCELLED) {
+
+            throw new InvalidFinanceTransitionException(
+                    "Cobrança já cancelada"
+            );
+        }
+
+        this.status = ReceivableStatus.CANCELLED;
+
+        this.cancelledAt = now;
+
+        this.updatedAt = now;
+    }
+
+    /**
      * Valida se não foi cancelada (helper interno)
      */
     private void ensureNotCancelled() {
@@ -221,9 +265,10 @@ public class Receivable {
      * Status da conta a receber
      */
     public enum ReceivableStatus {
-        OPEN,              // Aberta, não paga
-        PARTIALLY_PAID,    // Parcialmente paga
-        PAID,              // Totalmente paga
-        CANCELLED          // Cancelada
+        OPEN,                      // Aberta, não paga
+        PARTIALLY_PAID,            // Parcialmente paga
+        PAID,                      // Totalmente paga
+        CANCELLATION_PENDING,      // Cancelamento em andamento (aguardando refunds)
+        CANCELLED                  // Cancelada
     }
 }

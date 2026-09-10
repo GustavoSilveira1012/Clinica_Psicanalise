@@ -64,6 +64,21 @@ public interface PaymentAllocationRepository
     List<PaymentAllocation> findByReceivableId(UUID receivableId);
 
     /**
+     * 19. Busca allocations ordenadas por data/id
+     * Para cancelamento com crédito
+     */
+    @Query("""
+            SELECT a
+            FROM PaymentAllocation a
+            WHERE a.receivable.id = :receivableId
+            ORDER BY a.createdAt, a.id
+            """)
+    List<PaymentAllocation> findByReceivableIdOrdered(
+            @Param("receivableId")
+            UUID receivableId
+    );
+
+    /**
      * 9. Busca allocation com lock pessimista
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)

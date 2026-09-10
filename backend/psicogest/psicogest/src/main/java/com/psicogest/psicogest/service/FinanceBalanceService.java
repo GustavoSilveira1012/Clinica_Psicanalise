@@ -2,7 +2,9 @@ package com.psicogest.psicogest.service;
 
 import com.psicogest.psicogest.domain.finance.MoneyRules;
 import com.psicogest.psicogest.model.entity.Payment;
+import com.psicogest.psicogest.model.entity.PaymentAllocation;
 import com.psicogest.psicogest.model.entity.Receivable;
+import com.psicogest.psicogest.repository.CreditEntryRepository;
 import com.psicogest.psicogest.repository.PaymentAllocationRepository;
 import com.psicogest.psicogest.repository.RefundAllocationRepository;
 import com.psicogest.psicogest.repository.RefundRepository;
@@ -28,15 +30,18 @@ public class FinanceBalanceService {
     private final PaymentAllocationRepository allocationRepository;
     private final RefundRepository refundRepository;
     private final RefundAllocationRepository refundAllocationRepository;
+    private final CreditEntryRepository creditEntryRepository;
 
     public FinanceBalanceService(
             PaymentAllocationRepository allocationRepository,
             RefundRepository refundRepository,
-            RefundAllocationRepository refundAllocationRepository
+            RefundAllocationRepository refundAllocationRepository,
+            CreditEntryRepository creditEntryRepository
     ) {
         this.allocationRepository = allocationRepository;
         this.refundRepository = refundRepository;
         this.refundAllocationRepository = refundAllocationRepository;
+        this.creditEntryRepository = creditEntryRepository;
     }
 
     /**
@@ -193,5 +198,92 @@ public class FinanceBalanceService {
                 )
                 .max(BigDecimal.ZERO)
                 .setScale(2, RoundingMode.HALF_EVEN);
+    }
+
+    /**
+     * 15. Soma créditos originados de cancelamento de cobrança
+     */
+    public BigDecimal sumCancellationCredits(UUID receivableId) {
+
+        return MoneyRules.normalize(
+                creditEntryRepository
+                        .sumCancellationCredits(receivableId)
+        );
+    }
+
+    /**
+     * 15. Soma créditos aplicados em uma cobrança
+     */
+    public BigDecimal sumAppliedCredits(UUID receivableId) {
+
+        return MoneyRules.normalize(
+                creditEntryRepository
+                        .sumAppliedCredits(receivableId)
+        );
+    }
+
+    /**
+     * 15. Evoluído: allocatedAmount considerando créditos
+     * 
+     * effectivePaid =
+     *   grossPaymentAllocations
+     *   - refunds
+     *   - allocationsConvertedToCredit
+     *   + creditsAppliedToReceivable
+     */
+    public BigDecimal allocatedAmountWithCredits(UUID receivableId) {
+
+        BigDecimal gross =
+                grossAllocatedForReceivable(receivableId);
+
+        BigDecimal refunded =
+                refundedForReceivable(receivableId);
+
+        BigDecimal movedToCredit =
+                sumCancellationCredits(receivableId);
+
+        BigDecimal appliedCredit =
+                sumAppliedCredits(receivableId);
+
+        return MoneyRules.normalize(
+
+                gross
+
+                        .subtract(refunded)
+
+                        .subtract(movedToCredit)
+
+                        .add(appliedCredit)
+        );
+    }
+
+    /**
+     * 20. Valor efetivamente aplicado de uma alocação
+     * (considerando refunds e créditos gerados)
+     */
+    public BigDecimal effectiveAllocationAmount(
+            PaymentAllocation allocation
+    ) {
+
+        BigDecimal refunded =
+                refundAllocationRepository
+                        .sumConfirmedRefundedAmount(
+                                allocation.getId()
+                        );
+
+        BigDecimal credited =
+                creditEntryRepository
+                        .sumCreditCreatedFromAllocation(
+                                allocation.getId()
+                        );
+
+        return MoneyRules.normalize(
+
+                allocation.getAmount()
+
+                        .subtract(refunded)
+
+                        .subtract(credited)
+        );
     }
 }

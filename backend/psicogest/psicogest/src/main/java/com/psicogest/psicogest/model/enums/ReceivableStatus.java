@@ -8,5 +8,7 @@ public enum ReceivableStatus {
 
     PAID,
 
+    CANCELLATION_PENDING,
+
     CANCELLED
 }
