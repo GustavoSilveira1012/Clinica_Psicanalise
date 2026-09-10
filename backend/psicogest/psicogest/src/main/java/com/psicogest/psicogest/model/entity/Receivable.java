@@ -1,5 +1,6 @@
 package com.psicogest.psicogest.model.entity;
 
+import com.psicogest.psicogest.exception.InvalidFinanceTransitionException;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -39,6 +40,19 @@ public class Receivable {
             updatable = false
     )
     private Patient patient;
+
+    /**
+     * Clínica responsável pela cobrança
+     * Futuro: será obrigatório, por enquanto opcional
+     */
+    @ManyToOne(
+            fetch = FetchType.LAZY
+    )
+    @JoinColumn(
+            name = "clinic_id",
+            updatable = false
+    )
+    private Clinic clinic;
 
     /**
      * Consulta relacionada (opcional, pode ser serviço avulso)
@@ -153,6 +167,55 @@ public class Receivable {
      */
     @Version
     private Long version;
+
+    /**
+     * Marca como OPEN (disponível para receber pagamentos)
+     */
+    public void markOpen() {
+
+        ensureNotCancelled();
+
+        this.status = ReceivableStatus.OPEN;
+
+        this.updatedAt = Instant.now();
+    }
+
+    /**
+     * Marca como PARTIALLY_PAID (recebeu parcial)
+     */
+    public void markPartiallyPaid() {
+
+        ensureNotCancelled();
+
+        this.status = ReceivableStatus.PARTIALLY_PAID;
+
+        this.updatedAt = Instant.now();
+    }
+
+    /**
+     * Marca como PAID (totalmente paga)
+     */
+    public void markPaid() {
+
+        ensureNotCancelled();
+
+        this.status = ReceivableStatus.PAID;
+
+        this.updatedAt = Instant.now();
+    }
+
+    /**
+     * Valida se não foi cancelada (helper interno)
+     */
+    private void ensureNotCancelled() {
+
+        if (status == ReceivableStatus.CANCELLED) {
+
+            throw new InvalidFinanceTransitionException(
+                    "Cobrança cancelada não pode receber pagamento"
+            );
+        }
+    }
 
     /**
      * Status da conta a receber

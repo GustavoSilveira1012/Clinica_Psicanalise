@@ -1,16 +1,25 @@
 package com.psicogest.psicogest.service;
 
 import com.psicogest.psicogest.domain.finance.FinanceAuditHelper;
+import com.psicogest.psicogest.domain.finance.MoneyRules;
 import com.psicogest.psicogest.domain.finance.ReceivableStateMachine;
+import com.psicogest.psicogest.dto.PaymentAllocationCreateDTO;
+import com.psicogest.psicogest.dto.PaymentAllocationResponseDTO;
 import com.psicogest.psicogest.exception.FinanceConflictException;
 import com.psicogest.psicogest.exception.FinanceValidationException;
+import com.psicogest.psicogest.exception.ResourceNotFoundException;
 import com.psicogest.psicogest.model.entity.Payment;
+import com.psicogest.psicogest.model.entity.Payment.PaymentStatus;
 import com.psicogest.psicogest.model.entity.PaymentAllocation;
 import com.psicogest.psicogest.model.entity.Receivable;
 import com.psicogest.psicogest.model.entity.Receivable.ReceivableStatus;
 import com.psicogest.psicogest.repository.PaymentAllocationRepository;
 import com.psicogest.psicogest.repository.PaymentRepository;
 import com.psicogest.psicogest.repository.ReceivableRepository;
+import com.psicogest.psicogest.security.SecurityActor;
+import com.psicogest.psicogest.security.audit.AuditAction;
+import com.psicogest.psicogest.security.audit.AuditCommand;
+import com.psicogest.psicogest.security.audit.AuditOutcome;
 import com.psicogest.psicogest.security.audit.AuditService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -18,17 +27,19 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
 /**
- * 26. Service para alocação de pagamentos em contas a receber
+ * Service para alocação de pagamentos em contas a receber
  * 
- * Aplica validações cruciais:
- * - Pagamento e cobrança devem ter mesmo paciente
- * - Pagamento e cobrança devem estar no mesmo contexto de clínica
- * - Valor alocado não pode ultrapassar saldo pendente
- * - Transições de estado válidas
+ * 19. PaymentAllocationCreateDTO
+ * 20. Transação crítica com locks pessimistas
+ * 21. Validações de estado de receivable
+ * 22. Validação de paciente
+ * 23. Validação de clínica
+ * 24. Validação de valor
  */
 @Slf4j
 @Service
@@ -59,51 +70,101 @@ public class PaymentAllocationService {
     }
 
     /**
+     * 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31. 
      * Aloca pagamento para uma conta a receber
      * 
-     * Validações:
-     * 1. Payment e Receivable: mesmo paciente
-     * 2. Payment e Receivable: mesmo contexto de clínica
-     * 3. Valor a alocar: não ultrapassa saldo
-     * 4. Transição de estado válida
+     * POST /payments/{paymentId}/allocations
+     * 
+     * Transação crítica com ordem de locks:
+     * 1. Lock Payment (sempre primeiro para evitar deadlock)
+     * 2. Lock Receivable
+     * 3. Validações de estado, paciente, clínica, valor
+     * 4. Validar saldos (Payment e Receivable)
+     * 5. Criar allocation
+     * 6. Sincronizar status de Receivable
+     * 7. Persistir Receivable
+     * 8. Auditar
      * 
      * @param paymentId ID do pagamento
-     * @param receivableId ID da conta a receber
-     * @param allocationAmount valor a alocar
-     * @return PaymentAllocation criada
+     * @param dto dados da alocação
+     * @param actor usuário que fez a alocação
+     * @return alocação criada
      */
-    public PaymentAllocation allocate(
+    @Transactional
+    public PaymentAllocationResponseDTO allocate(
             UUID paymentId,
-            UUID receivableId,
-            BigDecimal allocationAmount
+            PaymentAllocationCreateDTO dto,
+            SecurityActor actor
     ) {
 
+        // 20. Lock Payment primeiro (ordem consistente)
         Payment payment =
                 paymentRepository
-                        .findById(paymentId)
+                        .findByIdForUpdate(
+                                paymentId
+                        )
                         .orElseThrow(
-                                () -> new IllegalArgumentException(
-                                        "Pagamento não encontrado"
-                                )
+                                () ->
+                                        new ResourceNotFoundException(
+                                                "Pagamento não encontrado"
+                                        )
                         );
 
+        // 20. Validar que payment está confirmado
+        if (
+                payment.getStatus()
+                        != PaymentStatus.CONFIRMED
+        ) {
+
+            throw new FinanceConflictException(
+                    "Somente pagamentos confirmados podem ser alocados"
+            );
+        }
+
+        // 20. Lock Receivable (segundo na ordem)
         Receivable receivable =
                 receivableRepository
-                        .findById(receivableId)
+                        .findByIdForUpdate(
+                                dto.receivableId()
+                        )
                         .orElseThrow(
-                                () -> new IllegalArgumentException(
-                                        "Conta a receber não encontrada"
-                                )
+                                () ->
+                                        new ResourceNotFoundException(
+                                                "Cobrança não encontrada"
+                                        )
                         );
 
-        // 26. VALIDAÇÃO 1: Mesmo paciente
-        if (!payment.getPatient()
-                .getId()
-                .equals(
-                        receivable
-                                .getPatient()
-                                .getId()
-                )
+        // 21. Validar que receivable não está cancelada
+        if (
+                receivable.getStatus()
+                        == ReceivableStatus.CANCELLED
+        ) {
+
+            throw new FinanceConflictException(
+                    "Cobrança cancelada não pode receber pagamento"
+            );
+        }
+
+        // 21. Validar que receivable não está totalmente paga
+        if (
+                receivable.getStatus()
+                        == ReceivableStatus.PAID
+        ) {
+
+            throw new FinanceConflictException(
+                    "Cobrança já está totalmente paga"
+            );
+        }
+
+        // 22. Validar que pacientes batem
+        if (
+                !payment.getPatient()
+                        .getId()
+                        .equals(
+                                receivable
+                                        .getPatient()
+                                        .getId()
+                        )
         ) {
 
             throw new FinanceConflictException(
@@ -111,43 +172,98 @@ public class PaymentAllocationService {
             );
         }
 
-        // 26. VALIDAÇÃO 2: Mesmo contexto de clínica
-        if (!Objects.equals(
-                clinicId(payment),
-                clinicId(receivable)
-        )) {
+        // 23. Validar que clínicas batem
+        if (
+                !Objects.equals(
+                        clinicId(payment),
+                        clinicId(receivable)
+                )
+        ) {
 
             throw new FinanceConflictException(
-                    "Contextos financeiros incompatíveis"
+                    "Pagamento e cobrança pertencem a contextos financeiros diferentes"
             );
         }
 
-        // 27. VALIDAÇÃO 3: Saldo não pode ser ultrapassado
-        BigDecimal currentAllocated =
-                balanceService.allocatedAmount(
-                        receivableId
+        // 24. Normalizar e validar valor
+        BigDecimal requested =
+                MoneyRules.normalize(
+                        dto.amount()
                 );
 
-        BigDecimal newTotal =
-                currentAllocated.add(
-                        allocationAmount
-                );
-
-        if (newTotal.compareTo(
-                receivable.getNetAmount()
-        ) > 0) {
+        if (
+                requested.compareTo(
+                        BigDecimal.ZERO
+                ) <= 0
+        ) {
 
             throw new FinanceValidationException(
-                    String.format(
-                            "Alocação de %.2f ultrapassaria saldo: %.2f total vs %.2f limite",
-                            allocationAmount,
-                            newTotal,
-                            receivable.getNetAmount()
-                    )
+                    "Valor da alocação deve ser maior que zero"
             );
         }
 
-        // Criar alocação
+        // 25. Validar saldo disponível do pagamento
+        BigDecimal paymentAllocated =
+                allocationRepository
+                        .sumAllocatedByPayment(
+                                payment.getId()
+                        );
+
+        BigDecimal paymentAvailable =
+                payment.getAmount()
+                        .subtract(
+                                paymentAllocated
+                        );
+
+        paymentAvailable =
+                MoneyRules.normalize(
+                        paymentAvailable
+                );
+
+        if (
+                requested.compareTo(
+                        paymentAvailable
+                ) > 0
+        ) {
+
+            throw new FinanceConflictException(
+                    "O valor excede o saldo disponível do pagamento"
+            );
+        }
+
+        // 26. Validar saldo disponível da cobrança
+        BigDecimal receivableAllocated =
+                allocationRepository
+                        .sumEffectiveAllocation(
+                                receivable.getId()
+                        );
+
+        BigDecimal outstanding =
+                receivable
+                        .getNetAmount()
+                        .subtract(
+                                receivableAllocated
+                        );
+
+        outstanding =
+                MoneyRules.normalize(
+                        outstanding
+                );
+
+        if (
+                requested.compareTo(
+                        outstanding
+                ) > 0
+        ) {
+
+            throw new FinanceConflictException(
+                    "O valor excede o saldo da cobrança"
+            );
+        }
+
+        // 27. Criar allocation
+        Instant now = Instant.now();
+
         PaymentAllocation allocation =
                 PaymentAllocation.builder()
 
@@ -157,118 +273,177 @@ public class PaymentAllocationService {
 
                         .receivable(receivable)
 
-                        .amount(allocationAmount)
+                        .amount(requested)
 
-                        .createdAt(Instant.now())
+                        .createdAt(now)
 
                         .build();
 
-        allocationRepository.saveAndFlush(
-                allocation
-        );
+        PaymentAllocation saved =
+                allocationRepository.saveAndFlush(
+                        allocation
+                );
 
         log.info(
                 "Alocação criada: pagamento={}, conta={}, valor={}",
                 paymentId,
-                receivableId,
-                allocationAmount
+                dto.receivableId(),
+                requested
         );
 
-        // Atualizar status da conta se totalmente paga
-        updateReceivableStatus(receivable);
+        // 28. Atualizar status da conta baseado em novo alocado
+        BigDecimal newAllocated =
+                receivableAllocated
+                        .add(
+                                requested
+                        );
 
-        // 31. Auditar alocação de pagamento
-        auditService.recordCriticalWrite(
-                FinanceAuditHelper.paymentAllocated(
-                        null, // actorUserId será obtido do contexto de segurança
-                        receivable.getPatient().getId(),
-                        null, // clinicId será obtido quando Receivable tiver clinic
-                        paymentId,
-                        receivableId,
-                        allocationAmount,
-                        payment.getCurrency()
-                )
+        synchronizeReceivableStatus(
+                receivable,
+                newAllocated
         );
 
-        return allocation;
-    }
-
-    /**
-     * Atualiza status da conta baseado em saldo
-     */
-    private void updateReceivableStatus(
-            Receivable receivable
-    ) {
-
-        BigDecimal outstanding =
-                balanceService.outstandingAmount(
-                        receivable
-                );
-
-        ReceivableStatus currentStatus =
-                receivable.getStatus();
-
-        ReceivableStatus newStatus;
-
-        if (outstanding.compareTo(
-                BigDecimal.ZERO
-        ) == 0) {
-
-            newStatus = ReceivableStatus.PAID;
-
-        } else if (outstanding.compareTo(
-                receivable.getNetAmount()
-        ) < 0) {
-
-            newStatus = ReceivableStatus.PARTIALLY_PAID;
-
-        } else {
-
-            // Sem mudança
-            return;
-        }
-
-        // Validar transição
-        receivableStateMachine.validateTransition(
-                currentStatus,
-                newStatus
-        );
-
-        // Atualizar
-        receivable.setStatus(newStatus);
-
-        receivable.setUpdatedAt(Instant.now());
-
+        // 30. Persistir Receivable com novo status
         receivableRepository.saveAndFlush(
                 receivable
         );
 
-        log.info(
-                "Status da conta atualizado: {} -> {}",
-                currentStatus,
-                newStatus
+        // 31. Auditar alocação
+        auditService.recordCriticalWrite(
+
+                new AuditCommand(
+
+                        actor.userId(),
+
+                        actor.sessionId(),
+
+                        AuditAction.PAYMENT_ALLOCATED,
+
+                        "PAYMENT_ALLOCATION",
+
+                        saved.getId()
+                                .toString(),
+
+                        payment.getPatient()
+                                .getId(),
+
+                        clinicId(payment),
+
+                        AuditOutcome.SUCCESS,
+
+                        actor.correlationId(),
+
+                        actor.sourceIp(),
+
+                        actor.userAgentHash(),
+
+                        Map.of(
+                                "paymentId",
+                                payment.getId()
+                                        .toString(),
+
+                                "receivableId",
+                                receivable.getId()
+                                        .toString(),
+
+                                "amount",
+                                requested
+                                        .toPlainString(),
+
+                                "receivableStatus",
+                                receivable
+                                        .getStatus()
+                                        .name()
+                        )
+                )
         );
+
+        return toResponseDTO(saved);
     }
 
     /**
-     * Extrai ID da clínica de um pagamento
+     * 28. Sincroniza status de Receivable baseado em alocação
      * 
-     * Futuro: quando Payment tiver relacionamento explícito com Clinic
+     * Helper para 28. Atualiza status conforme saldo alocado
      */
-    private UUID clinicId(Payment payment) {
-        // Por enquanto, retorna null (sem clínica no Payment)
-        // Futuro será expandido quando Payment tiver @ManyToOne Clinic
-        return null;
+    private void synchronizeReceivableStatus(
+            Receivable receivable,
+            BigDecimal allocated
+    ) {
+
+        // 29. Proteção defensiva contra saldo negativo
+        if (
+                allocated.compareTo(
+                        receivable.getNetAmount()
+                ) > 0
+        ) {
+
+            throw new IllegalStateException(
+                    "Invariante financeira violada: cobrança recebeu valor acima do permitido"
+            );
+        }
+
+        int comparison =
+                allocated.compareTo(
+                        receivable
+                                .getNetAmount()
+                );
+
+        if (comparison == 0) {
+
+            receivable.markPaid();
+
+            return;
+        }
+
+        if (allocated.signum() > 0) {
+
+            receivable.markPartiallyPaid();
+
+            return;
+        }
+
+        receivable.markOpen();
     }
 
     /**
-     * Extrai ID da clínica de uma conta
-     * 
-     * Futuro: quando Receivable tiver relacionamento explícito com Clinic
+     * 23. Extrai ID da clínica de um pagamento (helper)
      */
-    private UUID clinicId(Receivable receivable) {
-        // Por enquanto, retorna null (sem clínica no Receivable)
-        // Futuro será expandido quando Receivable tiver @ManyToOne Clinic
-        return null;
+    private Long clinicId(Payment payment) {
+
+        return payment.getClinic() != null
+                ? payment.getClinic().getId()
+                : null;
+    }
+
+    /**
+     * 23. Extrai ID da clínica de uma conta (helper)
+     */
+    private Long clinicId(Receivable receivable) {
+
+        return receivable.getClinic() != null
+                ? receivable.getClinic().getId()
+                : null;
+    }
+
+    /**
+     * Converte PaymentAllocation para DTO
+     */
+    private PaymentAllocationResponseDTO toResponseDTO(
+            PaymentAllocation allocation
+    ) {
+
+        return new PaymentAllocationResponseDTO(
+
+                allocation.getId(),
+
+                allocation.getPayment().getId(),
+
+                allocation.getReceivable().getId(),
+
+                allocation.getAmount(),
+
+                allocation.getCreatedAt()
+        );
     }
 }

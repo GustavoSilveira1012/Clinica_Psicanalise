@@ -1,5 +1,6 @@
 package com.psicogest.psicogest.model.entity;
 
+import com.psicogest.psicogest.exception.InvalidFinanceTransitionException;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -16,6 +17,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "payments")
 @Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -37,6 +39,19 @@ public class Payment {
             updatable = false
     )
     private Patient patient;
+
+    /**
+     * Clínica responsável pelo pagamento
+     * Futuro: será obrigatório, por enquanto opcional
+     */
+    @ManyToOne(
+            fetch = FetchType.LAZY
+    )
+    @JoinColumn(
+            name = "clinic_id",
+            updatable = false
+    )
+    private Clinic clinic;
 
     /**
      * Valor do pagamento
@@ -93,6 +108,20 @@ public class Payment {
     private String idempotencyKey;
 
     /**
+     * 12. Fingerprint criptográfico da requisição
+     * 
+     * Garante que mesma idempotency-key = mesma requisição
+     * Usa: patientId | amount | paymentMethod | provider | providerTransactionId
+     * Protege contra replay com dados diferentes
+     */
+    @Column(
+            name = "request_fingerprint",
+            updatable = false,
+            length = 64
+    )
+    private String requestFingerprint;
+
+    /**
      * Quando o pagamento foi confirmado
      */
     @Column(name = "received_at")
@@ -124,6 +153,63 @@ public class Payment {
      */
     @Version
     private Long version;
+
+    /**
+     * Confirma o pagamento (transição PENDING → CONFIRMED)
+     */
+    public void confirm(Instant receivedAt) {
+
+        if (status != PaymentStatus.PENDING) {
+
+            throw new InvalidFinanceTransitionException(
+                    "Somente pagamentos pendentes podem ser confirmados"
+            );
+        }
+
+        this.status = PaymentStatus.CONFIRMED;
+
+        this.receivedAt = receivedAt;
+
+        this.updatedAt = Instant.now();
+    }
+
+    /**
+     * Marca o pagamento como falho (transição PENDING → FAILED)
+     */
+    public void fail() {
+
+        if (status != PaymentStatus.PENDING) {
+
+            throw new InvalidFinanceTransitionException(
+                    "Somente pagamentos pendentes podem falhar"
+            );
+        }
+
+        this.status = PaymentStatus.FAILED;
+
+        this.failedAt = Instant.now();
+
+        this.updatedAt = this.failedAt;
+    }
+
+    /**
+     * Cancela o pagamento (transição PENDING → CANCELLED)
+     */
+    public void cancel() {
+
+        if (status != PaymentStatus.PENDING) {
+
+            throw new InvalidFinanceTransitionException(
+                    "Somente pagamentos pendentes podem ser cancelados"
+            );
+        }
+
+        this.status = PaymentStatus.CANCELLED;
+
+        this.cancelledAt = Instant.now();
+
+        this.updatedAt = this.cancelledAt;
+    }
 
     /**
      * Forma de pagamento
