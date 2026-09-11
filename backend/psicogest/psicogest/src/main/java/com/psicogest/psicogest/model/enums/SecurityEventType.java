@@ -16,6 +16,13 @@ package com.psicogest.psicogest.model.enums;
  * - WEBHOOK_DUPLICATE_RECEIVED: evento duplicado (mesmo eventId + payloadHash)
  * - WEBHOOK_EVENT_COLLISION: mesmo eventId mas payloadHash diferente (suspeito)
  * - WEBHOOK_PROCESSING_FAILED: falha ao processar evento
+ *
+ * Eventos de notificação:
+ * - NOTIFICATION_PROVIDER_AUTH_FAILURE: falha de autenticação com o provider
+ * - NOTIFICATION_WEBHOOK_SIGNATURE_INVALID: assinatura inválida no webhook de notificação
+ * - NOTIFICATION_EVENT_COLLISION: colisão de evento de notificação
+ * - NOTIFICATION_MASS_SEND_DETECTED: volume anômalo de envios detectado
+ * - NOTIFICATION_DELIVERY_ANOMALY: anomalia na entrega de notificações
  */
 public enum SecurityEventType {
     LOGIN_SUCCESS,
@@ -43,5 +50,12 @@ public enum SecurityEventType {
     WEBHOOK_REPLAY_REJECTED,
     WEBHOOK_DUPLICATE_RECEIVED,
     WEBHOOK_EVENT_COLLISION,
-    WEBHOOK_PROCESSING_FAILED
+    WEBHOOK_PROCESSING_FAILED,
+
+    // Notification events
+    NOTIFICATION_PROVIDER_AUTH_FAILURE,
+    NOTIFICATION_WEBHOOK_SIGNATURE_INVALID,
+    NOTIFICATION_EVENT_COLLISION,
+    NOTIFICATION_MASS_SEND_DETECTED,
+    NOTIFICATION_DELIVERY_ANOMALY
 }
