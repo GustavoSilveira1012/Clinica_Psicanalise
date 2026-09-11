@@ -131,4 +131,14 @@ public class PatientPackage {
     public void reverseSession() {
         this.availableSessions++;
     }
+
+    /**
+     * Marca pacote como cancelado
+     * 
+     * @param cancelledAt Instante do cancelamento
+     */
+    public void cancel(Instant cancelledAt) {
+        this.status = PatientPackageStatus.CANCELLED;
+        this.updatedAt = cancelledAt;
+    }
 }

@@ -6,6 +6,7 @@ import com.psicogest.psicogest.model.entity.PaymentAllocation;
 import com.psicogest.psicogest.model.entity.Receivable;
 import com.psicogest.psicogest.repository.CreditEntryRepository;
 import com.psicogest.psicogest.repository.PaymentAllocationRepository;
+import com.psicogest.psicogest.repository.ReceivableAdjustmentRepository;
 import com.psicogest.psicogest.repository.RefundAllocationRepository;
 import com.psicogest.psicogest.repository.RefundRepository;
 import org.springframework.stereotype.Service;
@@ -31,17 +32,20 @@ public class FinanceBalanceService {
     private final RefundRepository refundRepository;
     private final RefundAllocationRepository refundAllocationRepository;
     private final CreditEntryRepository creditEntryRepository;
+    private final ReceivableAdjustmentRepository receivableAdjustmentRepository;
 
     public FinanceBalanceService(
             PaymentAllocationRepository allocationRepository,
             RefundRepository refundRepository,
             RefundAllocationRepository refundAllocationRepository,
-            CreditEntryRepository creditEntryRepository
+            CreditEntryRepository creditEntryRepository,
+            ReceivableAdjustmentRepository receivableAdjustmentRepository
     ) {
         this.allocationRepository = allocationRepository;
         this.refundRepository = refundRepository;
         this.refundAllocationRepository = refundAllocationRepository;
         this.creditEntryRepository = creditEntryRepository;
+        this.receivableAdjustmentRepository = receivableAdjustmentRepository;
     }
 
     /**
@@ -186,16 +190,42 @@ public class FinanceBalanceService {
 
     /**
      * Saldo pendente do receivable
+     * 
+     * outstandingAmount = effectiveAmount - paid
+     * (não pode ser negativo; se negativo, é overpaid)
      */
     public BigDecimal outstandingAmount(Receivable receivable) {
 
-        return receivable
-                .getNetAmount()
-                .subtract(
-                        allocatedAmount(
-                                receivable.getId()
-                        )
-                )
+        BigDecimal effectiveAmount =
+                effectiveReceivableAmount(receivable);
+
+        BigDecimal paid =
+                allocatedAmount(receivable.getId());
+
+        return effectiveAmount
+                .subtract(paid)
+                .max(BigDecimal.ZERO)
+                .setScale(2, RoundingMode.HALF_EVEN);
+    }
+
+    /**
+     * Valor pago em excesso (overpaid)
+     * 
+     * overpaidAmount = paid - effectiveAmount
+     * (não pode ser negativo; se negativo, é outstanding)
+     * 
+     * Isso será exatamente o que precisaremos devolver/transformar em crédito
+     */
+    public BigDecimal overpaidAmount(Receivable receivable) {
+
+        BigDecimal effectiveAmount =
+                effectiveReceivableAmount(receivable);
+
+        BigDecimal paid =
+                allocatedAmount(receivable.getId());
+
+        return paid
+                .subtract(effectiveAmount)
                 .max(BigDecimal.ZERO)
                 .setScale(2, RoundingMode.HALF_EVEN);
     }
@@ -285,5 +315,48 @@ public class FinanceBalanceService {
 
                         .subtract(credited)
         );
+    }
+
+    /**
+     * Calcula o saldo total de ajustes para uma cobrança
+     * 
+     * INCREASE: soma
+     * DECREASE: subtrai
+     */
+    public BigDecimal adjustmentBalance(UUID receivableId) {
+
+        return MoneyRules.normalize(
+                receivableAdjustmentRepository
+                        .calculateAdjustmentBalance(receivableId)
+        );
+    }
+
+    /**
+     * Valor efetivo da cobrança incluindo ajustes
+     * 
+     * effectiveReceivableAmount = netAmount + adjustmentBalance
+     * 
+     * Validação: não pode ser negativo
+     * @throws IllegalStateException se o valor efetivo for negativo
+     */
+    public BigDecimal effectiveReceivableAmount(Receivable receivable) {
+
+        BigDecimal effective = MoneyRules.normalize(
+                receivable
+                        .getNetAmount()
+                        .add(
+                                adjustmentBalance(
+                                        receivable.getId()
+                                )
+                        )
+        );
+
+        if (effective.signum() < 0) {
+            throw new IllegalStateException(
+                    "Valor efetivo da cobrança ficou negativo: " + effective
+            );
+        }
+
+        return effective;
     }
 }

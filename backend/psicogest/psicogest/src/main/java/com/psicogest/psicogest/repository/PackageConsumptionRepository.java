@@ -110,4 +110,27 @@ public interface PackageConsumptionRepository
         @Param("appointmentId")
         UUID appointmentId
     );
+
+    /**
+     * Conta consumos ACTIVE de um item em um pacote
+     * 
+     * Usado para calcular valor econômico consumido.
+     * Apenas consumos ACTIVE contam como consumo econômico.
+     * Reversals e expirations não afetam este cálculo.
+     */
+    @Query("""
+        SELECT COUNT(c)
+        FROM PackageConsumption c
+        WHERE c.patientPackage.id = :packageId
+          AND c.patientPackageItem.id = :itemId
+          AND c.status = 
+            com.psicogest.psicogest.model.enums.PackageConsumptionStatus.ACTIVE
+    """)
+    long countActiveConsumptions(
+        @Param("packageId")
+        UUID packageId,
+
+        @Param("itemId")
+        UUID itemId
+    );
 }

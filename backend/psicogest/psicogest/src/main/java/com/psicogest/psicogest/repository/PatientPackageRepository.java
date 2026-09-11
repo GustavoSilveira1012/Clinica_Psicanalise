@@ -116,4 +116,20 @@ public interface PatientPackageRepository
         @Param("status")
         PatientPackageStatus status
     );
+
+    /**
+     * Encontra pacotes vinculados a uma cobrança (receivable)
+     * 
+     * Usado pelo PackageActivationProcessor para localizar
+     * pacotes a serem ativados quando há evento de pagamento
+     */
+    @Query("""
+        SELECT p
+        FROM PatientPackage p
+        WHERE p.receivableId = :receivableId
+    """)
+    List<PatientPackage> findByReceivableId(
+        @Param("receivableId")
+        UUID receivableId
+    );
 }

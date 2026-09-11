@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -98,5 +99,18 @@ public interface RefundRepository extends JpaRepository<Refund, UUID> {
             String provider,
             @Param("providerRefundId")
             String providerRefundId
+    );
+
+    /**
+     * Busca refunds de um cancelamento de pacote
+     */
+    @Query("""
+            SELECT r
+            FROM Refund r
+            WHERE r.patientPackageCancellation.id = :cancellationId
+            """)
+    List<Refund> findByPatientPackageCancellationId(
+            @Param("cancellationId")
+            UUID cancellationId
     );
 }
