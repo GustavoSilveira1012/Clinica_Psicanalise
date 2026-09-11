@@ -145,7 +145,7 @@ public class PatientSubscription {
         }
         status = SubscriptionStatus.ACTIVE;
         nextCycleStart = resumeDate;
-        billingAnchorDay = startsOn.getDayOfMonth();
+        billingAnchorDay = resumeDate.getDayOfMonth();
         pausedAt = null;
         updatedAt = now;
     }

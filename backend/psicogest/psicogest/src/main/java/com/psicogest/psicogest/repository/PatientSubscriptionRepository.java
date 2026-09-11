@@ -21,7 +21,7 @@ public interface PatientSubscriptionRepository extends JpaRepository<PatientSubs
     @Query("select s from PatientSubscription s where s.id = :id")
     Optional<PatientSubscription> findByIdForUpdate(@Param("id") UUID id);
 
-    @Query("select s.id from PatientSubscription s where s.status in ('ACTIVE', 'PAST_DUE') and s.nextCycleStart <= :today")
+    @Query("select s.id from PatientSubscription s where s.status in ('PENDING_START', 'ACTIVE', 'PAST_DUE') and s.nextCycleStart <= :today")
     List<UUID> findIdsReadyForCycle(@Param("today") LocalDate today);
 
     List<PatientSubscription> findByPatientId(Long patientId);
