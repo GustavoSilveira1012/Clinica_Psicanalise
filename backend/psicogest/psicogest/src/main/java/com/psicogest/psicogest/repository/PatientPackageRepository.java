@@ -56,8 +56,7 @@ public interface PatientPackageRepository
         FROM PatientPackage p
         WHERE p.patient.id = :patientId
           AND p.status = 'ACTIVE'
-          AND p.availableSessions > 0
-        ORDER BY p.expirationDate ASC
+        ORDER BY p.expiresAt ASC
     """)
     List<PatientPackage> findActiveByPatient(
         @Param("patientId")
@@ -82,10 +81,8 @@ public interface PatientPackageRepository
         WHERE p.patient.id = :patientId
           AND p.financialEntityId = :financialEntityId
           AND p.status = 'ACTIVE'
-          AND p.availableSessions > 0
-          AND (p.expirationDate IS NULL OR 
-               CAST(p.expirationDate AS java.time.Instant) > :now)
-        ORDER BY p.expirationDate ASC,
+          AND (p.expiresAt IS NULL OR p.expiresAt > :now)
+        ORDER BY p.expiresAt ASC,
                  p.createdAt ASC,
                  p.id ASC
     """)
@@ -94,7 +91,7 @@ public interface PatientPackageRepository
         Long patientId,
 
         @Param("financialEntityId")
-        Long financialEntityId,
+        java.util.UUID financialEntityId,
 
         @Param("now")
         Instant now

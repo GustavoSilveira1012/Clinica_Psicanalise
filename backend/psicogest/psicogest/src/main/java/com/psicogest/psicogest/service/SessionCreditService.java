@@ -64,6 +64,17 @@ public class SessionCreditService {
             SecurityActor actor
     ) {
 
+        recordPackageActivation(patient, patientPackage, null, sessionCount, actor);
+    }
+
+    public void recordPackageActivation(
+            Patient patient,
+            PatientPackage patientPackage,
+            UUID packageItemId,
+            long sessionCount,
+            SecurityActor actor
+    ) {
+
         Instant now = clock.instant();
 
         SessionCreditEntry entry = SessionCreditEntry
@@ -74,6 +85,8 @@ public class SessionCreditService {
                 .patient(patient)
 
                 .patientPackage(patientPackage)
+
+                .packageItemId(packageItemId)
 
                 .entryType(
                         SessionCreditEntryType
@@ -110,8 +123,7 @@ public class SessionCreditService {
 
                             patient.getId(),
 
-                            patientPackage
-                                    .getFinancialEntityId(),
+                            null,
 
                             AuditOutcome.SUCCESS,
 

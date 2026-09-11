@@ -9,6 +9,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
+import com.psicogest.psicogest.model.enums.ReceivableOriginType;
+
 /**
  * 12. Entity para contas a receber (receivables)
  * 
@@ -63,6 +65,13 @@ public class Receivable {
             updatable = false
     )
     private Appointment appointment;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "origin_type", length = 40)
+    private ReceivableOriginType originType;
+
+    @Column(name = "origin_id")
+    private UUID originId;
 
     /**
      * Descrição do serviço/consulta

@@ -80,6 +80,16 @@ public class PackageConsumptionDomainService {
             UUID packageItemId
     ) {
 
+        return consumeSession(appointment, patientId, (UUID) null, packageItemId);
+    }
+
+    public boolean consumeSession(
+            Appointment appointment,
+            Long patientId,
+            UUID financialEntityId,
+            UUID packageItemId
+    ) {
+
         Instant now = clock.instant();
 
         // Passo 1: Verifica política

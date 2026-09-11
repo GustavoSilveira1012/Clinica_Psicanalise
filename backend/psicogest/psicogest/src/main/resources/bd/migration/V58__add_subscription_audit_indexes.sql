@@ -1,0 +1,5 @@
+CREATE INDEX idx_patient_subscription_status_next_cycle
+ON patient_subscriptions(status, next_cycle_start);
+
+CREATE INDEX idx_subscription_cycle_subscription_status
+ON subscription_cycles(subscription_id, status);

@@ -14,6 +14,7 @@ import com.psicogest.psicogest.model.entity.PaymentAllocation;
 import com.psicogest.psicogest.model.entity.Receivable;
 import com.psicogest.psicogest.model.entity.Receivable.ReceivableStatus;
 import com.psicogest.psicogest.model.entity.Refund.RefundStatus;
+import com.psicogest.psicogest.model.enums.ReceivableOriginType;
 import com.psicogest.psicogest.repository.PaymentAllocationRepository;
 import com.psicogest.psicogest.repository.PaymentRepository;
 import com.psicogest.psicogest.repository.ReceivableRepository;
@@ -24,6 +25,7 @@ import com.psicogest.psicogest.security.audit.AuditCommand;
 import com.psicogest.psicogest.security.audit.AuditOutcome;
 import com.psicogest.psicogest.security.audit.AuditService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,6 +49,8 @@ import java.util.UUID;
 @Service
 @Transactional
 public class PaymentAllocationService {
+
+    private SubscriptionEntitlementService subscriptionEntitlementService;
 
     private final PaymentAllocationRepository allocationRepository;
     private final PaymentRepository paymentRepository;
@@ -72,6 +76,13 @@ public class PaymentAllocationService {
         this.balanceService = balanceService;
         this.receivableStateMachine = receivableStateMachine;
         this.auditService = auditService;
+    }
+
+    @Autowired
+    public void setSubscriptionEntitlementService(
+            SubscriptionEntitlementService subscriptionEntitlementService
+    ) {
+        this.subscriptionEntitlementService = subscriptionEntitlementService;
     }
 
     /**
@@ -321,6 +332,16 @@ public class PaymentAllocationService {
         receivableRepository.saveAndFlush(
                 receivable
         );
+
+        if (subscriptionEntitlementService != null
+                && receivable.getOriginType() == ReceivableOriginType.SUBSCRIPTION_CYCLE
+                && receivable.getOriginId() != null) {
+            SubscriptionEntitlementService.Trigger trigger =
+                    receivable.getStatus() == ReceivableStatus.PAID
+                            ? SubscriptionEntitlementService.Trigger.FULL_PAYMENT
+                            : SubscriptionEntitlementService.Trigger.FIRST_PAYMENT;
+            subscriptionEntitlementService.grantIfAllowed(receivable.getOriginId(), trigger);
+        }
 
         // 31. Auditar alocação
         auditService.recordCriticalWrite(

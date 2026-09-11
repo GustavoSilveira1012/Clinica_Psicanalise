@@ -115,19 +115,7 @@ public class PatientPackageActivationService {
      */
     public void activate(PatientPackage patientPackage) {
 
-        patientPackage.setStatus(
-                PatientPackageStatus.ACTIVE
-        );
-
-        patientPackage.setActivationDate(
-                Instant.now()
-                        .atZone(ZoneId.systemDefault())
-                        .toLocalDate()
-        );
-
-        patientPackage.setUpdatedAt(
-                Instant.now()
-        );
+        patientPackage.activate(Instant.now());
 
         packageRepository.save(patientPackage);
     }
