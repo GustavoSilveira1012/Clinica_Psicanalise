@@ -56,6 +56,14 @@ export interface Appointment {
   note?: string;
 }
 
+export interface CalendarBlock {
+  id: string;
+  startAt: string;
+  durationMinutes: number;
+  professionalName: string;
+  reason: string;
+}
+
 export interface Patient {
   id: string;
   name: string;

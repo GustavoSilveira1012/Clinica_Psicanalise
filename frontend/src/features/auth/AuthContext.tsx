@@ -12,9 +12,12 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 const SESSION_KEY = "psicogest-demo-session";
+const DEMO_MODE = import.meta.env.DEV || import.meta.env.VITE_DEMO_MODE === "true";
+const DEMO_EMAIL = "demo@psicogest.com";
+const DEMO_PASSWORD = "demo123";
 
 function storedSession(): AuthSession | null {
-  return sessionStorage.getItem(SESSION_KEY) === "active" ? { user: demoUser, sessionId: "sess-demo", lastActivityAt: new Date().toISOString() } : null;
+  return DEMO_MODE && sessionStorage.getItem(SESSION_KEY) === "active" ? { user: demoUser, sessionId: "sess-demo", lastActivityAt: new Date().toISOString() } : null;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -25,7 +28,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     pendingMfaEmail,
     async login(email, password) {
-      if (!email || !password) throw new Error("Informe suas credenciais.");
+      if (!DEMO_MODE) throw new Error("A autenticação real ainda não foi conectada a este frontend.");
+      if (email !== DEMO_EMAIL || password !== DEMO_PASSWORD) throw new Error("Use as credenciais de demonstração informadas na tela.");
       setPendingMfaEmail(email);
     },
     async verifyMfa(code) {

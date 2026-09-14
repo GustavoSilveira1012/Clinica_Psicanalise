@@ -21,6 +21,14 @@ export function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
+export function formatLongDate(value: Date | string = new Date()) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(typeof value === "string" ? new Date(value) : value);
+}
+
 export function maskContact(value: string) {
   if (value.includes("@")) {
     const [local, domain] = value.split("@");

@@ -41,14 +41,14 @@ export function StatusBadge({ value }: { value: string }) {
     ACTIVE: "Ativo", INACTIVE: "Inativo", CURRENT: "Em dia", REVIEW: "Revisar", DRAFT: "Rascunho", FINALIZED: "Finalizado",
     OPEN: "Em aberto", PAID: "Pago", OVERDUE: "Em atraso", SENT: "Enviado", FAILED: "Falhou", SUPPRESSED: "Suprimido",
     PROCESSING: "Processando", AUTHORIZED: "Autorizada", REJECTED: "Rejeitada", READY: "Pronto", PAST_DUE: "Em atraso", PAUSED: "Pausada",
-    RECONCILED: "Conciliada", IGNORED: "Ignorada", REFUNDED: "Estornado", CRITICAL: "Crítico", WARNING: "Atenção", INFO: "Informativo",
+    RECONCILED: "Conciliada", IGNORED: "Ignorada", REFUNDED: "Estornado", IN_PROGRESS: "Em andamento", REVIEWED: "Revisado", CRITICAL: "Crítico", WARNING: "Atenção", INFO: "Informativo",
     HIGH: "Alto", MEDIUM: "Médio", LOW: "Baixo", IN_PERSON: "Presencial", ONLINE: "Online",
   };
   const tone = normalized.includes("FAILED") || normalized.includes("OVERDUE") || normalized.includes("REJECTED") || normalized.includes("CRITICAL") || normalized === "PAST_DUE" ? "red" : normalized.includes("PENDING") || normalized.includes("DRAFT") || normalized.includes("REVIEW") || normalized.includes("WARNING") || normalized.includes("PROCESSING") || normalized === "OPEN" || normalized === "MEDIUM" ? "amber" : normalized.includes("FINALIZED") || normalized.includes("COMPLETED") || normalized.includes("PAID") || normalized.includes("ACTIVE") || normalized.includes("AUTHORIZED") || normalized.includes("SENT") || normalized.includes("CONFIRMED") || normalized.includes("READY") || normalized.includes("CURRENT") || normalized.includes("RECONCILED") ? "green" : normalized.includes("SUPPRESSED") || normalized.includes("CANCELLED") || normalized.includes("IGNORED") ? "slate" : "blue";
   return <Badge tone={tone}>{labels[normalized] ?? value.replaceAll("_", " ")}</Badge>;
 }
 
-export function Input({ label, error, hint, className, id, ...props }: InputHTMLAttributes<HTMLInputElement> & { label?: string; error?: string; hint?: string }) {
+export function Input({ label, error, hint, leadingIcon, className, id, ...props }: InputHTMLAttributes<HTMLInputElement> & { label?: string; error?: string; hint?: string; leadingIcon?: ReactNode }) {
   const generatedId = useId().replaceAll(":", "");
   const inputId = id ?? props.name ?? `field-${generatedId}`;
   const errorId = `${inputId}-error`;
@@ -56,7 +56,7 @@ export function Input({ label, error, hint, className, id, ...props }: InputHTML
   const describedBy = [props["aria-describedby"], error ? errorId : hint ? hintId : undefined].filter(Boolean).join(" ") || undefined;
   return <label className="block space-y-1.5" htmlFor={inputId}>
     {label && <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{label}</span>}
-    <input id={inputId} className={cn("block min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sage-500 focus:ring-2 focus:ring-sage-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100", error && "border-red-400 focus:border-red-500 focus:ring-red-500/20", className)} {...props} aria-invalid={error ? true : undefined} aria-describedby={describedBy} />
+    <span className="relative block">{leadingIcon && <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true">{leadingIcon}</span>}<input id={inputId} className={cn("block min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sage-500 focus:ring-2 focus:ring-sage-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100", Boolean(leadingIcon) && "pl-10", error && "border-red-400 focus:border-red-500 focus:ring-red-500/20", className)} {...props} aria-invalid={error ? true : undefined} aria-describedby={describedBy} /></span>
     {error ? <span id={errorId} className="text-xs font-medium text-red-600" role="alert">{error}</span> : hint ? <span id={hintId} className="text-xs text-slate-500">{hint}</span> : null}
   </label>;
 }

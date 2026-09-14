@@ -8,7 +8,7 @@ import { AppRouter } from "../../app/router";
 describe("LoginPage", () => {
   it("moves a valid demo login to the MFA step", async () => {
     const user = userEvent.setup();
-    render(<MemoryRouter initialEntries={["/login"]}><AppProviders><AppRouter /></AppProviders></MemoryRouter>);
+    render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={["/login"]}><AppProviders><AppRouter /></AppProviders></MemoryRouter>);
     await user.click(screen.getByRole("button", { name: /continuar/i }));
     expect(await screen.findByText("Segundo fator")).toBeInTheDocument();
     expect(screen.getByLabelText("Código MFA")).toBeInTheDocument();

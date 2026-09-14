@@ -5,4 +5,4 @@ import { AppProviders } from "./app/providers";
 import { AppRouter } from "./app/router";
 import "./index.css";
 
-createRoot(document.getElementById("root")!).render(<StrictMode><BrowserRouter><AppProviders><AppRouter /></AppProviders></BrowserRouter></StrictMode>);
+createRoot(document.getElementById("root")!).render(<StrictMode><BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><AppProviders><AppRouter /></AppProviders></BrowserRouter></StrictMode>);
