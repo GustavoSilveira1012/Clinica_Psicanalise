@@ -1,103 +1,363 @@
-# PsicoGest
+# PsicoGest / Clínica
 
-Plataforma SaaS para operação clínica, agenda, pacientes, prontuário, financeiro, fiscal e governança de clínicas de psicanálise.
+Plataforma SaaS de gestão para profissionais e clínicas, com foco inicial em psicanalistas e clínicas de psicologia/psicanálise.
 
-O checkout atual é separado em:
+> **Status atual:** arquitetura definida até a v1.0, frontend informado como concluído e fase de **Production Audit / Hardening** em andamento.  
+> Este README descreve a arquitetura planejada e o estado informado do projeto; produção ainda depende de validação real do repositório, integrações, infraestrutura, testes, homologações e restore.
 
-- `backend/psicogest/psicogest`: API Spring Boot 4, Java 25, PostgreSQL, Flyway, Redis e autorização contextual;
-- `frontend`: React, TypeScript, Vite, Tailwind, React Router, TanStack Query, React Hook Form e Zod.
+## Visão do produto
 
-O produto foi estruturado para multi-tenant: cada organização possui membros, papel, plano, limites, onboarding e contexto de acesso. Dados clínicos, financeiros e de governança são autorizados no servidor e protegidos por isolamento de organização e RLS no PostgreSQL.
+O PsicoGest reúne:
 
-## Módulos entregues
+- agenda e recorrência de atendimentos;
+- pacientes e relacionamento terapêutico;
+- prontuário clínico seguro e auditável;
+- financeiro, pagamentos, estornos e saldo credor;
+- conciliação bancária;
+- emissão fiscal / NFS-e;
+- pacotes e assinaturas de sessões;
+- notificações;
+- LGPD e compliance;
+- multiusuário e multi-organização;
+- camada SaaS com planos, trial, billing e onboarding.
 
-- autenticação, MFA TOTP, refresh token, sessões e revogação;
-- organizações, membros, convites, onboarding, planos, entitlements e uso;
-- pacientes, agenda, séries, bloqueios e prevenção de conflitos;
-- prontuário DRAFT/FINALIZED, revisões, adendos, autorização clínica e auditoria;
-- recebíveis, pagamentos, estornos, crédito, conciliação bancária e repasses;
-- NFS-e com fluxo fail-closed, documentos fiscais e origem financeira;
-- notificações, preferências, templates seguros, quiet hours e rate limit outbound;
-- LGPD, solicitações de titulares, retenção, incidentes e trilha de auditoria sem payload sensível;
-- health/readiness, CI, migrations versionadas e configuração de produção.
+A arquitetura separa cuidadosamente os domínios **clínico, administrativo, financeiro, fiscal e SaaS**.
 
-## Segurança e limites importantes
+## Stack principal
 
-O frontend usa o backend real por padrão. O adapter demonstrativo só é habilitado explicitamente com `VITE_DEMO_MODE=true`; ele deve ser usado apenas com dados fictícios e nunca em uma organização real.
+### Backend
+- Java
+- Spring Boot
+- Spring Security
+- Spring Data JPA
+- PostgreSQL
+- Redis
+- Flyway
+- Testcontainers
+- JWT / OAuth2 Resource Server
 
-Em produção, injete por secret manager: senha do banco, chaves JWT, chave de criptografia MFA, Redis, credenciais de providers e endpoints de alertas. Não coloque `.env`, certificados ou chaves no Git. O projeto não é uma certificação legal ou de conformidade LGPD; a clínica ainda precisa validar contratos, bases legais, retenção e operação com seus responsáveis.
+### Frontend
+- React
+- TypeScript
+- Tailwind CSS
+- React Router
+- TanStack Query
+- React Hook Form
+- Zod
 
-## Execução local
+### Produção planejada
+- PostgreSQL privado
+- Redis privado
+- Object Storage privado
+- KMS / Secret Manager
+- WAF / CDN / proteção DDoS
+- TLS
+- backups com PITR
+- observabilidade e alertas
+- staging + production
+- CI/CD com validações de segurança
 
-Pré-requisitos: Node.js 22+, pnpm 10+, Java 25, Maven Wrapper e PostgreSQL/Redis. Docker Compose está disponível para subir apenas as dependências:
+## Princípios arquiteturais
 
-```powershell
-Copy-Item .env.example .env
-docker compose up -d postgres redis
+### Clínica não é dona do prontuário
+O prontuário pertence ao contexto clínico do paciente e do profissional. `clinic_id` pode existir como contexto administrativo/auditável, mas não como conceito de propriedade clínica.
+
+### Payment != ServiceInvoice
+`Receivable` representa obrigação, `Payment` representa dinheiro e `ServiceInvoice` representa documento fiscal. São eventos distintos.
+
+### Organization != Clinic
+Na camada SaaS:
+- `Organization` = fronteira técnica de tenant;
+- `Clinic` = entidade/unidade operacional.
+
+Uma organização pode representar profissional autônomo, clínica ou rede.
+
+### Ledgers são append-only
+Fluxos financeiros, créditos de sessões, auditoria e históricos sensíveis evitam reescrita retroativa. Correções são novos eventos: refund, credit entry, adjustment, addendum, revision, reversal ou substitution.
+
+### Segurança por contexto
+Role sozinho não concede acesso. A autorização considera usuário, organização, clínica, paciente, profissional, relacionamento terapêutico, contexto financeiro e recurso.
+
+## Roadmap funcional
+
+### v0.2 — Core Domain
+- User
+- Patient
+- Psychoanalyst
+- Clinic
+- ClinicMembership / ClinicMembershipPeriod
+- Availability / AvailabilityException
+- Appointment
+- AppointmentSeries
+- recorrência e rescheduling com histórico
+- TherapeuticRelationship
+- lifecycle / soft delete
+- Testcontainers
+
+### v0.3 — Security & Cyber Defense
+- JWT RSA
+- refresh token opaco e rotativo
+- session management
+- MFA/TOTP
+- recovery codes
+- rate limiting
+- brute-force protection
+- SecurityEvent / SecurityAlert
+- autorização contextual
+- AuditLog imutável com HMAC chain
+- AES-256-GCM / envelope encryption
+- KMS-ready
+- incident response
+- backup/restore architecture
+
+Regra crítica:
+
+```text
+SYSTEM_ADMIN != acesso automático a dados clínicos
 ```
 
-Configure chaves JWT e `MFA_ENCRYPTION_KEY` antes de iniciar a API. Os caminhos padrão são `backend/psicogest/psicogest/secrets/jwt-public.pem` e `jwt-private.pem`; essa pasta é ignorada pelo Git.
+### v0.4 — Clinical
+- MedicalRecord
+- DRAFT / FINALIZED
+- MedicalRecordRevision
+- MedicalRecordAddendum
+- autoria imutável
+- criptografia por registro
+- AuditLog em leitura/escrita sensível
+- Clinical Timeline
+- Clinical Export seguro
 
-API:
+### v0.5 — Finance & Fiscal
 
-```powershell
-cd backend/psicogest/psicogest
-./mvnw spring-boot:run
+Finance:
+- FinancialEntity
+- Receivable
+- Payment / PaymentAllocation
+- Refund / RefundAllocation
+- CreditAccount / CreditEntry
+- ReceivableAdjustment
+- PaymentProvider abstraction
+- webhook inbox / replay protection
+- BankAccount / BankTransaction
+- Bank Reconciliation
+- ProviderSettlement / gateway fees / chargebacks
+
+Fiscal:
+- FiscalIssuer
+- FiscalConfiguration versionada
+- ServiceInvoice
+- TaxSnapshot
+- DPS
+- FiscalProvider
+- arquitetura NFS-e Nacional
+- idempotência fiscal
+- cancelamento / substituição
+- XML / DANFSE
+- storage privado e integridade por hash
+
+### v0.6 — Packages & Subscriptions
+- PackagePlan / PackagePlanVersion / PackagePlanItem
+- PatientPackage / PatientPackageItem
+- SessionCredit ledger
+- PackageConsumption
+- FEFO
+- expiration / reversal
+- NO_SHOW / late cancellation policies
+- ativação via pagamento
+- cancelamento com Refund ou CreditBalance
+- SubscriptionPlan / SubscriptionPlanVersion
+- PatientSubscription / SubscriptionCycle
+- recurring payment abstraction
+- billing anchor
+- rollover
+- pause/resume
+- cancel at period end
+
+Saldo de sessões é derivado do ledger, não salvo como contador mutável.
+
+### v0.7 — Notifications
+- Notification
+- Recipient
+- Delivery
+- Templates versionados
+- EMAIL / WHATSAPP / SMS-ready
+- provider abstraction
+- retries / backoff / dead-letter
+- idempotência
+- webhook tracking
+- quiet hours
+- preferences
+- consent-ready eligibility
+- outbound rate limiting
+- mass-send detection
+
+### v0.8 — LGPD & Compliance
+- ProcessingActivity
+- LegalBasis
+- PrivacyNotice versionado
+- ConsentRecord
+- DataSubjectRequest
+- export / correction / deletion / blocking / anonymization
+- RetentionPolicy
+- DataDisposalJob
+- LegalHold
+- DataRecipient
+- registro de transferências internacionais
+- privacy incident assessment
+- privacy contacts
+- RIPD/DPIA registry
+
+Código ajuda a operar LGPD, mas **não substitui revisão jurídica**.
+
+### v0.9 — Frontend
+Áreas previstas/concluídas no projeto:
+- login / MFA / sessão
+- dashboard
+- agenda
+- pacientes
+- prontuário
+- financeiro
+- fiscal
+- pacotes / assinaturas
+- notificações
+- LGPD
+- configurações
+- permissões
+- responsividade
+- estados de loading/error/empty
+- integração tipada com API
+
+A integração real com backend precisa ser confirmada pelo Production Audit.
+
+### v1.0 — SaaS & Production Readiness
+- Organization
+- OrganizationMembership
+- tenant isolation
+- PostgreSQL RLS
+- SaaSPlan / SaaSPlanVersion
+- SaasFeature / Entitlements / Limits
+- trial
+- SaasSubscription
+- SaaS Billing
+- Usage tracking
+- Feature Flags
+- onboarding
+- support access auditado
+- CI/CD
+- observabilidade
+- backup / restore
+- disaster recovery
+
+## Tenant isolation
+
+Arquitetura alvo:
+
+```text
+Application Authorization
++
+Tenant Context
++
+PostgreSQL Row Level Security
 ```
 
-Frontend:
+O usuário da aplicação não deve possuir `BYPASSRLS`.
 
-```powershell
-cd frontend
-pnpm install --frozen-lockfile
-Copy-Item .env.example .env
-pnpm dev
+**Tenant crossover é bloqueador de release.**
+
+## Billing SaaS
+
+O billing do próprio PsicoGest é separado do financeiro das clínicas:
+
+```text
+Paciente → Clínica
+Receivable / Payment
 ```
 
-Abra `http://localhost:5173`. O readiness da API fica em `http://localhost:8080/health/ready` e a liveness em `http://localhost:8080/health/live`.
+é diferente de:
 
-## Qualidade
-
-```powershell
-cd frontend
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm build
-
-cd ..\backend\psicogest\psicogest
-./mvnw -DskipTests compile
-./mvnw test
+```text
+Clínica → PsicoGest
+SaasInvoice / SaasPayment
 ```
 
-Os testes de integração do backend usam Testcontainers e exigem Docker ativo. O CI executa install congelado, lint, typecheck, testes, build e validação da sequência de migrations.
+## Production Audit
 
-## Banco e migrations
+Antes da venda, o repositório deve ser confrontado com esta arquitetura e cada item classificado como:
 
-O backend executa Flyway automaticamente no startup. Para validar ou aplicar manualmente em um banco já existente:
-
-```powershell
-cd backend/psicogest/psicogest
-./mvnw flyway:validate
-./mvnw flyway:migrate
+```text
+IMPLEMENTADO ✅
+PARCIAL 🟡
+FALTANDO ❌
+BLOQUEADOR DE VENDA 🚨
 ```
 
-Migrations antigas baselined não devem ser reaplicadas em bancos existentes. Em caso de adoção de uma base criada fora do histórico do Flyway, faça backup, valide os objetos e reconcilie o histórico com revisão técnica; nunca use `clean` em dados de cliente.
+O audit deve cobrir backend, frontend, migrations, auth, MFA, tenant isolation, RLS, clinical authorization, finance, fiscal, providers, notifications, LGPD, SaaS, CI/CD, backups, restore, observability, security tests e E2E.
 
-## Demonstração para a clínica
+## GO LIVE mínimo
 
-Para uma demonstração sem integrações externas, use um ambiente isolado com `VITE_DEMO_MODE=true`, dados fictícios e a conta exibida na tela de login. Mostre, nesta ordem:
+- [ ] frontend/backend integrados;
+- [ ] mocks removidos dos fluxos críticos;
+- [ ] migrations validadas;
+- [ ] tenant isolation comprovado;
+- [ ] MFA funcionando;
+- [ ] password reset;
+- [ ] email verification;
+- [ ] rate limiting;
+- [ ] providers externos homologados;
+- [ ] NFS-e homologada ou desativada;
+- [ ] KMS/Secret Manager real;
+- [ ] PostgreSQL privado;
+- [ ] Redis privado;
+- [ ] storage privado;
+- [ ] WAF/TLS;
+- [ ] backups;
+- [ ] PITR;
+- [ ] restore comprovado;
+- [ ] observabilidade;
+- [ ] alertas;
+- [ ] pentest;
+- [ ] termos de uso;
+- [ ] política de privacidade;
+- [ ] revisão LGPD;
+- [ ] billing SaaS;
+- [ ] onboarding;
+- [ ] ambiente demo;
+- [ ] suporte;
+- [ ] piloto controlado.
 
-1. dashboard e seletor de organização;
-2. agenda, criação de consulta e bloqueio de horário;
-3. paciente e prontuário com autorização, rascunho, finalização e adendo;
-4. financeiro com recebível, status e separação de contexto;
-5. notificações, preferências e estados de supressão;
-6. LGPD, auditoria e sessões;
-7. onboarding, equipe, convite, plano e limites SaaS.
+## Estratégia de lançamento
 
-Deixe claro durante a apresentação quais telas são demonstração local e quais dependem de backend/provider homologado. Não use dados pessoais, telefones, e-mails ou prontuários reais.
+```text
+Internal
+↓
+Demo
+↓
+1 cliente piloto
+↓
+3–5 pilotos
+↓
+10 clientes
+↓
+50 clientes
+↓
+escala
+```
 
-## Release e produção
+## Status
 
-Há Dockerfiles para API e frontend, `docker-compose.yml` para dependências locais e workflow em `.github/workflows/quality.yml`. O procedimento de operação está em [`docs/production-runbook.md`](docs/production-runbook.md), com scripts de backup/restore em `ops/`. Antes de inserir dados reais, ainda devem ser executados pela equipe responsável: restore drill de backup, teste de rollback, homologação de pagamento/NFS-e/e-mail/WhatsApp, revisão independente de segurança, configuração de observabilidade e validação jurídica/operacional da LGPD.
+```text
+✅ v0.2 Core Domain — arquitetura definida
+✅ v0.3 Security — arquitetura definida
+✅ v0.4 Clinical — arquitetura definida
+✅ v0.5 Finance & Fiscal — arquitetura definida
+✅ v0.6 Packages & Subscriptions — arquitetura definida
+✅ v0.7 Notifications — arquitetura definida
+✅ v0.8 LGPD & Compliance — arquitetura definida
+✅ v0.9 Frontend — informado como concluído
+
+🟡 v1.0 Production Readiness
+🟡 SaaS Commercial Layer
+🟡 Production Audit
+
+🚨 Venda em produção depende do fechamento dos bloqueadores encontrados no audit.
+```
