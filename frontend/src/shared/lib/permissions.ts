@@ -18,5 +18,5 @@ export const demoUser: AuthUser = {
   role: "OWNER",
   initials: "HC",
   tenant: { id: "clinic-1", name: "Clínica Horizonte", documentLabel: "CNPJ ••.•••.•••/0001-••", timezone: "America/Sao_Paulo", plan: "Growth" },
-  permissions: ["dashboard:read", "clinical:read", "clinical:write", "patients:read", "patients:write", "finance:read", "finance:write", "fiscal:read", "packages:read", "notifications:read", "notifications:manage", "privacy:read", "settings:manage"],
+  permissions: ["dashboard:read", "clinical:read", "clinical:write", "patients:read", "patients:write", "finance:read", "finance:write", "fiscal:read", "packages:read", "notifications:read", "notifications:manage", "privacy:read", "settings:manage", "billing:read"],
 };

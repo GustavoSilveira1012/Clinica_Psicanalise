@@ -4,8 +4,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
 
-import com.psicogest.psicogest.model.enums.PaymentMethod;
 import com.psicogest.psicogest.model.enums.ReconciliationConfidence;
+import com.psicogest.psicogest.model.entity.Payment.PaymentMethod;
 
 /**
  * Sugestão de reconciliação de lançamento bancário

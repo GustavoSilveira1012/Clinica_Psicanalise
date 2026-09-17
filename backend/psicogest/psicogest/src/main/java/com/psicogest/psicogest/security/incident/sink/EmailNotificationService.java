@@ -1,6 +1,7 @@
 package com.psicogest.psicogest.security.incident.sink;
 
 import com.psicogest.psicogest.security.incident.SecurityIncidentNotification;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
@@ -10,14 +11,21 @@ import org.springframework.stereotype.Service;
 @Service
 public class EmailNotificationService {
 
+    private final SecurityAlertWebhookClient webhookClient;
+    private final String endpoint;
+
+    public EmailNotificationService(
+            SecurityAlertWebhookClient webhookClient,
+            @Value("${app.security.alert.email.endpoint:}") String endpoint
+    ) {
+        this.webhookClient = webhookClient;
+        this.endpoint = endpoint;
+    }
+
     public void sendSecurityAlert(
             SecurityIncidentNotification notification
     ) {
 
-        // Implementação futura:
-        // - Formatar email HTML
-        // - Enviar via SMTP/SES/SendGrid
-        // - Registrar tentativa de envio
-        // TODO: Implementar integração com provedor de email
+        webhookClient.send(endpoint, notification);
     }
 }

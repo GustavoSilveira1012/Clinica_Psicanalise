@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "clinics")
@@ -24,6 +25,10 @@ public class Clinic implements DeactivatableEntity {
 
     @Column(unique = true, length = 18)
     private String cnpj;
+
+    /** Organização SaaS proprietária do contexto clínico. */
+    @Column(name = "organization_id")
+    private UUID organizationId;
 
     @Column(nullable = false)
     @Builder.Default

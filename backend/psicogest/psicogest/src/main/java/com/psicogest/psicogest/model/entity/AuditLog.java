@@ -23,12 +23,6 @@ public class AuditLog {
     @Id
     private UUID id;
 
-    @Column( name = "user_id", nullable = false )
-    private Long userId;
-
-    @Column( name = "session_id", nullable = false )
-    private UUID sessionId;
-
     @Enumerated( EnumType.STRING )
     @Column( nullable = false )
     private AuditAction action;
@@ -41,9 +35,6 @@ public class AuditLog {
 
     @Column( name = "patient_id" )
     private Long patientId;
-
-    @Column( columnDefinition = "text" )
-    private String description;
 
     @Enumerated( EnumType.STRING )
     @Column( nullable = false )
@@ -64,9 +55,6 @@ public class AuditLog {
 
     @Column( name = "occurred_at", nullable = false )
     private Instant occurredAt;
-
-    @Column( name = "created_at", nullable = false, updatable = false )
-    private Instant createdAt;
 
     // Campos para integridade da auditoria
     @Column( name = "sequence", nullable = false )

@@ -1,6 +1,7 @@
 package com.psicogest.psicogest.security.crypto;
 
 import java.util.Objects;
+import java.util.Arrays;
 
 public record EncryptedEnvelope(
         int cryptoVersion,
@@ -34,5 +35,26 @@ public record EncryptedEnvelope(
     @Override
     public byte[] ciphertext() {
         return ciphertext.clone();
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (this == other) return true;
+        if (!(other instanceof EncryptedEnvelope that)) return false;
+        return cryptoVersion == that.cryptoVersion
+                && Objects.equals(algorithm, that.algorithm)
+                && Objects.equals(keyId, that.keyId)
+                && Arrays.equals(wrappedDataKey, that.wrappedDataKey)
+                && Arrays.equals(iv, that.iv)
+                && Arrays.equals(ciphertext, that.ciphertext);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = Objects.hash(cryptoVersion, algorithm, keyId);
+        result = 31 * result + Arrays.hashCode(wrappedDataKey);
+        result = 31 * result + Arrays.hashCode(iv);
+        result = 31 * result + Arrays.hashCode(ciphertext);
+        return result;
     }
 }

@@ -68,6 +68,13 @@ public class PatientAccessQueryService {
                     .toList();
         }
 
+        if (context.hasRole(authentication, "CLINIC_ADMIN")) {
+            return patientRepository.findByActiveTrue()
+                    .stream()
+                    .map(this::toResponse)
+                    .toList();
+        }
+
         throw new AccessDeniedException("Acesso negado");
     }
 

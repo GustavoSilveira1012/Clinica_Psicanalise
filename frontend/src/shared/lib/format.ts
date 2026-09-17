@@ -8,11 +8,13 @@ export function formatCurrency(value: number) {
 }
 
 export function formatDate(value: string, options?: Intl.DateTimeFormatOptions) {
+  if (!value) return "—";
   const date = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T12:00:00`) : new Date(value);
   return new Intl.DateTimeFormat("pt-BR", options ?? { day: "2-digit", month: "short" }).format(date);
 }
 
 export function formatDateTime(value: string) {
+  if (!value) return "—";
   return new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
     month: "short",
@@ -30,6 +32,7 @@ export function formatLongDate(value: Date | string = new Date()) {
 }
 
 export function maskContact(value: string) {
+  if (!value) return "—";
   if (value.includes("@")) {
     const [local, domain] = value.split("@");
     return `${local.slice(0, 2)}•••@${domain}`;

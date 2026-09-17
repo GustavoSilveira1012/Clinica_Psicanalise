@@ -18,15 +18,15 @@ pnpm test
 pnpm build
 ```
 
-O site público fica em `/`, o pedido de demonstração em `/demo` e o produto autenticado em `/dashboard`. O ambiente inicia com `dataSource` mockado para permitir validar os fluxos sem dependência do backend. O cliente HTTP tipado está em `src/shared/lib/api-client.ts`; quando os endpoints de dashboard, notificações, preferências e compliance estiverem expostos, o adapter pode ser trocado sem alterar as telas.
+O site público fica em `/`, o pedido de demonstração em `/demo` e o produto autenticado em `/dashboard`. Por padrão, o frontend usa o adapter HTTP real (`src/shared/lib/real-api.ts`) e exige o backend autenticado. O cenário local fictício só é habilitado explicitamente com `VITE_DEMO_MODE=true`, por meio do adapter `src/shared/lib/mock-api.ts`.
 
 O roteiro de apresentação para a clínica está em [`DEMO-ROTEIRO.md`](./DEMO-ROTEIRO.md).
 
 No shell autenticado, use `Ctrl/Cmd + K` para abrir a busca rápida entre os módulos permitidos para o usuário. As telas são carregadas sob demanda para reduzir o tempo inicial de entrada.
 
-Na demonstração, ações como criar consulta, emitir NFS-e, lançar financeiro e enviar convite são simulações locais. O backend deverá repetir autorização, isolamento por clínica, idempotência, rate limit e bloqueio de integrações antes de qualquer uso com dados reais.
+Em modo demo, ações como criar consulta, emitir NFS-e, lançar financeiro e enviar convite são simulações locais. Em produção, ações sem endpoint/provider configurado são bloqueadas com erro explícito; o backend repete autorização, isolamento por organização, idempotência, rate limit e bloqueio de integrações.
 
-Credenciais de demonstração: `demo@psicogest.com` / `demo123`, seguidas de qualquer código MFA de 6 dígitos. O modo demo é habilitado automaticamente no desenvolvimento; em um build de produção, `VITE_DEMO_MODE=true` deve ser usado somente para uma apresentação isolada. Sem essa flag, o frontend bloqueia o login local até a integração com o provedor de autenticação.
+Credenciais de demonstração: `demo@psicogest.com` / `demo123`, seguidas de qualquer código MFA de 6 dígitos. Elas só existem quando `VITE_DEMO_MODE=true`; sem essa flag, login, sessão e MFA dependem exclusivamente do backend.
 
 ## Organização
 

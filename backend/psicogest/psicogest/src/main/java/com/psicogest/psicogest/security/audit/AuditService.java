@@ -6,6 +6,9 @@ import com.psicogest.psicogest.repository.AuditChainStateRepository;
 import com.psicogest.psicogest.repository.AuditLogRepository;
 import com.psicogest.psicogest.repository.UserRepository;
 import com.psicogest.psicogest.repository.UserSessionRepository;
+import com.psicogest.psicogest.security.tenant.TenantContext;
+import com.psicogest.psicogest.security.tenant.TenantContextHolder;
+import com.psicogest.psicogest.security.tenant.TenantDatabaseContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,13 +34,16 @@ public class AuditService {
 
     private final AuditKeyProvider keyProvider;
 
+    private final TenantDatabaseContext tenantDatabaseContext;
+
     public AuditService(
             AuditChainStateRepository chainRepository,
             AuditLogRepository auditRepository,
             UserRepository userRepository,
             UserSessionRepository sessionRepository,
             AuditIntegrityService integrityService,
-            AuditKeyProvider keyProvider
+            AuditKeyProvider keyProvider,
+            TenantDatabaseContext tenantDatabaseContext
     ) {
 
         this.chainRepository = chainRepository;
@@ -46,13 +52,14 @@ public class AuditService {
         this.sessionRepository = sessionRepository;
         this.integrityService = integrityService;
         this.keyProvider = keyProvider;
+        this.tenantDatabaseContext = tenantDatabaseContext;
     }
 
     @Transactional
     public AuditLog log(
             AuditCommand command
     ) {
-
+        applyTenantContext();
         return append(command);
     }
 
@@ -76,7 +83,7 @@ public class AuditService {
     public AuditLog recordCriticalWrite(
             AuditCommand command
     ) {
-
+        applyTenantContext();
         return append(command);
     }
 
@@ -102,8 +109,17 @@ public class AuditService {
     public AuditLog recordSensitiveRead(
             AuditCommand command
     ) {
-
+        applyTenantContext();
         return append(command);
+    }
+
+    private void applyTenantContext() {
+        TenantContext context = TenantContextHolder.get();
+        if (context == null) {
+            return;
+        }
+        tenantDatabaseContext.applyUser(context.userId());
+        tenantDatabaseContext.applyOrganization(context.organizationId());
     }
 
     private AuditLog append(

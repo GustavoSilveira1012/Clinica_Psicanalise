@@ -5,7 +5,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 
-@Component
+@Component("infrastructureSecurityHashService")
 public class SecurityHashService {
 
     public String sha256(String input) {

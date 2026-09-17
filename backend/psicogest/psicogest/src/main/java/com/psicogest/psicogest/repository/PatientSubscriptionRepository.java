@@ -25,4 +25,11 @@ public interface PatientSubscriptionRepository extends JpaRepository<PatientSubs
     List<UUID> findIdsReadyForCycle(@Param("today") LocalDate today);
 
     List<PatientSubscription> findByPatientId(Long patientId);
+
+    List<PatientSubscription> findAllByOrderByCreatedAtDesc();
+
+    @Query("select count(s) from PatientSubscription s "
+            + "where s.subscriptionPlanVersion.entitlementPackageVersion.id = :versionId "
+            + "and s.status in ('PENDING_START', 'ACTIVE', 'PAST_DUE')")
+    long countActiveByEntitlementPackageVersionId(@Param("versionId") UUID versionId);
 }

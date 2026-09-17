@@ -25,12 +25,13 @@ public class UserSessionService {
         this.tokens = tokens; this.properties = properties; this.clock = clock;
     }
 
-    public UserSession create(User user, String ip, String userAgent) {
+    /** The user-agent argument is a SHA-256 fingerprint, never the raw header. */
+    public UserSession create(User user, String ip, String userAgentHash) {
         LocalDateTime now = LocalDateTime.now(clock);
         return sessions.saveAndFlush(UserSession.builder().id(UUID.randomUUID()).user(user)
                 .createdAt(now).lastSeenAt(now).expiresAt(now.plus(properties.refreshTokenTtl()))
-                .createdIp(ip).lastIp(ip).userAgentHash(userAgent == null ? null : tokens.hash(userAgent))
-                .deviceLabel(deviceLabel(userAgent)).build());
+                .createdIp(ip).lastIp(ip).userAgentHash(userAgentHash)
+                .deviceLabel("Navegador verificado").build());
     }
 
     @Transactional(readOnly = true)

@@ -6,7 +6,13 @@ import org.springframework.stereotype.Service;
 
 import com.psicogest.psicogest.exception.AccessDeniedException;
 import com.psicogest.psicogest.model.entity.PatientPackage;
+import com.psicogest.psicogest.model.entity.Psychoanalyst;
+import com.psicogest.psicogest.repository.PatientRepository;
+import com.psicogest.psicogest.repository.PsychoanalystRepository;
+import com.psicogest.psicogest.security.authorization.AuthenticatedUserContext;
 import com.psicogest.psicogest.security.SecurityActor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -24,6 +30,20 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 public class PackageAuthorizationService {
 
+    private final PatientRepository patientRepository;
+    private final PsychoanalystRepository psychoanalystRepository;
+    private final AuthenticatedUserContext userContext;
+
+    public PackageAuthorizationService(
+            PatientRepository patientRepository,
+            PsychoanalystRepository psychoanalystRepository,
+            AuthenticatedUserContext userContext
+    ) {
+        this.patientRepository = patientRepository;
+        this.psychoanalystRepository = psychoanalystRepository;
+        this.userContext = userContext;
+    }
+
     /**
      * Verifica se ator pode listar pacotes de um paciente
      */
@@ -39,11 +59,18 @@ public class PackageAuthorizationService {
             );
         }
 
-        log.debug(
-                "Autorizando listagem: patientId={}, actor={}",
-                patientId,
-                actor.userId()
-        );
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Long userId = userContext.userId(authentication).orElseThrow(
+                () -> new AccessDeniedException("Usuário não identificado"));
+        boolean administrative = hasAnyRole(authentication, "ADMIN", "CLINIC_ADMIN", "BILLING");
+        boolean ownPatient = patientRepository.existsByIdAndUserId(patientId, userId);
+        boolean clinicalAccess = psychoanalystRepository.findByUserId(userId)
+                .map(Psychoanalyst.class::cast)
+                .map(psych -> psychoanalystRepository.existsTherapeuticRelationship(psych.getId(), patientId))
+                .orElse(false);
+        if (!administrative && !ownPatient && !clinicalAccess) {
+            throw new AccessDeniedException("Paciente fora do contexto autorizado");
+        }
     }
 
     /**
@@ -62,11 +89,7 @@ public class PackageAuthorizationService {
             );
         }
 
-        log.debug(
-                "Autorizando ledger: packageId={}, actor={}",
-                packageId,
-                actor.userId()
-        );
+        authorizeListPackages(patientPackage.getPatient().getId(), actor);
     }
 
     /**
@@ -85,11 +108,10 @@ public class PackageAuthorizationService {
             );
         }
 
-        log.debug(
-                "Autorizando edição: packageId={}, actor={}",
-                packageId,
-                actor.userId()
-        );
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (!hasAnyRole(authentication, "ADMIN", "CLINIC_ADMIN", "BILLING")) {
+            throw new AccessDeniedException("Ajustes de pacote exigem permissão financeira");
+        }
     }
 
     /**
@@ -108,10 +130,19 @@ public class PackageAuthorizationService {
             );
         }
 
-        log.debug(
-                "Autorizando ajuste manual: packageId={}, actor={}",
-                packageId,
-                actor.userId()
-        );
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (!hasAnyRole(authentication, "ADMIN", "CLINIC_ADMIN", "BILLING")) {
+            throw new AccessDeniedException("Ajuste manual exige permissão financeira");
+        }
+    }
+
+    private boolean hasAnyRole(Authentication authentication, String... roles) {
+        if (authentication == null) {
+            return false;
+        }
+        return java.util.Arrays.stream(roles)
+                .map(role -> "ROLE_" + role)
+                .anyMatch(expected -> authentication.getAuthorities().stream()
+                        .anyMatch(authority -> expected.equals(authority.getAuthority())));
     }
 }

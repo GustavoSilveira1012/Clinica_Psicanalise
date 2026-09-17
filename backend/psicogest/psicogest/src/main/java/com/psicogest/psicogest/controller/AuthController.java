@@ -5,6 +5,7 @@ import com.psicogest.psicogest.dto.auth.CsrfResponse;
 import com.psicogest.psicogest.dto.auth.LoginRequest;
 import com.psicogest.psicogest.dto.auth.LoginResponse;
 import com.psicogest.psicogest.security.auth.refresh.RefreshCookieService;
+import com.psicogest.psicogest.security.request.SecurityRequestContextFactory;
 import com.psicogest.psicogest.service.AuthService;
 import com.psicogest.psicogest.service.RefreshTokenService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -29,15 +30,18 @@ public class AuthController {
     private final AuthService authService;
     private final RefreshCookieService cookieService;
     private final RefreshTokenService refreshTokenService;
+    private final SecurityRequestContextFactory securityContextFactory;
 
     public AuthController(
             AuthService authService,
             RefreshCookieService cookieService,
-            RefreshTokenService refreshTokenService
+            RefreshTokenService refreshTokenService,
+            SecurityRequestContextFactory securityContextFactory
     ) {
         this.authService = authService;
         this.cookieService = cookieService;
         this.refreshTokenService = refreshTokenService;
+        this.securityContextFactory = securityContextFactory;
     }
 
     @GetMapping("/csrf")
@@ -53,8 +57,7 @@ public class AuthController {
     ) {
         AuthService.LoginResult tokens = authService.login(
                 dto,
-                request.getRemoteAddr(),
-                request.getHeader("User-Agent"));
+                securityContextFactory.from(request));
 
         if (tokens.refreshToken() != null) {
             cookieService.write(response, tokens.refreshToken());
@@ -73,8 +76,7 @@ public class AuthController {
     ) {
         AuthService.AuthTokens tokens = authService.refresh(
                 refreshToken,
-                request.getRemoteAddr(),
-                request.getHeader("User-Agent"));
+                securityContextFactory.from(request));
 
         cookieService.write(response, tokens.refreshToken());
         return tokens.response();

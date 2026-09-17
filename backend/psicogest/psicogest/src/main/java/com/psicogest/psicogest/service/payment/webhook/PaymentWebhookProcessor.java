@@ -2,11 +2,14 @@ package com.psicogest.psicogest.service.payment.webhook;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.math.BigDecimal;
 import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import com.psicogest.psicogest.exception.ResourceNotFoundException;
 import com.psicogest.psicogest.infrastructure.payment.provider.PaymentProviderType;
@@ -20,6 +23,8 @@ import com.psicogest.psicogest.model.enums.SecurityEventType;
 import com.psicogest.psicogest.repository.PaymentWebhookInboxRepository;
 import com.psicogest.psicogest.repository.SecurityEventRepository;
 import com.psicogest.psicogest.security.crypto.ApplicationEncryptionService;
+import com.psicogest.psicogest.security.crypto.EncryptedEnvelope;
+import com.psicogest.psicogest.security.crypto.EncryptionContext;
 import com.psicogest.psicogest.service.PaymentService;
 import com.psicogest.psicogest.service.RefundService;
 
@@ -54,6 +59,7 @@ public class PaymentWebhookProcessor {
     private final SecurityEventRepository securityEventRepository;
 
     private final Clock clock;
+    private final ObjectMapper objectMapper;
 
     public PaymentWebhookProcessor(
             PaymentWebhookInboxRepository inboxRepository,
@@ -62,7 +68,8 @@ public class PaymentWebhookProcessor {
             RefundService refundService,
             ApplicationEncryptionService encryptionService,
             SecurityEventRepository securityEventRepository,
-            Clock clock
+            Clock clock,
+            ObjectMapper objectMapper
     ) {
         this.inboxRepository = inboxRepository;
         this.adapterRegistry = adapterRegistry;
@@ -71,6 +78,7 @@ public class PaymentWebhookProcessor {
         this.encryptionService = encryptionService;
         this.securityEventRepository = securityEventRepository;
         this.clock = clock;
+        this.objectMapper = objectMapper;
     }
 
     /**
@@ -155,6 +163,7 @@ public class PaymentWebhookProcessor {
             PaymentProviderEvent event =
                     parseEvent(
                             inbox.getProvider(),
+                            inbox.getEventType(),
                             payloadJson
                     );
 
@@ -264,13 +273,13 @@ public class PaymentWebhookProcessor {
     /**
      * Descriptografa payload do webhook
      */
-    private String decryptPayload(
-            PaymentWebhookInbox inbox
-    ) {
-
-        // TODO: implementar descriptografia
-        // Por enquanto retorna placeholder
-        return "{}";
+    private String decryptPayload(PaymentWebhookInbox inbox) {
+        EncryptionContext context = new EncryptionContext(
+                "PAYMENT_WEBHOOK", inbox.getId().toString(), "payload",
+                Map.of("provider", inbox.getProvider().name(), "eventId", inbox.getProviderEventId()));
+        return encryptionService.decrypt(new EncryptedEnvelope(
+                inbox.getCryptoVersion(), inbox.getCryptoAlgorithm(), inbox.getKeyId(),
+                inbox.getEncryptedDek(), inbox.getPayloadIv(), inbox.getEncryptedPayload()), context);
     }
 
     /**
@@ -278,18 +287,51 @@ public class PaymentWebhookProcessor {
      */
     private PaymentProviderEvent parseEvent(
             PaymentProviderType provider,
+            String eventType,
             String payloadJson
     ) {
+        try {
+            JsonNode root = objectMapper.readTree(payloadJson);
+            PaymentProviderEventType type = PaymentProviderEventType.valueOf(eventType);
+            String transactionId = text(root, "providerTransactionId", "transaction_id", "transactionId", "payment_id");
+            String refundId = text(root, "providerRefundId", "refund_id", "refundId");
+            if (transactionId == null) transactionId = nestedText(root, "data", "object", "id");
+            if (refundId == null && (type == PaymentProviderEventType.REFUND_CONFIRMED
+                    || type == PaymentProviderEventType.REFUND_FAILED)) refundId = nestedText(root, "data", "object", "refund_id");
+            if ((type == PaymentProviderEventType.REFUND_CONFIRMED || type == PaymentProviderEventType.REFUND_FAILED)
+                    && (refundId == null || refundId.isBlank())) {
+                throw new IllegalArgumentException("Webhook sem identificador de reembolso");
+            }
+            if (type != PaymentProviderEventType.REFUND_CONFIRMED && type != PaymentProviderEventType.REFUND_FAILED
+                    && (transactionId == null || transactionId.isBlank())) {
+                throw new IllegalArgumentException("Webhook sem identificador de transação");
+            }
+            BigDecimal amount = decimal(root, "amount", "value", "transaction_amount");
+            String occurred = text(root, "occurredAt", "occurred_at", "created_at");
+            Instant occurredAt = occurred == null ? clock.instant() : Instant.parse(occurred);
+            return new PaymentProviderEvent(type, transactionId, refundId, amount, occurredAt);
+        } catch (Exception exception) {
+            throw new IllegalArgumentException("Payload de webhook inválido para " + provider, exception);
+        }
+    }
 
-        // TODO: implementar parser para cada provider
-        // Por enquanto retorna evento dummy
-        return new PaymentProviderEvent(
-                PaymentProviderEventType.PAYMENT_CONFIRMED,
-                "dummy-tx-id",
-                null,
-                null,
-                clock.instant()
-        );
+    private String text(JsonNode root, String... names) {
+        for (String name : names) {
+            JsonNode value = root.get(name);
+            if (value != null && value.isValueNode() && !value.asText().isBlank()) return value.asText();
+        }
+        return null;
+    }
+
+    private String nestedText(JsonNode root, String... path) {
+        JsonNode current = root;
+        for (String part : path) current = current == null ? null : current.get(part);
+        return current == null || current.isMissingNode() || current.isNull() ? null : current.asText();
+    }
+
+    private BigDecimal decimal(JsonNode root, String... names) {
+        String value = text(root, names);
+        return value == null ? null : new BigDecimal(value);
     }
 
     /**
@@ -435,7 +477,7 @@ public class PaymentWebhookProcessor {
                                                 .getProviderEventId(),
 
                                         "error",
-                                        e.getMessage()
+                                        java.util.Objects.toString(e.getMessage(), e.getClass().getSimpleName())
                                 )
                         )
 

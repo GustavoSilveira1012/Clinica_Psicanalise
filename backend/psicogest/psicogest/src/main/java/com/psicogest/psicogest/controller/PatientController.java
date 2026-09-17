@@ -30,6 +30,7 @@ public class PatientController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('CLINIC_ADMIN', 'PSYCHOANALYST')")
     @ResponseStatus(HttpStatus.CREATED)
     public PatientResponseDTO create(
             @Valid @RequestBody PatientCreateDTO dto) {
@@ -41,7 +42,8 @@ public class PatientController {
     @PreAuthorize("""
             hasAnyRole(
                 'PATIENT',
-                'PSYCHOANALYST'
+                'PSYCHOANALYST',
+                'CLINIC_ADMIN'
             )
             """)
     public List<PatientResponseDTO> findAll(Authentication authentication) {
@@ -63,6 +65,7 @@ public PatientResponseDTO findById(
 }
 
     @PatchMapping("/{id}/deactivate")
+    @PreAuthorize("hasAnyRole('CLINIC_ADMIN', 'PSYCHOANALYST')")
     public PatientResponseDTO deactivate(
             @PathVariable Long id,
             @Valid @RequestBody DeactivateDTO dto) {
@@ -70,6 +73,7 @@ public PatientResponseDTO findById(
     }
 
     @PatchMapping("/{id}/reactivate")
+    @PreAuthorize("hasRole('CLINIC_ADMIN')")
     public PatientResponseDTO reactivate(@PathVariable Long id) {
         return patientService.reactivate(id);
     }

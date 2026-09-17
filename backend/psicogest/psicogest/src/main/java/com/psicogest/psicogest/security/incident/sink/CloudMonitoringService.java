@@ -1,6 +1,7 @@
 package com.psicogest.psicogest.security.incident.sink;
 
 import com.psicogest.psicogest.security.incident.SecurityIncidentNotification;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
@@ -10,14 +11,21 @@ import org.springframework.stereotype.Service;
 @Service
 public class CloudMonitoringService {
 
+    private final SecurityAlertWebhookClient webhookClient;
+    private final String endpoint;
+
+    public CloudMonitoringService(
+            SecurityAlertWebhookClient webhookClient,
+            @Value("${app.security.alert.cloud-monitoring.endpoint:}") String endpoint
+    ) {
+        this.webhookClient = webhookClient;
+        this.endpoint = endpoint;
+    }
+
     public void publishMetric(
             SecurityIncidentNotification notification
     ) {
 
-        // Implementação futura:
-        // - Formatar métrica customizada
-        // - Enviar para CloudWatch/Cloud Monitoring/Azure Monitor
-        // - Incluir contexto de correlação
-        // TODO: Implementar integração com cloud monitoring
+        webhookClient.send(endpoint, notification);
     }
 }

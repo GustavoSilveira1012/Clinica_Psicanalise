@@ -19,8 +19,7 @@ public record PatientCreateDTO(
 ) {
 
     public String getEmail() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getEmail'");
+        return email;
     }
 
 }

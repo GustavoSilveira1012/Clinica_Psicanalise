@@ -24,13 +24,17 @@ public class ChallengeService {
         this.properties = properties; this.clock = clock;
     }
 
-    public String issue(User user, AuthenticationChallengeType type, String ip, String userAgent) {
+    /**
+     * Issues a challenge. The last argument is already a SHA-256 fingerprint;
+     * raw user-agent values must never reach this service.
+     */
+    public String issue(User user, AuthenticationChallengeType type, String ip, String userAgentHash) {
         String raw = tokens.generate();
         LocalDateTime now = LocalDateTime.now(clock);
         challenges.saveAndFlush(AuthenticationChallenge.builder().id(UUID.randomUUID()).user(user)
                 .tokenHash(tokens.hash(raw)).challengeType(type).securityVersion(user.getSecurityVersion())
                 .expiresAt(now.plus(properties.challengeTtl())).createdAt(now).createdIp(ip)
-                .userAgentHash(userAgent == null ? null : tokens.hash(userAgent)).build());
+                .userAgentHash(userAgentHash).build());
         return raw;
     }
 

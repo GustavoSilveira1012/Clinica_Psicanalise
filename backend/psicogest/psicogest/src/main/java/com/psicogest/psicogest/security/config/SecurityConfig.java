@@ -2,6 +2,7 @@ package com.psicogest.psicogest.security.config;
 
 import com.psicogest.psicogest.security.handler.RestAccessDeniedHandler;
 import com.psicogest.psicogest.security.handler.RestAuthenticationEntryPoint;
+import com.psicogest.psicogest.security.tenant.TenantContextFilter;
 
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 
@@ -24,6 +25,7 @@ import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -73,7 +75,8 @@ public class SecurityConfig {
                         HttpHeaders.AUTHORIZATION,
                         HttpHeaders.CONTENT_TYPE,
                         "X-CSRF-TOKEN",
-                        "Idempotency-Key"
+                        "Idempotency-Key",
+                        "X-Organization-Id"
                 )
         );
 
@@ -101,7 +104,8 @@ public class SecurityConfig {
             HttpSecurity http,
             RestAuthenticationEntryPoint authenticationEntryPoint,
             RestAccessDeniedHandler accessDeniedHandler,
-            JwtAuthenticationConverter jwtAuthenticationConverter
+            JwtAuthenticationConverter jwtAuthenticationConverter,
+            TenantContextFilter tenantContextFilter
     ) throws Exception {
 
         RequestMatcher authCsrfMatcher = request -> {
@@ -174,6 +178,14 @@ public class SecurityConfig {
                                          "/auth/mfa/totp/verify",
                                          "/auth/mfa/recovery",
                                          "/auth/csrf"
+                                 )
+                                 .permitAll()
+
+                                .requestMatchers(
+                                        "/health/live",
+                                        "/health/ready",
+                                        "/actuator/health/liveness",
+                                        "/actuator/health/readiness"
                                 )
                                 .permitAll()
 
@@ -193,6 +205,8 @@ public class SecurityConfig {
                                 .authenticationEntryPoint(authenticationEntryPoint)
                                 .accessDeniedHandler(accessDeniedHandler)
                 )
+
+                .addFilterAfter(tenantContextFilter, BearerTokenAuthenticationFilter.class)
 
                 .headers(
                         headers -> headers

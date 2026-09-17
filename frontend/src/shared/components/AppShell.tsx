@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
-import { Bell, CalendarDays, ChevronDown, CircleDollarSign, ClipboardList, FileText, LayoutDashboard, LogOut, Menu, Moon, Settings, ShieldCheck, Sparkles, Sun, Users, WalletCards, X } from "lucide-react";
+import { Bell, CalendarDays, ChevronDown, CircleDollarSign, ClipboardList, FileText, LayoutDashboard, LogOut, Menu, Moon, Settings, ShieldCheck, Sparkles, Sun, Users, WalletCards, X, CreditCard } from "lucide-react";
 import { useAuth } from "../../features/auth/AuthContext";
 import type { Permission } from "../types/domain";
 import { can, roleLabels } from "../lib/permissions";
@@ -28,6 +28,7 @@ const groups: NavGroup[] = [
   { label: "Operação", items: [{ label: "Pacotes", to: "/packages", icon: Sparkles, permission: "packages:read" }, { label: "Assinaturas", to: "/subscriptions", icon: WalletCards, permission: "packages:read" }] },
   { label: "Financeiro", items: [{ label: "Financeiro", to: "/finance", icon: CircleDollarSign, permission: "finance:read" }, { label: "Fiscal / NFS-e", to: "/fiscal", icon: FileText, permission: "fiscal:read" }] },
   { label: "Governança", items: [{ label: "Notificações", to: "/notifications", icon: Bell, permission: "notifications:read" }, { label: "LGPD & compliance", to: "/compliance", icon: ShieldCheck, permission: "privacy:read" }, { label: "Configurações", to: "/settings", icon: Settings, permission: "settings:manage" }] },
+  { label: "Conta SaaS", items: [{ label: "Plano e cobrança", to: "/billing", icon: CreditCard, permission: "billing:read" }] },
 ];
 
 const commandDescriptions: Record<string, string> = {
@@ -42,23 +43,30 @@ const commandDescriptions: Record<string, string> = {
   Notificações: "Entregas e preferências",
   "LGPD & compliance": "Privacidade e auditoria",
   Configurações: "Preferências do tenant",
+  "Plano e cobrança": "Assinatura SaaS e limites",
 };
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const { session, logout } = useAuth();
+  const { session, logout, selectOrganization } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
+  const organizationMatch = location.pathname.match(/^\/app\/([^/]+)/);
+  const selectedOrganizationId = session?.user.tenant.id;
+  const organizationSlug = organizationMatch?.[1] ?? session?.user.organizations?.find((organization) => organization.id === selectedOrganizationId)?.slug ?? "";
+  const scopedTo = (to: string) => organizationMatch ? `/app/${organizationSlug}${to}` : to;
 
   const visibleGroups = useMemo(() => groups.map((group) => ({ ...group, items: group.items.filter((item) => can(session?.user ?? null, item.permission)) })).filter((group) => group.items.length > 0), [session?.user]);
   const allItems = groups.flatMap((group) => group.items);
-  const currentItem = allItems.find((item) => location.pathname.startsWith(item.to));
+  const currentItem = allItems.find((item) => location.pathname.startsWith(scopedTo(item.to)));
   const currentGroup = groups.find((group) => group.items.some((item) => item.to === currentItem?.to))?.label ?? "Visão geral";
   const pageTitle = location.pathname.includes("/clinical-record") ? "Registro clínico" : currentItem?.label ?? "PsicoGest";
   const tenantName = session?.user.tenant.name ?? "Clínica";
-  const commandItems: CommandPaletteItem[] = [...visibleGroups.flatMap((group) => group.items.map((item) => ({ label: item.label, description: commandDescriptions[item.label] ?? "Abrir módulo", group: group.label, to: item.to, keywords: [item.permission] }))), { label: "Perfil e segurança", description: "Conta, MFA e sessões", group: "Minha conta", to: "/profile", keywords: ["mfa", "sessão", "usuário"] }];
+  const organizationOptions = session?.user.organizations ?? [];
+  const activeOrganization = organizationOptions.find((organization) => organization.slug === organizationSlug);
+  const commandItems: CommandPaletteItem[] = [...visibleGroups.flatMap((group) => group.items.map((item) => ({ label: item.label, description: commandDescriptions[item.label] ?? "Abrir módulo", group: group.label, to: scopedTo(item.to), keywords: [item.permission] }))), { label: "Perfil e segurança", description: "Conta, MFA e sessões", group: "Minha conta", to: scopedTo("/profile"), keywords: ["mfa", "sessão", "usuário"] }];
 
   const closeMobile = () => setMobileOpen(false);
 
@@ -83,7 +91,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
 
         <nav className="mt-8 flex-1 space-y-6 overflow-y-auto px-1" aria-label="Navegação principal">
-          {visibleGroups.map((group) => <div key={group.label}><p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">{group.label}</p><div className="space-y-1">{group.items.map((item) => { const Icon = item.icon; return <NavLink key={item.to} to={item.to} end={item.to === "/dashboard"} onClick={closeMobile} className={({ isActive }) => cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition", isActive ? "bg-sage-50 text-sage-700 dark:bg-sage-950/50 dark:text-sage-200" : "text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-slate-100")}><Icon aria-hidden="true" size={18} strokeWidth={1.8} /><span>{item.label}</span></NavLink>; })}</div></div>)}
+          {visibleGroups.map((group) => <div key={group.label}><p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">{group.label}</p><div className="space-y-1">{group.items.map((item) => { const Icon = item.icon; return <NavLink key={item.to} to={scopedTo(item.to)} end={item.to === "/dashboard"} onClick={closeMobile} className={({ isActive }) => cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition", isActive ? "bg-sage-50 text-sage-700 dark:bg-sage-950/50 dark:text-sage-200" : "text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-slate-100")}><Icon aria-hidden="true" size={18} strokeWidth={1.8} /><span>{item.label}</span></NavLink>; })}</div></div>)}
         </nav>
 
         <div className="rounded-2xl bg-ink p-4 text-white"><div className="flex items-center gap-2 text-sage-200"><Sparkles aria-hidden="true" size={16} /><span className="text-xs font-bold uppercase tracking-wider">Plano {session?.user.tenant.plan ?? "Growth"}</span></div><p className="mt-2 text-sm font-semibold">Operação protegida</p><p className="mt-1 text-xs leading-5 text-slate-300">Dados clínicos e financeiros separados por contexto.</p></div>
@@ -97,6 +105,12 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
           <div className="flex items-center gap-1 sm:gap-2">
             <CommandPalette items={commandItems} />
+            <label className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 dark:border-slate-700 dark:bg-slate-900 md:flex" title="Organização ativa">
+              <span className="sr-only">Organização ativa</span>
+              <select value={activeOrganization?.slug ?? ""} onChange={(event) => { const selected = organizationOptions.find((organization) => organization.slug === event.target.value); if (selected) { selectOrganization(selected.id); navigate(`/app/${selected.slug}/dashboard`); } }} className="max-w-44 bg-transparent py-2 text-xs font-bold text-slate-600 outline-none dark:text-slate-200" disabled={organizationOptions.length === 0}>
+                {organizationOptions.length === 0 ? <option value="">Nenhuma organização</option> : organizationOptions.map((organization) => <option key={organization.id} value={organization.slug}>{organization.name}</option>)}
+              </select>
+            </label>
             <IconButton label={theme === "dark" ? "Ativar modo claro" : "Ativar modo escuro"} onClick={toggleTheme}>{theme === "dark" ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}</IconButton>
             <IconButton label="Notificações" onClick={() => navigate("/notifications")}><Bell size={18} aria-hidden="true" /></IconButton>
             <button type="button" className="ml-1 flex items-center gap-2 rounded-xl px-2 py-1.5 text-left transition hover:bg-white/70 dark:hover:bg-slate-900" onClick={() => navigate("/profile")} title="Abrir perfil e segurança">
@@ -107,7 +121,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <IconButton label="Sair" onClick={logout}><LogOut size={17} aria-hidden="true" /></IconButton>
           </div>
         </header>
-        <div className="border-b border-amber-200/70 bg-amber-50/70 px-4 py-2 text-center text-[11px] font-medium text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-200"><span className="font-bold">Ambiente de demonstração</span> · dados fictícios e fluxos locais, sem envio real para provedores.</div>
+        {import.meta.env.DEV && import.meta.env.VITE_DEMO_MODE === "true" && <div className="border-b border-amber-200/70 bg-amber-50/70 px-4 py-2 text-center text-[11px] font-medium text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-200"><span className="font-bold">Ambiente de demonstração</span> · dados fictícios e fluxos locais, sem envio real para provedores.</div>}
         <main className="mx-auto w-full max-w-[1600px] overflow-x-hidden px-4 py-7 sm:px-8 lg:px-10">{children}</main>
       </div>
     </div>

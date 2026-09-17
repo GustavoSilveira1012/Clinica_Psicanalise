@@ -1,9 +1,19 @@
 package com.psicogest.psicogest.infrastructure.exfiltration;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import com.psicogest.psicogest.model.entity.SecurityEvent;
+import com.psicogest.psicogest.model.enums.SecurityEventOutcome;
+import com.psicogest.psicogest.model.enums.SecurityEventSeverity;
+import com.psicogest.psicogest.model.enums.SecurityEventType;
+import com.psicogest.psicogest.repository.SecurityEventRepository;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.UUID;
+import java.util.Map;
 
 /**
  * Detita acessos suspeitos a dados clínicos.
@@ -12,6 +22,21 @@ import java.util.UUID;
 @Slf4j
 @Service
 public class ClinicalAccessDetector {
+
+    private static final Duration WINDOW = Duration.ofHours(1);
+    private static final long READ_ALERT_THRESHOLD = 1_000;
+    private static final long EXPORT_ALERT_THRESHOLD = 5;
+
+    private final RedisTemplate<String, String> redis;
+    private final SecurityEventRepository securityEvents;
+
+    public ClinicalAccessDetector(
+            RedisTemplate<String, String> redis,
+            SecurityEventRepository securityEvents
+    ) {
+        this.redis = redis;
+        this.securityEvents = securityEvents;
+    }
 
     /**
      * Registra acesso a dados clínicos para análise de exfiltração.
@@ -28,17 +53,19 @@ public class ClinicalAccessDetector {
             String sourceIp
     ) {
 
-        log.info(
-                "Clinical data access: userId={}, sessionId={}, patientId={}, sourceIp={}",
-                userId,
-                sessionId,
-                patientId,
-                sourceIp
-        );
-
-        // TODO: Implementar detecção de anomalias
-        // - Comparar com baseline histórico
-        // - Alertar se suspeito
+        if (userId == null || patientId == null) return;
+        try {
+            String key = "security:clinical:reads:" + userId;
+            Long reads = redis.opsForValue().increment(key);
+            if (reads != null && reads == 1L) redis.expire(key, WINDOW);
+            if (reads != null && reads > READ_ALERT_THRESHOLD) {
+                recordAlert(SecurityEventSeverity.HIGH, userId, sessionId, sourceIp,
+                        "Leituras clínicas acima do limite operacional", reads);
+            }
+        } catch (RuntimeException exception) {
+            // Observability cannot make an authorized clinical read fail.
+            log.warn("Detector de acesso clínico indisponível; leitura permitida", exception);
+        }
     }
 
     /**
@@ -58,17 +85,42 @@ public class ClinicalAccessDetector {
             String sourceIp
     ) {
 
-        log.warn(
-                "Clinical export: userId={}, sessionId={}, patientId={}, sourceIp={}",
-                userId,
-                sessionId,
-                patientId,
-                sourceIp
-        );
+        if (userId == null || patientId == null) return;
+        try {
+            String key = "security:clinical:exports:" + userId;
+            Long exports = redis.opsForValue().increment(key);
+            if (exports != null && exports == 1L) redis.expire(key, WINDOW);
+            String patientsKey = key + ":patients";
+            Long uniquePatients = redis.opsForSet().add(patientsKey, patientId.toString());
+            redis.expire(patientsKey, WINDOW);
+            Long patientCount = redis.opsForSet().size(patientsKey);
+            if ((patientCount != null && patientCount >= EXPORT_ALERT_THRESHOLD)
+                    || (exports != null && exports >= EXPORT_ALERT_THRESHOLD)) {
+                recordAlert(SecurityEventSeverity.CRITICAL, userId, sessionId, sourceIp,
+                        "Exportações clínicas em massa detectadas", patientCount == null ? exports : patientCount);
+            } else if (patientCount != null && patientCount >= 3) {
+                recordAlert(SecurityEventSeverity.MEDIUM, userId, sessionId, sourceIp,
+                        "Aumento incomum de exportações clínicas", patientCount);
+            }
+        } catch (RuntimeException exception) {
+            log.warn("Detector de exportação clínica indisponível; exportação registrada no fluxo principal", exception);
+        }
+    }
 
-        // TODO: Implementar detecção de MASS_EXPORT
-        // - Rastrear exportações por usuário em janela de tempo
-        // - Detectar múltiplos pacientes
-        // - Escalar se padrão de exfiltração
+    @Transactional
+    protected void recordAlert(SecurityEventSeverity severity, Long userId, UUID sessionId,
+                               String sourceIp, String description, Long count) {
+        securityEvents.save(SecurityEvent.builder()
+                .id(UUID.randomUUID())
+                .eventType(SecurityEventType.MASS_EXPORT_DETECTED)
+                .severity(severity)
+                .outcome(SecurityEventOutcome.DETECTED)
+                .occurredAt(LocalDateTime.now())
+                .sourceIp(sourceIp)
+                .sessionId(sessionId)
+                .resourceType("CLINICAL_DATA")
+                .metadata(Map.of("userId", userId, "count", count, "description", description))
+                .build());
+        log.error("Alerta de segurança clínica: userId={}, severity={}, count={}", userId, severity, count);
     }
 }

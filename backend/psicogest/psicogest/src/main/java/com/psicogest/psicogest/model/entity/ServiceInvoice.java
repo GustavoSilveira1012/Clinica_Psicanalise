@@ -3,6 +3,9 @@ package com.psicogest.psicogest.model.entity;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -15,6 +18,8 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.CascadeType;
 
 import com.psicogest.psicogest.model.enums.FiscalEnvironment;
 import com.psicogest.psicogest.model.enums.FiscalProviderType;
@@ -63,6 +68,10 @@ public class ServiceInvoice {
     @JoinColumn(name = "clinic_id", nullable = false, updatable = false)
     private Clinic clinic;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "fiscal_issuer_id", nullable = false, updatable = false)
+    private FiscalIssuer fiscalIssuer;
+
     /**
      * Tipo de provedor fiscal
      */
@@ -83,6 +92,18 @@ public class ServiceInvoice {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, updatable = false)
     private FiscalTaxRegime taxRegime;
+
+    @Column(name = "competence_date", nullable = false, updatable = false)
+    private LocalDate competenceDate;
+
+    @Column(name = "layout_version", nullable = false, updatable = false, length = 10)
+    private String layoutVersion;
+
+    @Column(name = "dps_number", updatable = false)
+    private Long dpsNumber;
+
+    @Column(name = "service_description", nullable = false, length = 2000)
+    private String serviceDescription;
 
     /**
      * Status da nota fiscal
@@ -159,6 +180,15 @@ public class ServiceInvoice {
      */
     @Version
     private Long version;
+
+    @OneToMany(mappedBy = "invoice", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<ServiceInvoiceItem> items = new ArrayList<>();
+
+    public void addItem(ServiceInvoiceItem item) {
+        items.add(item);
+        item.setInvoice(this);
+    }
 
     /**
      * Marca como pendente (DRAFT → PENDING)
@@ -283,8 +313,4 @@ public class ServiceInvoice {
         this.updatedAt = now;
     }
 
-    public ServiceInvoice orElseThrow(Object object) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'orElseThrow'");
-    }
 }

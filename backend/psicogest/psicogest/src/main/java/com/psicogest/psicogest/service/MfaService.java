@@ -52,7 +52,8 @@ public class MfaService {
                 || methods.existsByUserIdAndStatus(userId, MfaMethodStatus.ACTIVE)) {
             throw new InvalidMfaException();
         }
-        return challenges.issue(user, AuthenticationChallengeType.MFA_ENROLLMENT_REQUIRED, ip, userAgent);
+        return challenges.issue(user, AuthenticationChallengeType.MFA_ENROLLMENT_REQUIRED, ip,
+                userAgent == null ? null : generator.hash(userAgent));
     }
 
     public SetupResult setup(String raw) {
@@ -97,14 +98,16 @@ public class MfaService {
             recovery.save(MfaRecoveryCode.builder().id(UUID.randomUUID()).user(user)
                     .codeHash(generator.hash(recoveryCode)).createdAt(now()).build());
         }
-        return new EnrollmentResult(tokens.authenticate(user, ip, userAgent), List.copyOf(codes));
+        return new EnrollmentResult(tokens.authenticate(user, ip,
+                userAgent == null ? null : generator.hash(userAgent)), List.copyOf(codes));
     }
 
     public AuthService.AuthTokens verify(String raw, String code, String ip, String userAgent) {
         var challenge = challenges.require(raw, AuthenticationChallengeType.MFA_REQUIRED);
         acceptTotp(challenge, activeMethod(challenge.getUser()), code);
         challenges.consume(challenge);
-        return tokens.authenticate(challenge.getUser(), ip, userAgent);
+        return tokens.authenticate(challenge.getUser(), ip,
+                userAgent == null ? null : generator.hash(userAgent));
     }
 
     public AuthService.AuthTokens recover(String raw, String code, String ip, String userAgent) {
@@ -115,7 +118,8 @@ public class MfaService {
         if (recoveryCode.isEmpty()) challenges.reject(challenge);
         recoveryCode.orElseThrow().setUsedAt(now());
         challenges.consume(challenge);
-        return tokens.authenticate(challenge.getUser(), ip, userAgent);
+        return tokens.authenticate(challenge.getUser(), ip,
+                userAgent == null ? null : generator.hash(userAgent));
     }
 
     // A fresh login challenge proves password re-entry; the current TOTP proves the existing factor.

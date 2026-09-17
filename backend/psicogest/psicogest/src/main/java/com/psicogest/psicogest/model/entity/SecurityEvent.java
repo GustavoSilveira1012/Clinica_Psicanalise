@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
+import java.time.ZoneOffset;
 
 @Entity
 @Table(name = "security_events")
@@ -21,12 +22,23 @@ import java.util.UUID;
 @Builder
 public class SecurityEvent {
 
+    @PrePersist
+    void applyDefaults() {
+        if (severity == null) severity = SecurityEventSeverity.MEDIUM;
+        if (outcome == null) outcome = SecurityEventOutcome.DETECTED;
+        if (occurredAt == null) occurredAt = LocalDateTime.now(ZoneOffset.UTC);
+    }
+
     @Id
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = true)
     private User user;
+
+    /** Tenant técnico para investigação sem confundir com ownership clínico. */
+    @Column(name = "organization_id")
+    private UUID organizationId;
 
     @Column(name = "session_id")
     private UUID sessionId;

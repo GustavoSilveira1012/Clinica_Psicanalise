@@ -13,6 +13,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -90,6 +91,15 @@ public class PaymentController {
                 dto,
                 actor
         );
+    }
+
+    @GetMapping
+    @ResponseStatus(HttpStatus.OK)
+    public List<PaymentResponseDTO> findAll(
+            Authentication authentication,
+            HttpServletRequest request
+    ) {
+        return paymentService.findAll(securityActorFactory.from(authentication, request));
     }
 
     /**

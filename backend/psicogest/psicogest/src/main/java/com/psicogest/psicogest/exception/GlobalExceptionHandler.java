@@ -308,6 +308,42 @@ public class GlobalExceptionHandler {
                                 .body(response);
         }
 
+        @ExceptionHandler({
+                        AccessDeniedException.class,
+                        TenantContextRequiredException.class
+        })
+        public ResponseEntity<Map<String, Object>> handleTenantAccess(
+                        RuntimeException exception) {
+
+                Map<String, Object> response = new HashMap<>();
+                response.put("timestamp", LocalDateTime.now());
+                response.put("status", HttpStatus.FORBIDDEN.value());
+                response.put("error", "Forbidden");
+                response.put("message", exception.getMessage());
+
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+        }
+
+        @ExceptionHandler({
+                        LastOrganizationOwnerException.class,
+                        OrganizationInviteException.class,
+                        FeatureNotEntitledException.class,
+                        SaasCapacityExceededException.class,
+                        SaasUsageException.class,
+                        NotificationPreferenceException.class
+        })
+        public ResponseEntity<Map<String, Object>> handleSaasConflict(
+                        RuntimeException exception) {
+
+                Map<String, Object> response = new HashMap<>();
+                response.put("timestamp", LocalDateTime.now());
+                response.put("status", HttpStatus.CONFLICT.value());
+                response.put("error", "Conflict");
+                response.put("message", exception.getMessage());
+
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+        }
+
     @ExceptionHandler(RateLimitExceededException.class)
     public ResponseEntity<Map<String, Object>> handleRateLimit(
             RateLimitExceededException exception) {

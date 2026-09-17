@@ -50,6 +50,13 @@ public class SafeNotificationTemplateRenderer
         if (template == null) {
             return null;
         }
+        if (template.length() > 10000) {
+            throw invalidTemplate(fieldName, "tamanho máximo excedido");
+        }
+        if (template.contains("#{") || template.contains("${")
+                || template.contains("T(") || template.contains("new ")) {
+            throw invalidTemplate(fieldName, "expressões não são permitidas");
+        }
 
         StringBuilder rendered = new StringBuilder(template.length());
         int index = 0;

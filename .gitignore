@@ -1,3 +1,19 @@
 frontend/node_modules/
 frontend/dist/
 frontend/coverage/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+**/secrets/
+
+# Build, test and local operational artifacts
+**/target/
+**/node_modules/
+**/coverage/
+ops/backups/
+hs_err_pid*.log

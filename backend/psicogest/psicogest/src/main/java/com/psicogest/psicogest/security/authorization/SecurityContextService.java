@@ -24,6 +24,14 @@ public class SecurityContextService {
             return Optional.empty();
         }
 
+        try {
+            // Resource-server requests use JwtAuthenticationToken, whose name is
+            // the verified subject. Do not depend on a UserDetails principal.
+            return Optional.of(Long.valueOf(authentication.getName()));
+        } catch (NumberFormatException ignored) {
+            // Continue with the UserDetails compatibility path below.
+        }
+
         Object principal = authentication.getPrincipal();
 
         if ( principal instanceof org.springframework.security.core.userdetails.UserDetails ) {

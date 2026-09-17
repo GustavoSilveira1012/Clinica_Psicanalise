@@ -19,8 +19,7 @@ public record AvailabilityExceptionCreateDTO(
         @Size(max = 255, message = "A observação deve possuir no máximo de 255 caracteres!") String observation) {
 
     public String reason() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'reason'");
+        return observation;
     }
 
 }

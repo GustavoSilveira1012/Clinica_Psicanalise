@@ -15,6 +15,9 @@ import com.psicogest.psicogest.repository.ClinicRepository;
 import com.psicogest.psicogest.repository.PatientRepository;
 import com.psicogest.psicogest.repository.PaymentAllocationRepository;
 import com.psicogest.psicogest.repository.PaymentRepository;
+import com.psicogest.psicogest.repository.ClinicUserMembershipRepository;
+import com.psicogest.psicogest.model.enums.ClinicUserMembershipStatus;
+import com.psicogest.psicogest.security.tenant.TenantContextHolder;
 import com.psicogest.psicogest.security.SecurityActor;
 import com.psicogest.psicogest.security.SecurityHashService;
 import com.psicogest.psicogest.security.audit.AuditAction;
@@ -34,6 +37,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.List;
 
 /**
  * Service para operações com pagamentos
@@ -57,6 +61,8 @@ public class PaymentService {
     private final SecurityHashService hashService;
     private final AuditService auditService;
     private final PaymentStateMachine paymentStateMachine;
+    private final ClinicUserMembershipRepository membershipRepository;
+    private final com.psicogest.psicogest.service.finance.FinanceAuthorizationService financeAuthorizationService;
 
     public PaymentService(
             PaymentRepository paymentRepository,
@@ -65,7 +71,9 @@ public class PaymentService {
             PaymentAllocationRepository allocationRepository,
             SecurityHashService hashService,
             AuditService auditService,
-            PaymentStateMachine paymentStateMachine
+            PaymentStateMachine paymentStateMachine,
+            ClinicUserMembershipRepository membershipRepository,
+            com.psicogest.psicogest.service.finance.FinanceAuthorizationService financeAuthorizationService
     ) {
         this.paymentRepository = paymentRepository;
         this.patientRepository = patientRepository;
@@ -74,6 +82,18 @@ public class PaymentService {
         this.hashService = hashService;
         this.auditService = auditService;
         this.paymentStateMachine = paymentStateMachine;
+        this.membershipRepository = membershipRepository;
+        this.financeAuthorizationService = financeAuthorizationService;
+    }
+
+    @Transactional(readOnly = true)
+    public List<PaymentResponseDTO> findAll(SecurityActor actor) {
+        Clinic clinic = resolveFinancialClinic(actor, null);
+        financeAuthorizationService.validateClinicAccess(clinic.getId(), actor);
+        return paymentRepository.findByClinicIdOrderByCreatedAtDesc(clinic.getId())
+                .stream()
+                .map(this::toResponseDTO)
+                .toList();
     }
 
     /**
@@ -441,9 +461,24 @@ public class PaymentService {
             PaymentCreateDTO dto
     ) {
 
-        // Futuro: implementar lógica de resolução
-        // Por enquanto retorna null
-        return null;
+        if (actor == null || actor.userId() == null) {
+            throw new FinanceValidationException("Usuário financeiro não identificado");
+        }
+
+        var tenant = TenantContextHolder.get();
+        if (tenant != null && tenant.organizationId() != null) {
+            return clinicRepository.findFirstByOrganizationIdAndActiveTrue(tenant.organizationId())
+                    .orElseThrow(() -> new FinanceValidationException(
+                            "Nenhuma clínica ativa está vinculada à organização selecionada"));
+        }
+
+        return membershipRepository.findByUserIdAndStatus(actor.userId(), ClinicUserMembershipStatus.ACTIVE)
+                .stream()
+                .map(membership -> membership.getClinic())
+                .filter(clinic -> clinic != null && Boolean.TRUE.equals(clinic.getActive()))
+                .findFirst()
+                .orElseThrow(() -> new FinanceValidationException(
+                        "Usuário não possui uma clínica financeira ativa"));
     }
 
     /**

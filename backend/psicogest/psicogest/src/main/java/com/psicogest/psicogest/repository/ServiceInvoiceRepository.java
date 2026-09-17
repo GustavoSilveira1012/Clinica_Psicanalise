@@ -2,6 +2,7 @@ package com.psicogest.psicogest.repository;
 
 import java.math.BigDecimal;
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -27,6 +28,8 @@ public interface ServiceInvoiceRepository
         WHERE si.id = :id
     """)
     Optional<ServiceInvoice> findByIdForUpdate(UUID id);
+
+    List<ServiceInvoice> findTop100ByOrderByCreatedAtDesc();
 
     /**
      * Soma dos valores de notas fiscais ativas

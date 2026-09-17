@@ -3,7 +3,7 @@
 
 CREATE TABLE bank_accounts (
     id UUID PRIMARY KEY NOT NULL,
-    clinic_id UUID NOT NULL REFERENCES clinics(id),
+    clinic_id BIGINT NOT NULL REFERENCES clinics(id),
     account_name VARCHAR(100) NOT NULL,
     bank_code VARCHAR(3) NOT NULL,
     branch VARCHAR(10) NOT NULL,

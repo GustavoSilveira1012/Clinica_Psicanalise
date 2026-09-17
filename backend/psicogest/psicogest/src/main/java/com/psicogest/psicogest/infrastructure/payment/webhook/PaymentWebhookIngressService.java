@@ -344,7 +344,7 @@ public class PaymentWebhookIngressService {
         Map<String, Object> metadataObj =
                 new HashMap<>(metadata);
 
-        metadataObj.put("description", description);
+        metadataObj.put("description", java.util.Objects.toString(description, "sem detalhes"));
 
         SecurityEvent event = SecurityEvent
                 .builder()

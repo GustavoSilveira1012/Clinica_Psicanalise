@@ -16,7 +16,7 @@ public class ServiceInvoiceResponse {
 
     private UUID id;
 
-    private UUID clinicId;
+    private Long clinicId;
 
     private String provider;
 

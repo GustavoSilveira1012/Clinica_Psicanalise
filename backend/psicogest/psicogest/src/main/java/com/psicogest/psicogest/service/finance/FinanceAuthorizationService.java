@@ -8,8 +8,14 @@ import com.psicogest.psicogest.exception.AuthorizationException;
 import com.psicogest.psicogest.model.entity.BankAccount;
 import com.psicogest.psicogest.model.entity.Clinic;
 import com.psicogest.psicogest.model.entity.Payment;
+import com.psicogest.psicogest.model.entity.ClinicUserMembership;
+import com.psicogest.psicogest.model.enums.ClinicAccessRole;
+import com.psicogest.psicogest.model.enums.ClinicUserMembershipStatus;
+import com.psicogest.psicogest.model.enums.UserRole;
 import com.psicogest.psicogest.repository.BankAccountRepository;
+import com.psicogest.psicogest.repository.ClinicUserMembershipRepository;
 import com.psicogest.psicogest.repository.PaymentRepository;
+import com.psicogest.psicogest.repository.UserRepository;
 import com.psicogest.psicogest.security.SecurityActor;
 
 import lombok.extern.slf4j.Slf4j;
@@ -34,12 +40,20 @@ public class FinanceAuthorizationService {
 
     private final PaymentRepository paymentRepository;
 
+    private final ClinicUserMembershipRepository membershipRepository;
+
+    private final UserRepository userRepository;
+
     public FinanceAuthorizationService(
             BankAccountRepository bankAccountRepository,
-            PaymentRepository paymentRepository
+            PaymentRepository paymentRepository,
+            ClinicUserMembershipRepository membershipRepository,
+            UserRepository userRepository
     ) {
         this.bankAccountRepository = bankAccountRepository;
         this.paymentRepository = paymentRepository;
+        this.membershipRepository = membershipRepository;
+        this.userRepository = userRepository;
     }
 
     /**
@@ -94,10 +108,10 @@ public class FinanceAuthorizationService {
             );
         }
 
-        validateClinicAccess(
-                payment.getClinic().getId(),
-                actor
-        );
+        if (payment.getClinic() == null) {
+            throw new AuthorizationException("Pagamento sem contexto financeiro");
+        }
+        validateClinicAccess(payment.getClinic().getId(), actor);
     }
 
     /**
@@ -116,14 +130,28 @@ public class FinanceAuthorizationService {
             SecurityActor actor
     ) {
 
-        // TODO: implementar após model de permissions estar pronto
-        // Por enquanto apenas log
-        log.debug(
-                "Validando acesso à Clinic: " +
-                        "userId={}, clinicId={}",
-                actor.userId(),
-                clinicId
-        );
+        if (actor == null || actor.userId() == null || clinicId == null) {
+            throw new AuthorizationException("Contexto financeiro ausente");
+        }
+
+        UserRole role = userRepository.findById(actor.userId())
+                .map(user -> user.getRole())
+                .orElseThrow(() -> new AuthorizationException("Usuário não encontrado"));
+        if (role == UserRole.SYSTEM_ADMIN) {
+            throw new AuthorizationException("Acesso financeiro de administrador de sistema exige delegação explícita");
+        }
+
+        boolean allowed = membershipRepository
+                .findByUserIdAndStatus(actor.userId(), ClinicUserMembershipStatus.ACTIVE)
+                .stream()
+                .filter(membership -> membership.getClinic() != null
+                        && clinicId.equals(membership.getClinic().getId()))
+                .map(ClinicUserMembership::getAccessRole)
+                .anyMatch(accessRole -> accessRole == ClinicAccessRole.ADMIN
+                        || accessRole == ClinicAccessRole.FINANCE);
+        if (!allowed) {
+            throw new AuthorizationException("Usuário não possui permissão financeira nesta clínica");
+        }
     }
 
     /**

@@ -1,6 +1,7 @@
 package com.psicogest.psicogest.controller;
 
 import java.util.UUID;
+import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -108,8 +110,7 @@ public class ServiceInvoiceController {
                 id
         );
 
-        // TODO: implementar updateDraft
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(invoiceService.updateDraft(id, request, actor));
     }
 
     /**
@@ -135,8 +136,16 @@ public class ServiceInvoiceController {
                 id
         );
 
-        // TODO: implementar getById
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(invoiceService.getById(id, actor));
+    }
+
+    @GetMapping
+    public ResponseEntity<List<ServiceInvoiceResponse>> list(
+            Authentication authentication,
+            HttpServletRequest httpRequest
+    ) {
+        SecurityActor actor = securityActorFactory.from(authentication, httpRequest);
+        return ResponseEntity.ok(invoiceService.list(actor));
     }
 
     /**
@@ -150,14 +159,15 @@ public class ServiceInvoiceController {
 
             Authentication authentication,
 
-            HttpServletRequest httpRequest
+            HttpServletRequest httpRequest,
+
+            @RequestHeader(value = "Idempotency-Key", required = false)
+            String idempotencyKey
     ) {
 
         SecurityActor actor =
                 securityActorFactory
                         .from(authentication, httpRequest);
-
-        String idempotencyKey = UUID.randomUUID().toString();
 
         log.info(
                 "Requisitando emissão: invoiceId={}",
@@ -204,8 +214,9 @@ public class ServiceInvoiceController {
                 request.reasonCode()
         );
 
-        // TODO: implementar requestCancel
-        return ResponseEntity.ok().build();
+        String idempotencyKey = httpRequest.getHeader("Idempotency-Key");
+        FiscalOperationResponse response = invoiceService.requestCancel(id, request, idempotencyKey, actor);
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 
     /**
@@ -223,7 +234,10 @@ public class ServiceInvoiceController {
 
             Authentication authentication,
 
-            HttpServletRequest httpRequest
+            HttpServletRequest httpRequest,
+
+            @RequestHeader(value = "Idempotency-Key", required = false)
+            String idempotencyKey
     ) {
 
         SecurityActor actor =
@@ -236,7 +250,7 @@ public class ServiceInvoiceController {
                 request.newInvoiceId()
         );
 
-        // TODO: implementar requestSubstitute
-        return ResponseEntity.ok().build();
+        FiscalOperationResponse response = invoiceService.requestSubstitute(id, request, idempotencyKey, actor);
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 }

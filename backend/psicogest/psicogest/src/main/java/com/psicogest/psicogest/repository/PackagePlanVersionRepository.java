@@ -17,6 +17,8 @@ public interface PackagePlanVersionRepository extends JpaRepository<PackagePlanV
     @Query("select v from PackagePlanVersion v where v.id = :id and v.status = 'PUBLISHED'")
     Optional<PackagePlanVersion> findPublishedById(@Param("id") UUID id);
 
+    Optional<PackagePlanVersion> findFirstByPackagePlanIdOrderByVersionDesc(UUID packagePlanId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select v from PackagePlanVersion v where v.id = :id")
     Optional<PackagePlanVersion> findByIdForUpdate(@Param("id") UUID id);

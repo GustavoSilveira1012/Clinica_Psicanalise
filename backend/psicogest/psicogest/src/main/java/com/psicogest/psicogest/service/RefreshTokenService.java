@@ -30,17 +30,17 @@ public class RefreshTokenService {
     }
 
     @Transactional
-    public IssuedRefreshToken issueInitial(User user, UUID sessionId, String ip, String userAgent) {
-        return issue(user, sessionId, ip, userAgent);
+    public IssuedRefreshToken issueInitial(User user, UUID sessionId, String ip, String userAgentHash) {
+        return issue(user, sessionId, ip, userAgentHash);
     }
 
-    private IssuedRefreshToken issue(User user, UUID familyId, String ip, String userAgent) {
+    private IssuedRefreshToken issue(User user, UUID familyId, String ip, String userAgentHash) {
         String raw = generator.generate();
         LocalDateTime now = LocalDateTime.now(clock);
         RefreshToken entity = repository.saveAndFlush(RefreshToken.builder().id(UUID.randomUUID()).user(user)
                 .familyId(familyId).tokenHash(generator.hash(raw)).securityVersion(user.getSecurityVersion())
                 .issuedAt(now).expiresAt(now.plus(properties.refreshTokenTtl())).createdIp(ip)
-                .userAgentHash(userAgent == null ? null : generator.hash(userAgent)).build());
+                .userAgentHash(userAgentHash).build());
         return new IssuedRefreshToken(raw, entity);
     }
 

@@ -13,7 +13,8 @@ export type Permission =
   | "notifications:read"
   | "notifications:manage"
   | "privacy:read"
-  | "settings:manage";
+  | "settings:manage"
+  | "billing:read";
 
 export type AppointmentStatus = "CONFIRMED" | "PENDING" | "COMPLETED" | "CANCELLED" | "NO_SHOW";
 export type RecordState = "DRAFT" | "FINALIZED";
@@ -28,6 +29,32 @@ export interface Tenant {
   plan: string;
 }
 
+export type OrganizationType = "SOLO" | "CLINIC" | "NETWORK";
+export type OrganizationStatus = "ACTIVE" | "RESTRICTED" | "SUSPENDED" | "CLOSED";
+export type OrganizationRole = "OWNER" | "ADMIN" | "BILLING" | "MEMBER";
+export type SaasSubscriptionStatus = "TRIALING" | "ACTIVE" | "PAST_DUE" | "RESTRICTED" | "CANCEL_AT_PERIOD_END" | "CANCELLED" | "EXPIRED";
+
+export interface OrganizationOption {
+  id: string;
+  name: string;
+  slug: string;
+  type: OrganizationType;
+  status: OrganizationStatus;
+  timezone?: string;
+  role: OrganizationRole;
+}
+
+export interface SaasBillingSummary {
+  organizationId: string;
+  planCode: string;
+  planName: string;
+  status: SaasSubscriptionStatus;
+  monthlyPrice: number;
+  trialEndsAt?: string;
+  currentPeriodEnd?: string;
+  invoices: { id: string; status: string; amount: number; dueAt: string; paidAt?: string; hostedInvoiceUrl?: string }[];
+}
+
 export interface AuthUser {
   id: string;
   name: string;
@@ -35,6 +62,7 @@ export interface AuthUser {
   role: UserRole;
   initials: string;
   tenant: Tenant;
+  organizations?: OrganizationOption[];
   permissions: Permission[];
 }
 

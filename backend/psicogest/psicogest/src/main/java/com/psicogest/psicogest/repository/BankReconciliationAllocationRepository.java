@@ -29,6 +29,7 @@ public interface BankReconciliationAllocationRepository
             )
             FROM BankReconciliationAllocation a
             WHERE a.bankTransaction.id = :bankTransactionId
+              AND a.status = com.psicogest.psicogest.model.entity.BankReconciliationAllocation$AllocationStatus.CONFIRMED
             """)
     BigDecimal sumReconciledAmount(
             UUID bankTransactionId
@@ -46,6 +47,7 @@ public interface BankReconciliationAllocationRepository
             )
             FROM BankReconciliationAllocation a
             WHERE a.payment.id = :paymentId
+              AND a.status = com.psicogest.psicogest.model.entity.BankReconciliationAllocation$AllocationStatus.CONFIRMED
             """)
     BigDecimal sumReconciledForPayment(
             UUID paymentId
@@ -61,6 +63,7 @@ public interface BankReconciliationAllocationRepository
             )
             FROM BankReconciliationAllocation a
             WHERE a.refund.id = :refundId
+              AND a.status = com.psicogest.psicogest.model.entity.BankReconciliationAllocation$AllocationStatus.CONFIRMED
             """)
     BigDecimal sumReconciledForRefund(
             UUID refundId

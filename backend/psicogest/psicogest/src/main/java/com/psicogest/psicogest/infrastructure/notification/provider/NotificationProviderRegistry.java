@@ -4,9 +4,8 @@ import com.psicogest.psicogest.model.enums.NotificationChannel;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.EnumMap;
 import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @Component
 public class NotificationProviderRegistry {
@@ -16,11 +15,21 @@ public class NotificationProviderRegistry {
     public NotificationProviderRegistry(
             List<NotificationProvider> implementations
     ) {
-        providers = implementations.stream()
-                .collect(Collectors.toUnmodifiableMap(
-                        NotificationProvider::channel,
-                        Function.identity()
-                ));
+        EnumMap<NotificationChannel, NotificationProvider> indexed =
+                new EnumMap<>(NotificationChannel.class);
+        for (NotificationProvider implementation : implementations) {
+            if (implementation == null || implementation.channel() == null) {
+                throw new NotificationProviderException("Provider de notificação inválido");
+            }
+            NotificationProvider previous = indexed.putIfAbsent(
+                    implementation.channel(), implementation);
+            if (previous != null) {
+                throw new NotificationProviderException(
+                        "Mais de um provider configurado para o canal "
+                                + implementation.channel());
+            }
+        }
+        providers = Map.copyOf(indexed);
     }
 
     public NotificationProvider get(NotificationChannel channel) {

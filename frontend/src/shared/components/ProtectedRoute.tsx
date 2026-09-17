@@ -6,8 +6,9 @@ import { Card, PageHeader } from "./ui";
 import { LockKeyhole } from "lucide-react";
 
 export function RequireAuth() {
-  const { session } = useAuth();
+  const { session, isInitializing } = useAuth();
   const location = useLocation();
+  if (isInitializing) return <div className="grid min-h-screen place-items-center bg-cream text-sm text-slate-500 dark:bg-slate-950 dark:text-slate-300">Validando sua sessão…</div>;
   return session ? <Outlet /> : <Navigate to="/login" replace state={{ from: location.pathname }} />;
 }
 

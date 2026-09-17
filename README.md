@@ -1,367 +1,103 @@
-[README.md](https://github.com/user-attachments/files/31813081/README.md)
+# PsicoGest
 
-# 🧠 PsicoGest
+Plataforma SaaS para operação clínica, agenda, pacientes, prontuário, financeiro, fiscal e governança de clínicas de psicanálise.
 
-> Plataforma SaaS para gestão profissional de clínicas e consultórios de psicanálise, pensada para crescer de um MVP de portfólio para uma operação multiunidade de médio porte.
+O checkout atual é separado em:
 
-## 📌 Sobre o projeto
+- `backend/psicogest/psicogest`: API Spring Boot 4, Java 25, PostgreSQL, Flyway, Redis e autorização contextual;
+- `frontend`: React, TypeScript, Vite, Tailwind, React Router, TanStack Query, React Hook Form e Zod.
 
-O **PsicoGest** é um sistema web de gestão para profissionais de psicanálise e para clínicas que precisam centralizar sua operação em um único ambiente.
-O objetivo não é criar apenas uma agenda. A proposta é modelar um produto SaaS com visão de negócio, arquitetura escalável, controle de acesso, trilha de auditoria, gestão financeira, prontuário/fichas e indicadores.
+O produto foi estruturado para multi-tenant: cada organização possui membros, papel, plano, limites, onboarding e contexto de acesso. Dados clínicos, financeiros e de governança são autorizados no servidor e protegidos por isolamento de organização e RLS no PostgreSQL.
 
-> **Escopo inicial:** acesso restrito aos profissionais e à equipe administrativa. O MVP não possui portal externo do paciente.
+## Módulos entregues
 
-## 🎯 Problema
+- autenticação, MFA TOTP, refresh token, sessões e revogação;
+- organizações, membros, convites, onboarding, planos, entitlements e uso;
+- pacientes, agenda, séries, bloqueios e prevenção de conflitos;
+- prontuário DRAFT/FINALIZED, revisões, adendos, autorização clínica e auditoria;
+- recebíveis, pagamentos, estornos, crédito, conciliação bancária e repasses;
+- NFS-e com fluxo fail-closed, documentos fiscais e origem financeira;
+- notificações, preferências, templates seguros, quiet hours e rate limit outbound;
+- LGPD, solicitações de titulares, retenção, incidentes e trilha de auditoria sem payload sensível;
+- health/readiness, CI, migrations versionadas e configuração de produção.
 
-Profissionais e clínicas podem espalhar sua operação entre agenda, planilhas, aplicativos de mensagem, documentos locais e ferramentas financeiras. Isso gera retrabalho, baixa rastreabilidade, risco de exposição de informações e dificuldade para enxergar a operação como um todo.
-O PsicoGest pretende resolver isso oferecendo:
+## Segurança e limites importantes
 
-- agenda e disponibilidade;
-- cadastro e histórico de pacientes;
-- registros clínicos privados;
-- gestão de sessões;
-- controle financeiro;
-- dashboards operacionais;
-- permissões por função;
-- auditoria de ações críticas;
-- arquitetura preparada para múltiplos profissionais e unidades.
+O frontend usa o backend real por padrão. O adapter demonstrativo só é habilitado explicitamente com `VITE_DEMO_MODE=true`; ele deve ser usado apenas com dados fictícios e nunca em uma organização real.
 
-## 🧩 Módulos
+Em produção, injete por secret manager: senha do banco, chaves JWT, chave de criptografia MFA, Redis, credenciais de providers e endpoints de alertas. Não coloque `.env`, certificados ou chaves no Git. O projeto não é uma certificação legal ou de conformidade LGPD; a clínica ainda precisa validar contratos, bases legais, retenção e operação com seus responsáveis.
 
-| Módulo             | MVP          | Futuro                             |
-| ------------------ | ------------ | ---------------------------------- |
-| Autenticação       | ✅           | MFA/SSO                            |
-| Usuários e perfis  | ✅           | SCIM/SSO corporativo               |
-| Pacientes          | ✅           | Portal do paciente                 |
-| Agenda             | ✅           | Integrações com calendários        |
-| Sessões            | ✅           | Teleatendimento                    |
-| Registros clínicos | ✅           | Templates e versionamento avançado |
-| Financeiro         | ✅ básico    | Repasse, faturamento e conciliação |
-| Dashboard          | ✅ básico    | BI avançado                        |
-| Auditoria          | ✅           | SIEM/exportação                    |
-| Multiunidade       | 🟡 estrutura | ✅                                 |
-| Notificações       | 🟡 internas  | E-mail/SMS/WhatsApp via provedor   |
-| Assinaturas SaaS   | ❌           | ✅                                 |
+## Execução local
 
-## 🛠️ Stack
+Pré-requisitos: Node.js 22+, pnpm 10+, Java 25, Maven Wrapper e PostgreSQL/Redis. Docker Compose está disponível para subir apenas as dependências:
 
-A implementação recomendada é:
-
-- **Next.js + App Router** — aplicação full stack em um único repositório.
-- **TypeScript** — tipagem estática de ponta a ponta.
-- **PostgreSQL** — banco relacional para dados transacionais.
-- **Prisma ORM** — acesso tipado ao PostgreSQL.
-- **Auth.js** — autenticação e sessões.
-- **Tailwind CSS** — camada visual rápida e consistente.
-- **Zod** — validação de entradas.
-- **React Hook Form** — formulários complexos.
-- **Vitest + Testing Library** — testes unitários/componentes.
-- **Playwright** — testes E2E.
-- **Docker Compose** — ambiente local reproducível.
-- **GitHub Actions** — CI.
-
-A escolha de PostgreSQL + Prisma é especialmente adequada para entidades relacionais como clínicas, profissionais, pacientes, sessões, cobranças e auditoria; Prisma possui suporte oficial para PostgreSQL e também para provedores gerenciados como Supabase e Neon. [Prisma PostgreSQL](https://docs.prisma.io/docs/orm/core-concepts/supported-databases/postgresql)
-
-## 🏗️ Arquitetura
-
-```
-┌─────────────────────────────────────────────┐
-│                Browser / PWA                 │
-└──────────────────────┬──────────────────────┘
-                       │ HTTPS
-┌──────────────────────▼──────────────────────┐
-│                 Next.js                      │
-│  App Router · Server Components · Actions   │
-│  Route Handlers · Middleware/Auth            │
-└───────────┬───────────────────┬─────────────┘
-            │                   │
-            ▼                   ▼
-      ┌───────────┐       ┌──────────────┐
-      │ PostgreSQL│       │ External APIs│
-      │ + Prisma  │       │ e-mail etc.  │
-      └───────────┘       └──────────────┘
+```powershell
+Copy-Item .env.example .env
+docker compose up -d postgres redis
 ```
 
-### Princípios arquiteturais
+Configure chaves JWT e `MFA_ENCRYPTION_KEY` antes de iniciar a API. Os caminhos padrão são `backend/psicogest/psicogest/secrets/jwt-public.pem` e `jwt-private.pem`; essa pasta é ignorada pelo Git.
 
-1. **Server-first:** operações sensíveis acontecem no servidor.
-2. **RBAC:** permissões dependem do papel do usuário e do contexto da clínica.
-3. **Tenant-aware:** todos os dados pertencem a uma organização/clínica.
-4. **Auditável:** eventos críticos são registrados.
-5. **Least privilege:** cada usuário recebe apenas o acesso necessário.
-6. **Privacy by design:** dados privados não são enviados ao cliente sem necessidade.
-7. **Observabilidade:** logs técnicos não devem conter conteúdo clínico.
+API:
 
-## 📂 Estrutura inicial
-
-```
-psicogest/
-├── .github/
-│   └── workflows/
-├── prisma/
-│   ├── schema.prisma
-│   └── seed.ts
-├── public/
-├── src/
-│   ├── app/
-│   │   ├── (auth)/
-│   │   ├── (dashboard)/
-│   │   └── api/
-│   ├── components/
-│   ├── features/
-│   │   ├── patients/
-│   │   ├── appointments/
-│   │   ├── sessions/
-│   │   ├── clinical-records/
-│   │   └── finance/
-│   ├── lib/
-│   │   ├── auth/
-│   │   ├── db/
-│   │   ├── permissions/
-│   │   └── validation/
-│   └── types/
-├── tests/
-│   ├── unit/
-│   └── e2e/
-├── .env.example
-├── docker-compose.yml
-├── next.config.ts
-├── package.json
-└── README.md
+```powershell
+cd backend/psicogest/psicogest
+./mvnw spring-boot:run
 ```
 
-## 🚀 MVP
+Frontend:
 
-O MVP tem como objetivo entregar uma operação funcional para uma clínica pequena ou para um profissional que trabalha sozinho.
-
-### Fluxo principal
-
-```
-Login
-  ↓
-Dashboard
-  ├── Agenda
-  │    └── Criar/editar sessão
-  ├── Pacientes
-  │    └── Histórico + registros
-  ├── Financeiro
-  │    └── Lançamentos/cobranças
-  └── Configurações
-       └── Usuários/permissões
+```powershell
+cd frontend
+pnpm install --frozen-lockfile
+Copy-Item .env.example .env
+pnpm dev
 ```
 
-### Critérios de pronto do MVP
+Abra `http://localhost:5173`. O readiness da API fica em `http://localhost:8080/health/ready` e a liveness em `http://localhost:8080/health/live`.
 
-- autenticação funcionando;
-- autorização por papel funcionando;
-- CRUD de pacientes;
-- agenda com prevenção de conflito de horário;
-- registro de sessão;
-- ficha/registros privados;
-- lançamento financeiro;
-- dashboard com indicadores básicos;
-- logs de auditoria para ações críticas;
-- testes automatizados dos fluxos principais;
-- documentação para rodar localmente;
-- seed com dados fictícios;
-- projeto sem dados reais de pacientes.
+## Qualidade
 
-## 🔐 Segurança e privacidade
+```powershell
+cd frontend
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
 
-O sistema foi desenhado para tratar informações potencialmente sensíveis. A LGPD classifica dados referentes à saúde como dados pessoais sensíveis e prevê hipóteses específicas para seu tratamento; por isso, o projeto deve minimizar coleta, restringir acesso, registrar ações críticas e separar dados clínicos de logs técnicos. [ANPD](https://www.gov.br/anpd/pt-br/acesso-a-informacao/perguntas-frequentes/perguntas-frequentes)
-No repositório público:
-
-- **não usar dados reais**;
-- usar apenas dados fictícios no seed;
-- nunca commitar `.env` ou segredos;
-- não registrar conteúdo de sessão em logs;
-- não colocar prontuários dentro de screenshots do README;
-- aplicar autorização no servidor, não apenas esconder botões;
-- considerar criptografia em repouso e em trânsito no ambiente de produção;
-- documentar política de retenção e descarte antes de usar dados reais;
-- aplicar backup, restauração e testes de recuperação em produção.
-
-> Este projeto é um case técnico/educacional e não deve ser considerado, por si só, uma certificação de conformidade regulatória.
-
-## 👥 Perfis de acesso
-
-| Perfil          | Exemplo de acesso                                     |
-| --------------- | ----------------------------------------------------- |
-| `OWNER`         | Toda a clínica/organização                            |
-| `ADMIN`         | Gestão operacional, usuários e financeiro             |
-| `PSYCHOANALYST` | Próprios pacientes, agenda e registros autorizados    |
-| `FINANCE`       | Financeiro sem conteúdo clínico                       |
-| `ASSISTANT`     | Agenda e cadastro operacional, sem registros clínicos |
-
-## 📊 Indicadores do dashboard
-
-**Operacionais**
-
-- sessões de hoje;
-- próximas sessões;
-- pacientes ativos;
-- faltas/cancelamentos;
-- ocupação da agenda.
-
-**Financeiros**
-
-- previsto no mês;
-- recebido no mês;
-- em aberto;
-- inadimplência;
-- receita por profissional.
-
-**Gestão**
-
-- profissionais ativos;
-- unidades;
-- crescimento de pacientes;
-- taxa de comparecimento.
-
-## 🧪 Qualidade
-
-O projeto deve nascer com três camadas de teste:
-
-```
-Unit        → regras de negócio
-Integration → banco + serviços
-E2E         → fluxos reais do usuário
+cd ..\backend\psicogest\psicogest
+./mvnw -DskipTests compile
+./mvnw test
 ```
 
-Exemplos prioritários:
+Os testes de integração do backend usam Testcontainers e exigem Docker ativo. O CI executa install congelado, lint, typecheck, testes, build e validação da sequência de migrations.
 
-- usuário sem permissão não consegue ler registro clínico;
-- profissional não consegue acessar paciente de outro tenant;
-- duas sessões não podem ocupar o mesmo horário do profissional;
-- sessão cancelada não pode gerar cobrança indevida;
-- exclusão/desativação respeita regras de auditoria;
-- financeiro não recebe conteúdo clínico.
+## Banco e migrations
 
-## 🗺️ Roadmap
+O backend executa Flyway automaticamente no startup. Para validar ou aplicar manualmente em um banco já existente:
 
-### Fase 1 — MVP
-
-Auth, RBAC, pacientes, agenda, sessões, registros, financeiro básico, dashboard e auditoria.
-
-### Fase 2 — Produto validável
-
-Notificações, templates, filtros avançados, exportações, relatórios, configurações de clínica e melhorias de UX.
-
-### Fase 3 — Empresa média
-
-Multiunidade, repasses, centro de custos, planos/assinaturas, integrações, observabilidade, filas e cache.
-
-### Fase 4 — Escala
-
-Arquitetura modular, processamento assíncrono, storage dedicado, read replicas quando necessário, feature flags, SLOs e governança de dados.
-
-## 💻 Instalação local
-
-### Pré-requisitos
-
-- Node.js LTS compatível com a versão definida no `package.json`;
-- Docker + Docker Compose;
-- Git.
-
-### 1. Clonar
-
-```
-git clone https://github.com/SEU-USUARIO/psicogest.git
-cd psicogest
+```powershell
+cd backend/psicogest/psicogest
+./mvnw flyway:validate
+./mvnw flyway:migrate
 ```
 
-### 2. Configurar ambiente
+Migrations antigas baselined não devem ser reaplicadas em bancos existentes. Em caso de adoção de uma base criada fora do histórico do Flyway, faça backup, valide os objetos e reconcilie o histórico com revisão técnica; nunca use `clean` em dados de cliente.
 
-```
-cp .env.example .env
-```
+## Demonstração para a clínica
 
-Preencha as variáveis sem publicar o arquivo `.env`.
+Para uma demonstração sem integrações externas, use um ambiente isolado com `VITE_DEMO_MODE=true`, dados fictícios e a conta exibida na tela de login. Mostre, nesta ordem:
 
-### 3. Subir PostgreSQL
+1. dashboard e seletor de organização;
+2. agenda, criação de consulta e bloqueio de horário;
+3. paciente e prontuário com autorização, rascunho, finalização e adendo;
+4. financeiro com recebível, status e separação de contexto;
+5. notificações, preferências e estados de supressão;
+6. LGPD, auditoria e sessões;
+7. onboarding, equipe, convite, plano e limites SaaS.
 
-```
-docker compose up -d postgres
-```
+Deixe claro durante a apresentação quais telas são demonstração local e quais dependem de backend/provider homologado. Não use dados pessoais, telefones, e-mails ou prontuários reais.
 
-### 4. Instalar dependências
+## Release e produção
 
-```
-npm install
-```
-
-### 5. Preparar banco
-
-```
-npx prisma migrate dev
-npm run db:seed
-```
-
-### 6. Rodar
-
-```
-npm run dev
-```
-
-Abra `http://localhost:3000`.
-
-## 🔑 Contas de demonstração
-
-Use somente credenciais fictícias criadas pelo seed, por exemplo:
-
-```
-admin@demo.local
-psicanalista@demo.local
-finance@demo.local
-```
-
-As senhas devem ser definidas por variáveis de ambiente ou pelo seed local; não publique senhas reais.
-
-## 📜 Scripts esperados
-
-```
-{
-  "dev": "next dev",
-  "build": "next build",
-  "start": "next start",
-  "lint": "eslint .",
-  "test": "vitest run",
-  "test:e2e": "playwright test",
-  "db:migrate": "prisma migrate dev",
-  "db:seed": "tsx prisma/seed.ts",
-  "db:studio": "prisma studio"
-}
-```
-
-## 🌐 Deploy sugerido
-
-Para portfólio, uma configuração simples é:
-
-```
-GitHub
-  ↓
-Vercel / plataforma Next.js
-  ↓
-PostgreSQL gerenciado
-```
-
-Para uma evolução empresarial, separar claramente aplicação, banco, storage, observabilidade e serviços externos.
-
-## 📚 Documentação complementar
-
-Consulte [PROJETO.md](./PROJETO.md) para requisitos, casos de uso, modelo de dados, regras de negócio, segurança, roadmap, riscos e critérios de aceite.
-
-## 🤝 Contribuição
-
-1. Crie uma branch `feature/nome-da-feature`.
-2. Faça commits pequenos e descritivos.
-3. Rode lint e testes antes do push.
-4. Abra um Pull Request descrevendo problema, solução e impactos.
-
-## 📄 Licença
-
-MIT. Consulte `LICENSE` para o texto completo.
-
----
-
-**PsicoGest** — tecnologia para tornar a operação de uma clínica mais organizada, rastreável e preparada para crescer.
+Há Dockerfiles para API e frontend, `docker-compose.yml` para dependências locais e workflow em `.github/workflows/quality.yml`. O procedimento de operação está em [`docs/production-runbook.md`](docs/production-runbook.md), com scripts de backup/restore em `ops/`. Antes de inserir dados reais, ainda devem ser executados pela equipe responsável: restore drill de backup, teste de rollback, homologação de pagamento/NFS-e/e-mail/WhatsApp, revisão independente de segurança, configuração de observabilidade e validação jurídica/operacional da LGPD.

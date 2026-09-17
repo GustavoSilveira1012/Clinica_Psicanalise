@@ -29,7 +29,7 @@ import com.psicogest.psicogest.model.enums.ReceivableAdjustmentDirection;
  */
 @Entity
 @Table(
-    name = "receivable_adjustment",
+    name = "receivable_adjustments",
     indexes = {
         @Index(name = "idx_receivable_adjustment_receivable_id", columnList = "receivable_id"),
         @Index(name = "idx_receivable_adjustment_created_at", columnList = "created_at")

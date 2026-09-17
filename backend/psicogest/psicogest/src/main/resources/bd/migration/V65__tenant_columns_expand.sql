@@ -1,0 +1,37 @@
+-- v1.0 EXPAND phase. Legacy tables remain nullable until every write path
+-- resolves Organization before the CONTRACT phase.
+
+ALTER TABLE IF EXISTS clinics ADD COLUMN IF NOT EXISTS organization_id UUID;
+ALTER TABLE IF EXISTS patients ADD COLUMN IF NOT EXISTS organization_id UUID;
+ALTER TABLE IF EXISTS psychoanalysts ADD COLUMN IF NOT EXISTS organization_id UUID;
+ALTER TABLE IF EXISTS clinic_memberships ADD COLUMN IF NOT EXISTS organization_id UUID;
+ALTER TABLE IF EXISTS clinic_user_memberships ADD COLUMN IF NOT EXISTS organization_id UUID;
+ALTER TABLE IF EXISTS appointments ADD COLUMN IF NOT EXISTS organization_id UUID;
+ALTER TABLE IF EXISTS availability ADD COLUMN IF NOT EXISTS organization_id UUID;
+ALTER TABLE IF EXISTS therapeutic_relationships ADD COLUMN IF NOT EXISTS organization_id UUID;
+ALTER TABLE IF EXISTS medical_records ADD COLUMN IF NOT EXISTS organization_id UUID;
+ALTER TABLE IF EXISTS medical_record_revisions ADD COLUMN IF NOT EXISTS organization_id UUID;
+ALTER TABLE IF EXISTS medical_record_addendums ADD COLUMN IF NOT EXISTS organization_id UUID;
+ALTER TABLE IF EXISTS receivables ADD COLUMN IF NOT EXISTS organization_id UUID;
+ALTER TABLE IF EXISTS payments ADD COLUMN IF NOT EXISTS organization_id UUID;
+ALTER TABLE IF EXISTS payment_allocations ADD COLUMN IF NOT EXISTS organization_id UUID;
+ALTER TABLE IF EXISTS refunds ADD COLUMN IF NOT EXISTS organization_id UUID;
+ALTER TABLE IF EXISTS refund_allocations ADD COLUMN IF NOT EXISTS organization_id UUID;
+ALTER TABLE IF EXISTS credit_accounts ADD COLUMN IF NOT EXISTS organization_id UUID;
+ALTER TABLE IF EXISTS credit_entries ADD COLUMN IF NOT EXISTS organization_id UUID;
+ALTER TABLE IF EXISTS patient_packages ADD COLUMN IF NOT EXISTS organization_id UUID;
+ALTER TABLE IF EXISTS patient_subscriptions ADD COLUMN IF NOT EXISTS organization_id UUID;
+ALTER TABLE IF EXISTS subscription_cycles ADD COLUMN IF NOT EXISTS organization_id UUID;
+ALTER TABLE IF EXISTS service_invoices ADD COLUMN IF NOT EXISTS organization_id UUID;
+ALTER TABLE IF EXISTS fiscal_documents ADD COLUMN IF NOT EXISTS organization_id UUID;
+ALTER TABLE IF EXISTS notifications ADD COLUMN IF NOT EXISTS organization_id UUID;
+ALTER TABLE IF EXISTS notification_recipients ADD COLUMN IF NOT EXISTS organization_id UUID;
+ALTER TABLE IF EXISTS notification_deliveries ADD COLUMN IF NOT EXISTS organization_id UUID;
+ALTER TABLE IF EXISTS notification_preferences ADD COLUMN IF NOT EXISTS organization_id UUID;
+ALTER TABLE IF EXISTS notification_provider_configurations ADD COLUMN IF NOT EXISTS organization_id UUID;
+ALTER TABLE IF EXISTS domain_event_outbox ADD COLUMN IF NOT EXISTS organization_id UUID;
+ALTER TABLE IF EXISTS data_subject_requests ADD COLUMN IF NOT EXISTS organization_id UUID;
+ALTER TABLE IF EXISTS privacy_export_jobs ADD COLUMN IF NOT EXISTS organization_id UUID;
+ALTER TABLE IF EXISTS privacy_contacts ADD COLUMN IF NOT EXISTS organization_id UUID;
+ALTER TABLE IF EXISTS audit_logs ADD COLUMN IF NOT EXISTS organization_id UUID;
+ALTER TABLE IF EXISTS security_events ADD COLUMN IF NOT EXISTS organization_id UUID;

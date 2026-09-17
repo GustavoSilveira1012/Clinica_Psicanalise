@@ -1,11 +1,18 @@
 package com.psicogest.psicogest.controller;
 
 import com.psicogest.psicogest.dto.ReceivableResponseDTO;
+import com.psicogest.psicogest.dto.appointment.ReceivableCreateDTO;
+import com.psicogest.psicogest.security.SecurityActor;
+import com.psicogest.psicogest.security.SecurityActorFactory;
 import com.psicogest.psicogest.service.ReceivableService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -19,11 +26,33 @@ import java.util.UUID;
 public class ReceivableController {
 
     private final ReceivableService receivableService;
+    private final SecurityActorFactory securityActorFactory;
 
     public ReceivableController(
-            ReceivableService receivableService
+            ReceivableService receivableService,
+            SecurityActorFactory securityActorFactory
     ) {
         this.receivableService = receivableService;
+        this.securityActorFactory = securityActorFactory;
+    }
+
+    @GetMapping
+    public List<ReceivableResponseDTO> findAll(
+            Authentication authentication,
+            HttpServletRequest request
+    ) {
+        return receivableService.findAll(securityActorFactory.from(authentication, request));
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public ReceivableResponseDTO create(
+            @Valid @RequestBody ReceivableCreateDTO dto,
+            Authentication authentication,
+            HttpServletRequest request
+    ) {
+        SecurityActor actor = securityActorFactory.from(authentication, request);
+        return receivableService.create(dto, actor);
     }
 
     /**

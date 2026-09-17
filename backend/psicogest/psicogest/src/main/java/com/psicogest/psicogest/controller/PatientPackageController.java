@@ -12,7 +12,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.psicogest.psicogest.dto.PatientPackageResponseDTO;
+import com.psicogest.psicogest.exception.ResourceNotFoundException;
+import com.psicogest.psicogest.model.entity.PatientPackage;
 import com.psicogest.psicogest.model.entity.SessionCreditEntry;
+import com.psicogest.psicogest.repository.PatientPackageRepository;
+import com.psicogest.psicogest.service.PackageAuthorizationService;
 import com.psicogest.psicogest.security.SecurityActor;
 import com.psicogest.psicogest.security.SecurityActorFactory;
 import com.psicogest.psicogest.service.PackageConsumptionDomainService;
@@ -40,13 +44,19 @@ public class PatientPackageController {
     private final SecurityActorFactory
         securityActorFactory;
 
+    private final PatientPackageRepository packageRepository;
+
+    private final PackageAuthorizationService packageAuthorizationService;
+
     public PatientPackageController(
             PackageConsumptionDomainService
                     consumptionService,
 
             SessionCreditService creditService,
 
-            SecurityActorFactory securityActorFactory
+            SecurityActorFactory securityActorFactory,
+            PatientPackageRepository packageRepository,
+            PackageAuthorizationService packageAuthorizationService
     ) {
         this.consumptionService = consumptionService;
 
@@ -54,6 +64,8 @@ public class PatientPackageController {
 
         this.securityActorFactory =
                 securityActorFactory;
+        this.packageRepository = packageRepository;
+        this.packageAuthorizationService = packageAuthorizationService;
     }
 
     /**
@@ -92,14 +104,10 @@ public class PatientPackageController {
                 actor.userId()
         );
 
-        // TODO: Implementar lógica de listagem
-        // 1. Autorizar acesso
-        // 2. Buscar PatientPackages do paciente
-        // 3. Calcular availableSessions via SessionCreditService.sumCreditsByPatient
-        // 4. Mapear para DTOs
-        // 5. Retornar lista
-
-        return ResponseEntity.ok(List.of());
+        packageAuthorizationService.authorizeListPackages(patientId, actor);
+        return ResponseEntity.ok(packageRepository.findAllByPatient(patientId).stream()
+                .map(this::toResponse)
+                .toList());
     }
 
     /**
@@ -139,11 +147,24 @@ public class PatientPackageController {
                 actor.userId()
         );
 
-        // TODO: Implementar lógica de ledger
-        // 1. Autorizar acesso
-        // 2. Buscar SessionCreditEntry do pacote
-        // 3. Retornar histórico completo
+        PatientPackage patientPackage = packageRepository.findById(packageId)
+                .orElseThrow(() -> new ResourceNotFoundException("Pacote não encontrado"));
+        packageAuthorizationService.authorizeLedgerAccess(packageId, patientPackage, actor);
+        return ResponseEntity.ok(creditService.getPackageHistory(packageId));
+    }
 
-        return ResponseEntity.ok(List.of());
+    private PatientPackageResponseDTO toResponse(PatientPackage value) {
+        long balance = creditService.getPackageHistory(value.getId()).stream()
+                .mapToLong(entry -> entry.getDirection().name().equals("CREDIT")
+                        ? entry.getSessionCount() : -entry.getSessionCount())
+                .sum();
+        int granted = value.getPackagePlanVersion().totalSessions();
+        int available = Math.max(0, Math.toIntExact(balance));
+        int consumed = Math.max(0, granted - available);
+        return new PatientPackageResponseDTO(value.getId(), value.getPatient().getId(),
+                value.getFinancialEntityId(), value.getPackagePlanVersion().getPackagePlan().getId(),
+                value.getPackagePlanVersion().getId(), value.getPackagePlanVersion().getPackagePlan().getName(),
+                value.getStatus(), value.getPurchaseAmount(), granted, consumed, available,
+                value.getPurchasedAt(), value.getActivatedAt(), value.getExpiresAt());
     }
 }

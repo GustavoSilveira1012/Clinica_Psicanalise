@@ -7,10 +7,26 @@ import org.springframework.data.repository.query.Param;
 import jakarta.persistence.LockModeType;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 public interface PaymentRepository
         extends JpaRepository<Payment, UUID> {
+
+    @Query("""
+            SELECT p
+            FROM Payment p
+            WHERE p.clinic.id = :clinicId
+              AND p.status IN (
+                    com.psicogest.psicogest.model.entity.Payment$PaymentStatus.CONFIRMED,
+                    com.psicogest.psicogest.model.entity.Payment$PaymentStatus.PARTIALLY_REFUNDED
+              )
+              AND p.receivedAt IS NOT NULL
+            ORDER BY p.receivedAt DESC
+            """)
+    List<Payment> findConfirmedByClinicId(@Param("clinicId") Long clinicId);
+
+    List<Payment> findByClinicIdOrderByCreatedAtDesc(Long clinicId);
 
     Optional<Payment> findByIdempotencyKey(
             String idempotencyKey

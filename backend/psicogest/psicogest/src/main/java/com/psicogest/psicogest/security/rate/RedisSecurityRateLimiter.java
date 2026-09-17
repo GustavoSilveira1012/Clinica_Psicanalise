@@ -2,12 +2,14 @@ package com.psicogest.psicogest.security.rate;
 
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
-import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.util.List;
 
-@Component 
+/**
+ * Legacy token-bucket implementation kept for source compatibility.
+ * The Spring bean is the fail-closed implementation in infrastructure.redis.
+ */
 public class RedisSecurityRateLimiter {
     private static final String LUA = """
             local key = KEYS[1]

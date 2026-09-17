@@ -29,7 +29,7 @@ public record PatientPackageResponseDTO(
     /**
      * ID da entidade financeira (clínica)
      */
-    Long financialEntityId,
+    UUID financialEntityId,
 
     /**
      * ID do plano

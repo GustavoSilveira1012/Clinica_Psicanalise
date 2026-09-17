@@ -1,9 +1,11 @@
 package com.psicogest.psicogest.security;
 
 import com.psicogest.psicogest.security.authorization.SecurityContextService;
+import com.psicogest.psicogest.infrastructure.security.SecurityHashService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
 
 import java.util.UUID;
@@ -17,9 +19,11 @@ import java.util.UUID;
 public class SecurityActorFactory {
 
     private final SecurityContextService contextService;
+    private final SecurityHashService hashService;
 
-    public SecurityActorFactory(SecurityContextService contextService) {
+    public SecurityActorFactory(SecurityContextService contextService, SecurityHashService hashService) {
         this.contextService = contextService;
+        this.hashService = hashService;
     }
 
     /**
@@ -37,7 +41,7 @@ public class SecurityActorFactory {
         String sourceIp = extractClientIp(request);
         String correlationId = extractCorrelationId(request);
         String userAgentHash = hashUserAgent(request.getHeader("User-Agent"));
-        UUID sessionId = extractSessionId(request);
+        UUID sessionId = extractSessionId(authentication);
 
         log.debug("SecurityActor construído: userId={}, correlationId={}, sourceIp={}",
                 userId, correlationId, sourceIp);
@@ -55,10 +59,6 @@ public class SecurityActorFactory {
      * Extrai IP do cliente (considerando proxies)
      */
     private String extractClientIp(HttpServletRequest request) {
-        String xForwardedFor = request.getHeader("X-Forwarded-For");
-        if (xForwardedFor != null && !xForwardedFor.isBlank()) {
-            return xForwardedFor.split(",")[0].trim();
-        }
         return request.getRemoteAddr();
     }
 
@@ -76,8 +76,9 @@ public class SecurityActorFactory {
     /**
      * Extrai sessionId do header ou gera um novo
      */
-    private UUID extractSessionId(HttpServletRequest request) {
-        String sessionIdStr = request.getHeader("X-Session-ID");
+    private UUID extractSessionId(Authentication authentication) {
+        String sessionIdStr = authentication instanceof JwtAuthenticationToken jwt
+                ? jwt.getToken().getClaimAsString("sid") : null;
         if (sessionIdStr != null && !sessionIdStr.isBlank()) {
             try {
                 return UUID.fromString(sessionIdStr);
@@ -85,16 +86,13 @@ public class SecurityActorFactory {
                 log.warn("X-Session-ID inválido: {}", sessionIdStr);
             }
         }
-        return UUID.randomUUID();
+        return null;
     }
 
     /**
      * Hash do User-Agent para fingerprinting
      */
     private String hashUserAgent(String userAgent) {
-        if (userAgent == null || userAgent.isBlank()) {
-            return "unknown";
-        }
-        return Integer.toHexString(userAgent.hashCode());
+        return userAgent == null || userAgent.isBlank() ? null : hashService.sha256(userAgent);
     }
 }

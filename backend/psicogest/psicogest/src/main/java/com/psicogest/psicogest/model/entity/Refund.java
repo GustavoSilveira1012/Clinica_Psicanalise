@@ -40,6 +40,10 @@ public class Refund {
     )
     private Payment payment;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "patient_package_cancellation_id")
+    private PatientPackageCancellation patientPackageCancellation;
+
     /**
      * Valor do reembolso
      */

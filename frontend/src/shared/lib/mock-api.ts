@@ -362,6 +362,7 @@ export const mockApi = {
   },
   async getPatient(id: string): Promise<Patient | undefined> { await wait(); return patients.find((patient) => patient.id === id); },
   async getRecords(patientId: string): Promise<MedicalRecord[]> { await wait(); return records.filter((record) => record.patientId === patientId); },
+  async getRecordContent(recordId: string): Promise<string> { await wait(); return records.find((record) => record.id === recordId)?.contentPreview ?? ""; },
   async getRevisions(_recordId: string): Promise<MedicalRecordRevision[]> { await wait(); return [...revisions]; },
   async saveRecord(recordId: string, contentPreview: string, state: RecordState): Promise<MedicalRecord> {
     await wait();

@@ -125,13 +125,4 @@ public class AuthService {
 
     public record AuthTokens(AuthResponse response, String refreshToken) {}
     public record LoginResult(LoginResponse response, String refreshToken) {}
-    public LoginResult login(LoginRequest dto, String remoteAddr, String header) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'login'");
-    }
-
-    public AuthTokens refresh(String refreshToken, String remoteAddr, String header) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'refresh'");
-    }
 }

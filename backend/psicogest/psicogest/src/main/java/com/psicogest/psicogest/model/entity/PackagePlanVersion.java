@@ -3,6 +3,7 @@ package com.psicogest.psicogest.model.entity;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
+import java.util.List;
 
 import com.psicogest.psicogest.model.enums.PackageActivationPolicy;
 import com.psicogest.psicogest.model.enums.PackagePlanVersionStatus;
@@ -16,6 +17,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.CascadeType;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -77,8 +80,17 @@ public class PackagePlanVersion {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    @OneToMany(mappedBy = "packagePlanVersion", fetch = FetchType.LAZY,
+            cascade = CascadeType.ALL, orphanRemoval = false)
+    @Builder.Default
+    private List<PackagePlanItem> items = List.of();
+
     public int totalSessions() {
-        return 0;
+        return items.stream()
+                .map(PackagePlanItem::getQuantity)
+                .filter(java.util.Objects::nonNull)
+                .mapToInt(Integer::intValue)
+                .sum();
     }
 
     public boolean isPublished() {

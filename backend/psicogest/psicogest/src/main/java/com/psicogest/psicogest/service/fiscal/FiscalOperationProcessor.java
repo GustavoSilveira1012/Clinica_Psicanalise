@@ -42,12 +42,20 @@ public class FiscalOperationProcessor {
         /*
          * Fora da transaction que fez o claim.
          */
-        FiscalIssueResult result =
-            providerRegistry
-                .get(claim.provider())
-                .issue(
-                    claim.command()
-                );
+        FiscalProvider provider = providerRegistry.get(claim.provider());
+        FiscalIssueResult result;
+        switch (claim.operationType()) {
+            case ISSUE -> result = provider.issue(claim.issueCommand());
+            case CANCEL -> {
+                FiscalCancellationResult cancellation = provider.cancel(claim.cancellationCommand());
+                result = new FiscalIssueResult(cancellation.success(), null, null, cancellation.errorMessage());
+            }
+            case SUBSTITUTE -> {
+                FiscalSubstitutionResult substitution = provider.substitute(claim.substitutionCommand());
+                result = new FiscalIssueResult(substitution.success(), substitution.newNfseId(), substitution.newAccessKey(), substitution.errorMessage());
+            }
+            default -> throw new IllegalStateException("Operação fiscal não suportada: " + claim.operationType());
+        }
 
         resultService.apply(
             operationId,

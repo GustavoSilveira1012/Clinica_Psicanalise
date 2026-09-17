@@ -11,35 +11,16 @@ BEGIN
     ) THEN
 
         IF
-            NEW.fiscal_issuer_id
-                IS DISTINCT FROM OLD.fiscal_issuer_id
-
-            OR NEW.fiscal_configuration_id
-                IS DISTINCT FROM OLD.fiscal_configuration_id
-
-            OR NEW.patient_id
-                IS DISTINCT FROM OLD.patient_id
-
-            OR NEW.competence_date
-                IS DISTINCT FROM OLD.competence_date
-
-            OR NEW.service_amount
-                IS DISTINCT FROM OLD.service_amount
-
-            OR NEW.taxable_amount
-                IS DISTINCT FROM OLD.taxable_amount
-
-            OR NEW.net_amount
-                IS DISTINCT FROM OLD.net_amount
-
-            OR NEW.dps_series
-                IS DISTINCT FROM OLD.dps_series
-
-            OR NEW.dps_number
-                IS DISTINCT FROM OLD.dps_number
-
-            OR NEW.access_key
-                IS DISTINCT FROM OLD.access_key
+            NEW.clinic_id IS DISTINCT FROM OLD.clinic_id
+            OR NEW.provider IS DISTINCT FROM OLD.provider
+            OR NEW.environment IS DISTINCT FROM OLD.environment
+            OR NEW.tax_regime IS DISTINCT FROM OLD.tax_regime
+            OR NEW.gross_amount IS DISTINCT FROM OLD.gross_amount
+            OR NEW.deductions IS DISTINCT FROM OLD.deductions
+            OR NEW.net_amount IS DISTINCT FROM OLD.net_amount
+            OR NEW.currency IS DISTINCT FROM OLD.currency
+            OR NEW.invoice_number IS DISTINCT FROM OLD.invoice_number
+            OR NEW.nfse_id IS DISTINCT FROM OLD.nfse_id
 
         THEN
 

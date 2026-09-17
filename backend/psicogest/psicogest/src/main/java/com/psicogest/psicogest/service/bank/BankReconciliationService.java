@@ -3,7 +3,8 @@ package com.psicogest.psicogest.service.bank;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
-import java.util.ArrayList;
+import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -18,11 +19,13 @@ import com.psicogest.psicogest.exception.FinanceConflictException;
 import com.psicogest.psicogest.exception.FinanceValidationException;
 import com.psicogest.psicogest.exception.ResourceNotFoundException;
 import com.psicogest.psicogest.infrastructure.bank.parser.BankTransactionDirection;
+import com.psicogest.psicogest.model.enums.ReconciliationConfidence;
 import com.psicogest.psicogest.model.entity.BankReconciliationAllocation;
 import com.psicogest.psicogest.model.entity.BankReconciliationAllocation.AllocationSource;
 import com.psicogest.psicogest.model.entity.BankReconciliationAllocation.AllocationStatus;
 import com.psicogest.psicogest.model.entity.BankTransaction;
 import com.psicogest.psicogest.model.entity.Payment;
+import com.psicogest.psicogest.model.entity.Payment.PaymentStatus;
 import com.psicogest.psicogest.model.entity.ProviderSettlement;
 import com.psicogest.psicogest.repository.BankReconciliationAllocationRepository;
 import com.psicogest.psicogest.repository.BankTransactionRepository;
@@ -288,8 +291,63 @@ public class BankReconciliationService {
             suggestReconciliations(
                     UUID transactionId
             ) {
+        BankTransaction transaction = bankTransactionRepository.findById(transactionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lançamento não encontrado"));
 
-        return new ArrayList<>();
+        if (transaction.getDirection() != BankTransactionDirection.CREDIT
+                || transaction.getIgnoredAt() != null) {
+            return List.of();
+        }
+
+        BigDecimal alreadyReconciled = allocationRepository.sumReconciledAmount(transactionId);
+        BigDecimal remaining = transaction.getAmount().subtract(alreadyReconciled);
+        if (remaining.signum() <= 0 || transaction.getBankAccount().getClinic() == null) {
+            return List.of();
+        }
+
+        LocalDate bookingDate = transaction.getBookingDate();
+        Long clinicId = transaction.getBankAccount().getClinic().getId();
+        return paymentRepository.findConfirmedByClinicId(clinicId).stream()
+                .filter(payment -> payment.getStatus() == PaymentStatus.CONFIRMED
+                        || payment.getStatus() == PaymentStatus.PARTIALLY_REFUNDED)
+                .map(payment -> suggestionFor(transaction, payment, remaining, bookingDate))
+                .filter(java.util.Objects::nonNull)
+                .sorted(Comparator.comparingInt((ReconciliationSuggestionDTO suggestion) -> confidenceRank(suggestion.confidence()))
+                        .thenComparing(ReconciliationSuggestionDTO::paymentDate, Comparator.reverseOrder()))
+                .limit(10)
+                .toList();
+    }
+
+    private ReconciliationSuggestionDTO suggestionFor(BankTransaction transaction, Payment payment,
+                                                       BigDecimal remaining, LocalDate bookingDate) {
+        BigDecimal allocated = allocationRepository.sumReconciledForPayment(payment.getId());
+        BigDecimal available = payment.getAmount().subtract(allocated);
+        if (available.signum() <= 0) return null;
+
+        BigDecimal amount = remaining.min(available);
+        if (amount.signum() <= 0) return null;
+        LocalDate paymentDate = payment.getReceivedAt().atZone(clock.getZone()).toLocalDate();
+        long dayDifference = Math.abs(java.time.temporal.ChronoUnit.DAYS.between(bookingDate, paymentDate));
+        boolean exactAmount = available.compareTo(remaining) == 0 || payment.getAmount().compareTo(transaction.getAmount()) == 0;
+        ReconciliationConfidence confidence = exactAmount && dayDifference <= 1
+                ? ReconciliationConfidence.HIGH
+                : exactAmount && dayDifference <= 7
+                        ? ReconciliationConfidence.MEDIUM
+                        : dayDifference <= 7 ? ReconciliationConfidence.LOW : null;
+        if (confidence == null) return null;
+        String reason = exactAmount
+                ? "Valor compatível; data do pagamento está a " + dayDifference + " dia(s) do lançamento"
+                : "Pagamento próximo da data do lançamento; confirme o valor alocado";
+        return new ReconciliationSuggestionDTO(payment.getId(), amount, paymentDate,
+                payment.getPaymentMethod(), confidence, reason);
+    }
+
+    private int confidenceRank(ReconciliationConfidence confidence) {
+        return switch (confidence) {
+            case HIGH -> 0;
+            case MEDIUM -> 1;
+            case LOW -> 2;
+        };
     }
 
     /**

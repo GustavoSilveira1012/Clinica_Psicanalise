@@ -57,6 +57,7 @@ public class ReceivableCancellationService {
     private final FinanceBalanceService balanceService;
     private final RefundService refundService;
     private final AuditService auditService;
+    private final com.psicogest.psicogest.repository.UserRepository userRepository;
     private final Clock clock;
 
     public ReceivableCancellationService(
@@ -68,6 +69,7 @@ public class ReceivableCancellationService {
             FinanceBalanceService balanceService,
             RefundService refundService,
             AuditService auditService,
+            com.psicogest.psicogest.repository.UserRepository userRepository,
             Clock clock
     ) {
         this.receivableRepository = receivableRepository;
@@ -78,6 +80,7 @@ public class ReceivableCancellationService {
         this.balanceService = balanceService;
         this.refundService = refundService;
         this.auditService = auditService;
+        this.userRepository = userRepository;
         this.clock = clock;
     }
 
@@ -209,7 +212,7 @@ public class ReceivableCancellationService {
                                 ReceivableCancellationStatus.COMPLETED
                         )
 
-                        .createdBy(null) // TODO: obter de actor
+                        .createdBy(actorUser(actor))
 
                         .createdAt(now)
 
@@ -294,7 +297,7 @@ public class ReceivableCancellationService {
                                 ReceivableCancellationStatus.COMPLETED
                         )
 
-                        .createdBy(null) // TODO: obter de actor
+                        .createdBy(actorUser(actor))
 
                         .createdAt(now)
 
@@ -327,7 +330,8 @@ public class ReceivableCancellationService {
                 receivable,
                 saved,
                 account,
-                now
+                now,
+                actorUser(actor)
         );
 
         // 27. Verificar invariante
@@ -396,7 +400,8 @@ public class ReceivableCancellationService {
 
     /**
      * 30-33. Cancelamento com refund
-     * (stub - lógica completa para próximas tarefas)
+     * A solicitação fica pendente para liquidação pelo fluxo assíncrono de
+     * refunds; a criação do ajuste contábil continua transacional e auditada.
      */
     private ReceivableCancellationResponseDTO cancelWithRefund(
             Receivable receivable,
@@ -421,7 +426,7 @@ public class ReceivableCancellationService {
                                 ReceivableCancellationStatus.PENDING
                         )
 
-                        .createdBy(null)
+                        .createdBy(actorUser(actor))
 
                         .createdAt(now)
 
@@ -454,7 +459,8 @@ public class ReceivableCancellationService {
             Receivable receivable,
             ReceivableCancellation cancellation,
             CreditAccount account,
-            Instant now
+            Instant now,
+            User createdBy
     ) {
 
         // 19. Localizar cada allocation
@@ -508,7 +514,7 @@ public class ReceivableCancellationService {
                                     cancellation
                             )
 
-                            .createdBy(null)
+                            .createdBy(createdBy)
 
                             .createdAt(now)
 
@@ -624,7 +630,7 @@ public class ReceivableCancellationService {
                                 receivable
                         )
 
-                        .createdBy(null)
+                        .createdBy(actorUser(actor))
 
                         .createdAt(now)
 
@@ -806,5 +812,12 @@ public class ReceivableCancellationService {
                 &&
                 receivable.getStatus()
                         != Receivable.ReceivableStatus.PAID;
+    }
+
+    private User actorUser(SecurityActor actor) {
+        if (actor == null || actor.userId() == null) {
+            throw new FinanceValidationException("Usuário autenticado é obrigatório para esta operação");
+        }
+        return userRepository.getReferenceById(actor.userId());
     }
 }

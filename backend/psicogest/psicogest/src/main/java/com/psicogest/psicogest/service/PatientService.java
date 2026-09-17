@@ -44,6 +44,7 @@ public class PatientService {
                 this.appointmentRepository = appointmentRepository;
         }
 
+        @Transactional
         public PatientResponseDTO create(PatientCreateDTO dto) {
 
                 if (userRepository.existsByEmail(dto.email())) {

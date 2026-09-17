@@ -1,6 +1,7 @@
 package com.psicogest.psicogest.security.incident.sink;
 
 import com.psicogest.psicogest.security.incident.SecurityIncidentNotification;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
@@ -10,14 +11,21 @@ import org.springframework.stereotype.Service;
 @Service
 public class PagerDutyService {
 
+    private final SecurityAlertWebhookClient webhookClient;
+    private final String endpoint;
+
+    public PagerDutyService(
+            SecurityAlertWebhookClient webhookClient,
+            @Value("${app.security.alert.pagerduty.endpoint:}") String endpoint
+    ) {
+        this.webhookClient = webhookClient;
+        this.endpoint = endpoint;
+    }
+
     public void createIncident(
             SecurityIncidentNotification notification
     ) {
 
-        // Implementação futura:
-        // - Chamar API de PagerDuty
-        // - Criar incident/alert
-        // - Atribuir para on-call engineer
-        // TODO: Implementar integração com PagerDuty API
+        webhookClient.send(endpoint, notification);
     }
 }

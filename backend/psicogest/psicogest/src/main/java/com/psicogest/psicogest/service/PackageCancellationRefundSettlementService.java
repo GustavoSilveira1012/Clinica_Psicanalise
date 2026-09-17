@@ -12,6 +12,7 @@ import com.psicogest.psicogest.model.entity.PatientPackageCancellation;
 import com.psicogest.psicogest.model.entity.Refund;
 import com.psicogest.psicogest.model.entity.Refund.RefundStatus;
 import com.psicogest.psicogest.repository.PatientPackageCancellationRepository;
+import com.psicogest.psicogest.repository.ReceivableRepository;
 import com.psicogest.psicogest.repository.RefundRepository;
 
 /**
@@ -28,17 +29,20 @@ public class PackageCancellationRefundSettlementService {
 
     private final PatientPackageCancellationRepository cancellationRepository;
     private final RefundRepository refundRepository;
+    private final ReceivableRepository receivableRepository;
     private final FinanceBalanceService financeBalanceService;
     private final Clock clock;
 
     public PackageCancellationRefundSettlementService(
             PatientPackageCancellationRepository cancellationRepository,
             RefundRepository refundRepository,
+            ReceivableRepository receivableRepository,
             FinanceBalanceService financeBalanceService,
             Clock clock
     ) {
         this.cancellationRepository = cancellationRepository;
         this.refundRepository = refundRepository;
+        this.receivableRepository = receivableRepository;
         this.financeBalanceService = financeBalanceService;
         this.clock = clock;
     }
@@ -88,26 +92,16 @@ public class PackageCancellationRefundSettlementService {
                 );
 
         // Guard: se não todos confirmados, nada a fazer
-        if (!allConfirmed) {
+        if (refunds.isEmpty() || !allConfirmed) {
             return;
         }
 
-        // Verifica se não há mais pagamento excedente
-        // (todos os refunds devem ter revertido qualquer overpayment)
-        // TODO: Buscar receivable através do payment/refund
-        // Por ora, assumindo que será passado via outro meio
-        // ou que a verificação será feita no nível do payment
-        
-        // Placeholder: implementar após definir relacionamento entre
-        // PatientPackage e Receivable
-        BigDecimal remainingOverpayment = BigDecimal.ZERO;
-        /*
-        BigDecimal remainingOverpayment =
-                financeBalanceService
-                        .overpaidAmount(
-                                receivable
-                        );
-        */
+        UUID receivableId = cancellation.getPatientPackage().getReceivableId();
+        BigDecimal remainingOverpayment = receivableId == null
+                ? BigDecimal.ZERO
+                : financeBalanceService.overpaidAmount(
+                        receivableRepository.findByIdForUpdate(receivableId)
+                                .orElseThrow(() -> new IllegalStateException("Cobrança do pacote não encontrada: " + receivableId)));
 
         // Se ainda há overpayment, há inconsistência
         if (remainingOverpayment.signum() != 0) {
