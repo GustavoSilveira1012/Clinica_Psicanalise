@@ -1,1027 +1,1569 @@
-# 🧠 PsicoGest — Documento do Projeto
+# PROJETO.md — PsicoGest / Clínica
 
-**Tipo:** SaaS de gestão clínica/consultório  
-**Domínio:** Psicanálise  
-**Público inicial:** psicanalistas e equipes administrativas  
-**Visão de longo prazo:** plataforma multi-tenant para clínicas de médio porte e redes de atendimento  
-**Escopo do MVP:** uso interno pelos profissionais e equipe, sem portal do paciente
+## 1. Documento mestre
 
----
+Este arquivo é o documento técnico mestre do projeto.
 
-## 1. Visão do produto
+Ele reúne arquitetura, regras de domínio, decisões técnicas, módulos, roadmap, segurança, financeiro, fiscal, clinical, packages, notifications, LGPD, frontend, SaaS, production readiness e estratégia comercial.
 
-O PsicoGest será uma plataforma de gestão para profissionais e organizações de psicanálise. O produto deve resolver o problema operacional de administrar agenda, pacientes, sessões, registros privados e financeiro sem depender de múltiplas ferramentas desconectadas.
-
-A visão de produto considera desde o começo que uma clínica pode sair de **1 profissional / 1 unidade** para **dezenas de profissionais / múltiplas unidades**, sem precisar reescrever todo o núcleo do sistema.
-
-### Proposta de valor
-
-> **Centralizar a operação da clínica em um ambiente seguro, simples e escalável, mantendo a separação entre dados administrativos e informações clínicas privadas.**
-
-### Não objetivos do MVP
-
-- portal do paciente;
-- marketplace de profissionais;
-- diagnóstico automático;
-- recomendação automatizada de tratamento;
-- IA para interpretar sessões;
-- prescrição ou gestão de medicamentos;
-- integração com convênios;
-- telemedicina/teleatendimento completo;
-- cobrança online obrigatória.
-
-A exclusão desses itens mantém o MVP pequeno e evita transformar o primeiro release em um monstro de 47 cabeças.
+> O que está descrito aqui representa a arquitetura e o comportamento definidos para o produto. A existência real de cada item no repositório deve ser confirmada pelo `v1.0 Production Audit`.
 
 ---
 
-# 2. Personas
+# 2. Objetivo
 
-## 2.1 Psicanalista autônomo
+Construir uma plataforma SaaS profissional para gestão de profissionais e clínicas, começando por psicanalistas e clínicas de psicologia/psicanálise.
 
-Precisa visualizar a semana, cadastrar pacientes, registrar sessões, controlar pagamentos e consultar seu histórico de atendimento.
+Objetivos principais:
 
-**Objetivo:** reduzir tarefas administrativas e recuperar rapidamente a informação necessária para o trabalho.
-
-## 2.2 Gestor da clínica
-
-Administra profissionais, permissões, agenda da organização, indicadores e financeiro.
-
-**Objetivo:** enxergar a operação sem acessar indiscriminadamente conteúdo clínico.
-
-## 2.3 Financeiro
-
-Cuida de cobranças, recebimentos, repasses e relatórios financeiros.
-
-**Objetivo:** trabalhar com dados financeiros sem acessar registros clínicos.
-
-## 2.4 Assistente/recepção
-
-Gerencia agenda e dados operacionais permitidos.
-
-**Objetivo:** organizar horários e cadastros sem ter acesso aos registros clínicos privados.
+1. agenda e pacientes;
+2. prontuário clínico seguro;
+3. financeiro completo;
+4. pagamentos;
+5. fiscal / NFS-e;
+6. pacotes e assinaturas;
+7. notificações;
+8. segurança e auditoria;
+9. LGPD;
+10. multi-organização;
+11. comercialização SaaS.
 
 ---
 
-# 3. Requisitos funcionais
+# 3. Stack
 
-## RF01 — Autenticação
-
-O sistema deve permitir login seguro para usuários autorizados.
-
-**Critérios de aceite**
-
-- login válido cria sessão autenticada;
-- credencial inválida não autentica;
-- sessão expirada exige nova autenticação;
-- recuperação de senha não revela se um e-mail existe;
-- ações sensíveis exigem usuário autenticado.
-
-## RF02 — Organização/Clínica
-
-O sistema deve associar os dados operacionais a uma organização.
-
-**Aceite**
-
-- usuário pertence a uma organização;
-- recursos são filtrados por organização;
-- usuários não atravessam o limite de tenant;
-- uma organização poderá ter múltiplas unidades futuramente.
-
-## RF03 — Usuários e papéis
-
-Administradores devem conseguir ativar/desativar usuários e atribuir papéis permitidos.
-
-## RF04 — Pacientes
-
-Permitir criar, visualizar, editar e desativar pacientes.
-
-### Dados sugeridos
-
-- nome;
-- nome social, quando aplicável;
-- data de nascimento;
-- e-mail;
-- telefone;
-- observações administrativas;
-- status;
-- profissional responsável;
-- datas de criação/atualização.
-
-> Evitar coletar informação que não tenha finalidade definida.
-
-## RF05 — Agenda
-
-Permitir criar, editar, cancelar e listar compromissos.
-
-### Regras
-
-- compromisso possui profissional;
-- possui data/hora de início e fim;
-- possui status;
-- pode estar associado a paciente;
-- conflito de horário é rejeitado;
-- cancelamento mantém histórico.
-
-## RF06 — Sessão
-
-Uma sessão representa o atendimento realizado ou planejado.
-
-Campos de domínio:
-
-- compromisso associado;
-- paciente;
-- profissional;
-- status;
-- data de realização;
-- observação administrativa mínima;
-- referência para registro clínico privado.
-
-## RF07 — Registro clínico
-
-O sistema deve permitir que usuários autorizados criem e consultem registros privados.
-
-### Princípio
-
-O conteúdo clínico é uma zona de alta sensibilidade e deve possuir autorização mais restritiva do que dados operacionais.
-
-### MVP
-
-- criar registro;
-- visualizar registros próprios/autorizados;
-- editar conforme regra definida;
-- registrar autor e timestamps;
-- auditar acesso/alteração.
-
-### Evolução
-
-Versionamento imutável, anexos, templates, assinatura digital e política de retenção definida pela organização.
-
-## RF08 — Financeiro
-
-Permitir criar lançamentos financeiros vinculados à operação.
-
-### MVP
-
-- lançamento previsto;
-- vencimento;
-- valor;
-- status;
-- data de pagamento;
-- método de pagamento;
-- observação financeira;
-- vínculo opcional com sessão/cliente.
-
-O módulo financeiro não deve receber o texto de registros clínicos.
-
-## RF09 — Dashboard
-
-Mostrar indicadores operacionais e financeiros conforme permissão do usuário.
-
-## RF10 — Auditoria
-
-Registrar ações críticas.
-
-### Eventos iniciais
-
-- login bem-sucedido/fracassado;
-- alteração de permissão;
-- leitura de registro clínico;
-- criação/alteração de registro clínico;
-- exclusão/desativação de paciente;
-- alterações financeiras críticas;
-- mudanças de configuração.
-
----
-
-# 4. Requisitos não funcionais
-
-## RNF01 — Segurança
-
-- HTTPS em produção;
-- cookies seguros e HttpOnly quando aplicável;
-- proteção contra CSRF conforme mecanismo adotado;
-- validação server-side;
-- autorização server-side;
-- rate limiting em endpoints sensíveis;
-- secrets somente em secret manager/env seguro;
-- headers de segurança;
-- logs sem conteúdo clínico;
-- backups e recuperação testados.
-
-## RNF02 — Privacidade
-
-A LGPD define dados de saúde como dados pessoais sensíveis e estabelece proteção reforçada para essa categoria. A arquitetura deve, portanto, adotar minimização, controle de acesso, finalidade e segurança desde o desenho. citehttps://www.gov.br/anpd/pt-br/acesso-a-informacao/perguntas-frequentes/perguntas-frequentes
-
-## RNF03 — Escalabilidade
-
-O MVP deve operar de forma simples, mas as fronteiras de domínio precisam permitir evolução para:
-
-- múltiplas clínicas;
-- múltiplas unidades;
-- dezenas/centenas de usuários;
-- jobs assíncronos;
-- cache;
-- storage externo;
-- observabilidade centralizada.
-
-## RNF04 — Disponibilidade
-
-Para a evolução do produto, definir SLOs por serviço e estabelecer objetivos explícitos de RTO/RPO.
-
-## RNF05 — Performance
-
-Metas iniciais sugeridas para UX:
-
-- navegação comum perceptivelmente rápida;
-- consultas de lista paginadas;
-- dashboard evitando queries pesadas sem necessidade;
-- índices nas colunas usadas para tenant, profissional, paciente e datas.
-
----
-
-# 5. Regras de negócio
-
-## RB01 — Isolamento de organização
-
-Toda entidade de negócio deve pertencer direta ou indiretamente a uma organização.
-
-**Exemplo:**
-
-`Organization → User → Patient/Appointment/Session/FinancialEntry`
-
-Nenhuma consulta de aplicação deve buscar recurso multi-tenant sem filtro de organização quando esse filtro fizer parte da autorização.
-
-## RB02 — Acesso clínico por menor privilégio
-
-Um usuário financeiro pode acessar lançamento financeiro sem poder consultar texto clínico.
-
-## RB03 — Profissional e paciente
-
-Um profissional só consulta registros de pacientes aos quais possui autorização vigente.
-
-## RB04 — Conflito de agenda
-
-Um profissional não pode possuir dois compromissos ativos sobrepostos.
-
-## RB05 — Cancelamento
-
-Cancelar um compromisso não deve apagá-lo fisicamente; o status permanece para auditoria e métricas.
-
-## RB06 — Financeiro
-
-Valor monetário deve ser armazenado em tipo apropriado e com precisão definida pelo banco; não usar `float` para dinheiro.
-
-## RB07 — Soft delete
-
-Entidades importantes devem preferir desativação/arquivamento quando exclusão física prejudicar auditoria ou integridade histórica.
-
-## RB08 — Auditoria
-
-Alterações críticas precisam manter quem executou, quando, qual ação e, quando apropriado, qual recurso foi afetado.
-
----
-
-# 6. Arquitetura detalhada
+## Backend
 
 ```text
-                           ┌─────────────────────┐
-                           │      Browser        │
-                           └──────────┬──────────┘
-                                      │ HTTPS
-                           ┌──────────▼──────────┐
-                           │      Next.js        │
-                           │ App Router          │
-                           │ Server Components   │
-                           │ Route Handlers      │
-                           │ Server Actions      │
-                           └───────┬────┬────────┘
-                                   │    │
-                    ┌──────────────┘    └───────────────┐
-                    ▼                                   ▼
-          ┌──────────────────┐               ┌─────────────────┐
-          │ Application Core │               │ External        │
-          │ Auth / RBAC      │               │ Providers       │
-          │ Validation       │               │ E-mail etc.     │
-          │ Domain Services  │               └─────────────────┘
-          └─────────┬────────┘
-                    │ Prisma
-                    ▼
-          ┌──────────────────┐
-          │   PostgreSQL     │
-          │  multi-tenant    │
-          └──────────────────┘
+Java
+Spring Boot
+Spring Security
+Spring Data JPA
+PostgreSQL
+Redis
+Flyway
+Testcontainers
+JWT / OAuth2 Resource Server
 ```
 
-### Camadas
-
-**UI** — componentes, telas, formulários e feedback.
-
-**Application** — casos de uso, permissões e orquestração.
-
-**Domain** — regras de negócio.
-
-**Infrastructure** — Prisma, e-mail, storage e integrações.
-
-Evitar concentrar tudo dentro de `page.tsx` ou em um único arquivo de API.
-
----
-
-# 7. Modelo de dados
-
-## Entidades principais
+## Frontend
 
 ```text
-Organization
- ├── OrganizationUser ── User
- ├── ClinicUnit
- ├── Patient
- ├── Appointment
- │      └── Session
- │             └── ClinicalRecord
- ├── FinancialEntry
- └── AuditLog
-```
-
-### Tabelas
-
-#### `users`
-
-- `id`
-- `name`
-- `email`
-- `password_hash` ou vínculo de identidade do provedor
-- `status`
-- `created_at`
-- `updated_at`
-
-#### `organizations`
-
-- `id`
-- `name`
-- `slug`
-- `status`
-- `created_at`
-- `updated_at`
-
-#### `organization_users`
-
-- `id`
-- `organization_id`
-- `user_id`
-- `role`
-- `status`
-- `created_at`
-
-#### `clinic_units`
-
-- `id`
-- `organization_id`
-- `name`
-- `timezone`
-- `status`
-
-#### `patients`
-
-- `id`
-- `organization_id`
-- `name`
-- `preferred_name`
-- `birth_date`
-- `email`
-- `phone`
-- `status`
-- `created_at`
-- `updated_at`
-
-#### `appointments`
-
-- `id`
-- `organization_id`
-- `unit_id`
-- `patient_id`
-- `professional_id`
-- `starts_at`
-- `ends_at`
-- `status`
-- `notes_admin`
-- `created_at`
-- `updated_at`
-
-#### `sessions`
-
-- `id`
-- `organization_id`
-- `appointment_id`
-- `patient_id`
-- `professional_id`
-- `status`
-- `occurred_at`
-- `created_at`
-
-#### `clinical_records`
-
-- `id`
-- `organization_id`
-- `session_id`
-- `author_id`
-- `content`
-- `version`
-- `created_at`
-- `updated_at`
-
-#### `financial_entries`
-
-- `id`
-- `organization_id`
-- `patient_id`
-- `appointment_id` nullable
-- `type`
-- `status`
-- `amount`
-- `due_date`
-- `paid_at`
-- `payment_method`
-- `description`
-- `created_at`
-
-#### `audit_logs`
-
-- `id`
-- `organization_id`
-- `actor_id`
-- `action`
-- `resource_type`
-- `resource_id`
-- `metadata`
-- `ip_hash/technical_context` conforme política
-- `created_at`
-
-> O campo `metadata` deve ser usado com cuidado para não armazenar conteúdo clínico ou segredos.
-
----
-
-# 8. DER conceitual
-
-```text
-USER 1────N ORGANIZATION_USER N────1 ORGANIZATION
-                                      │
-                    ┌─────────────────┼─────────────────┐
-                    │                 │                 │
-                    ▼                 ▼                 ▼
-              CLINIC_UNIT         PATIENT          AUDIT_LOG
-                    │                 │
-                    │           ┌─────┴────────┐
-                    │           │              │
-                    ▼           ▼              ▼
-                 APPOINTMENT ───────> SESSION ────> CLINICAL_RECORD
-                    │                 │
-                    └─────────────────┘
-                                      │
-                                      ▼
-                              FINANCIAL_ENTRY
+React
+TypeScript
+Tailwind CSS
+React Router
+TanStack Query
+React Hook Form
+Zod
 ```
 
 ---
 
-# 9. API / casos de uso
-
-O projeto pode usar Server Actions para mutações internas e Route Handlers para endpoints que precisem de contrato HTTP explícito.
-
-### Autenticação
+# 4. Estrutura backend esperada
 
 ```text
-POST /api/auth/...
-```
+controller/
+service/
+repository/
+model/
+model/enums/
+dto/
+config/
+exception/
+security/
 
-### Usuários
-
-```text
-GET    /api/users
-POST   /api/users
-PATCH  /api/users/:id
-```
-
-### Pacientes
-
-```text
-GET    /api/patients
-POST   /api/patients
-GET    /api/patients/:id
-PATCH  /api/patients/:id
-DELETE /api/patients/:id   # desativação lógica
-```
-
-### Agenda
-
-```text
-GET    /api/appointments
-POST   /api/appointments
-GET    /api/appointments/:id
-PATCH  /api/appointments/:id
-DELETE /api/appointments/:id
-```
-
-### Sessões
-
-```text
-POST   /api/sessions
-GET    /api/sessions/:id
-PATCH  /api/sessions/:id
-```
-
-### Registros clínicos
-
-```text
-GET    /api/clinical-records/:id
-POST   /api/sessions/:id/clinical-records
-PATCH  /api/clinical-records/:id
-```
-
-Rotas clínicas devem ter autorização mais restritiva que rotas administrativas.
-
-### Financeiro
-
-```text
-GET    /api/finance
-POST   /api/finance
-PATCH  /api/finance/:id
+domain/
+├── appointment/
+├── relationship/
+├── clinic/
+├── lifecycle/
+├── finance/
+├── fiscal/
+├── package/
+├── notification/
+├── privacy/
+└── saas/
 ```
 
 ---
 
-# 10. RBAC
-
-## Matriz inicial
-
-| Recurso            | OWNER | ADMIN |     PSYCHOANALYST |          FINANCE |       ASSISTANT |
-| ------------------ | ----: | ----: | ----------------: | ---------------: | --------------: |
-| Dashboard geral    |    ✅ |    ✅ |          limitado |       financeiro |     operacional |
-| Usuários           |    ✅ |    ✅ |                ❌ |               ❌ |              ❌ |
-| Pacientes          |    ✅ |    ✅ |       ✅ próprios |         limitado |       ✅ básico |
-| Agenda             |    ✅ |    ✅ |                ✅ | leitura limitada |              ✅ |
-| Sessões            |    ✅ |    ✅ |       ✅ próprias |               ❌ | status limitado |
-| Registros clínicos |  ✅\* |  ✅\* |       ✅ próprios |               ❌ |              ❌ |
-| Financeiro         |    ✅ |    ✅ | conforme política |               ✅ |              ❌ |
-| Auditoria          |    ✅ |    ✅ |          limitada |         limitada |              ❌ |
-
-`*` O acesso do OWNER/ADMIN ao conteúdo clínico deve ser uma decisão explícita de governança; não assumir que administrador operacional precisa ler conteúdo clínico.
-
----
-
-# 11. UX / páginas
-
-## Autenticação
-
-- `/login`
-- `/forgot-password`
-- `/reset-password`
-
-## Aplicação
-
-- `/dashboard`
-- `/agenda`
-- `/pacientes`
-- `/pacientes/[id]`
-- `/sessoes/[id]`
-- `/financeiro`
-- `/relatorios`
-- `/usuarios`
-- `/configuracoes`
-- `/auditoria`
-
-## Navegação
+# 5. Estrutura frontend esperada
 
 ```text
-PsicoGest
+src/
+├── app/
+├── routes/
+├── features/
+│   ├── auth/
+│   ├── dashboard/
+│   ├── calendar/
+│   ├── patients/
+│   ├── clinical/
+│   ├── finance/
+│   ├── fiscal/
+│   ├── packages/
+│   ├── subscriptions/
+│   ├── notifications/
+│   ├── privacy/
+│   ├── settings/
+│   └── billing/
 │
-├── Dashboard
-├── Agenda
-├── Pacientes
-├── Sessões
-├── Financeiro
-├── Relatórios
-│
-└── Administração
-    ├── Usuários
-    ├── Unidades
-    ├── Configurações
-    └── Auditoria
+├── shared/
+│   ├── api/
+│   ├── components/
+│   ├── hooks/
+│   ├── forms/
+│   ├── guards/
+│   ├── utils/
+│   └── types/
 ```
-
-### Princípios visuais
-
-- interface limpa e profissional;
-- destaque para agenda e tarefas do dia;
-- poucos elementos decorativos;
-- estados vazios úteis;
-- feedback após operações;
-- confirmação para ações destrutivas;
-- informação clínica claramente identificada como privada;
-- responsividade para desktop e tablet.
 
 ---
 
-# 12. Segurança por domínio
+# 6. Persistência
 
-## Autenticação
+Flyway é dono do schema.
 
-- hash seguro quando houver senha própria;
-- proteção contra brute force;
-- recuperação de senha por token de uso único;
-- invalidação de sessões quando necessário;
-- MFA na evolução do produto.
+```properties
+spring.jpa.hibernate.ddl-auto=validate
+```
 
-## Autorização
-
-A autorização deve ocorrer no servidor e seguir a combinação:
+Migrações aplicadas nunca devem ser alteradas retroativamente.
 
 ```text
-Identity + Organization + Role + Resource + Action
+nova mudança
+→ nova Vxx
 ```
 
-Exemplo conceitual:
-
-```ts
-await assertCan(user, {
-  organizationId,
-  resource: "clinical_record",
-  action: "read",
-  resourceOwnerId: professionalId,
-});
-```
-
-## Banco
-
-- índices por `organization_id`;
-- foreign keys;
-- constraints de integridade;
-- transações para operações críticas;
-- migrations versionadas;
-- backup automático no provedor de produção.
-
-## Observabilidade
-
-**Pode ir para logs:**
-
-- request id;
-- duração;
-- status HTTP;
-- erro técnico sanitizado;
-- identificador técnico de recurso.
-
-**Não deve ir para logs:**
-
-- conteúdo de sessão;
-- texto de registro clínico;
-- tokens;
-- senhas;
-- dados completos de pagamento;
-- informações sensíveis desnecessárias.
-
 ---
 
-# 13. LGPD e governança de dados
+# 7. Princípios fundamentais
 
-A ANPD informa que dados de saúde são dados pessoais sensíveis e que o tratamento de dados pessoais depende de hipóteses legais aplicáveis. A arquitetura do PsicoGest deve ser tratada como **privacy by design**, com finalidade, necessidade, segurança e controle de acesso desde a concepção. [ANPD — Perguntas frequentes](https://www.gov.br/anpd/pt-br/acesso-a-informacao/perguntas-frequentes/perguntas-frequentes)
+## 7.1 Clinic não possui dados clínicos
 
-### Decisões de produto
+`Clinic` é contexto administrativo. O prontuário pertence ao contexto clínico `Patient ↔ Psychoanalyst`, regulado por autorização contextual e `TherapeuticRelationship`.
 
-1. Não criar campos clínicos genéricos só porque “pode ser útil”.
-2. Separar dados operacionais de dados clínicos.
-3. Restringir acesso a registros clínicos.
-4. Auditar acessos críticos.
-5. Utilizar dados fictícios no GitHub.
-6. Não armazenar segredo no repositório.
-7. Definir retenção antes do uso real.
-8. Documentar incident response.
+`clinic_id` nunca deve ser usado como conceito de propriedade clínica.
 
-Para uma implantação real, a organização deve obter avaliação jurídica/compliance adequada ao contexto, aos profissionais envolvidos, aos fornecedores e às finalidades do tratamento.
+## 7.2 Organization não é Clinic
 
----
-
-# 14. Plano de implementação
-
-## Sprint 0 — Fundação
-
-- criar projeto Next.js;
-- configurar TypeScript;
-- Tailwind;
-- ESLint/formatador;
-- Docker Compose;
-- PostgreSQL;
-- Prisma;
-- estrutura de pastas;
-- `.env.example`;
-- CI básica.
-
-## Sprint 1 — Auth e organizações
-
-- login;
-- sessão;
-- usuários;
-- organização;
-- roles;
-- middleware/guards;
-- seed.
-
-## Sprint 2 — Pacientes
-
-- CRUD;
-- busca;
-- filtros;
-- paginação;
-- tela de detalhes;
-- permissões.
-
-## Sprint 3 — Agenda
-
-- calendário;
-- criação de compromisso;
-- edição/cancelamento;
-- conflito de horários;
-- filtros por profissional/unidade.
-
-## Sprint 4 — Sessões e registros
-
-- iniciar/finalizar sessão;
-- registro privado;
-- autorização clínica;
-- auditoria.
-
-## Sprint 5 — Financeiro
-
-- lançamentos;
-- status;
-- filtros;
-- fechamento;
-- dashboard financeiro.
-
-## Sprint 6 — Qualidade e deploy
-
-- testes E2E;
-- testes de autorização;
-- acessibilidade básica;
-- performance;
-- documentação;
-- deploy;
-- dados demo.
-
----
-
-# 15. Backlog do MVP
-
-| ID   | História                                          | Prioridade | Status |
-| ---- | ------------------------------------------------- | ---------- | ------ |
-| US01 | Como usuário, quero fazer login                   | P0         | Todo   |
-| US02 | Como admin, quero gerenciar usuários              | P0         | Todo   |
-| US03 | Como usuário, quero ver minha agenda              | P0         | Todo   |
-| US04 | Como profissional, quero cadastrar paciente       | P0         | Todo   |
-| US05 | Como profissional, quero consultar paciente       | P0         | Todo   |
-| US06 | Como profissional, quero criar compromisso        | P0         | Todo   |
-| US07 | Como sistema, quero impedir conflito de horário   | P0         | Todo   |
-| US08 | Como profissional, quero registrar sessão         | P0         | Todo   |
-| US09 | Como profissional, quero guardar registro privado | P0         | Todo   |
-| US10 | Como financeiro, quero lançar cobrança            | P1         | Todo   |
-| US11 | Como gestor, quero visualizar indicadores         | P1         | Todo   |
-| US12 | Como sistema, quero auditar ações críticas        | P0         | Todo   |
-| US13 | Como admin, quero configurar unidade              | P2         | Futuro |
-| US14 | Como gestor, quero relatórios avançados           | P2         | Futuro |
-
----
-
-# 16. Estratégia de branches
+Na v1.0:
 
 ```text
-main
- │
- ├── develop
- │    ├── feature/auth
- │    ├── feature/patients
- │    ├── feature/schedule
- │    ├── feature/sessions
- │    └── feature/finance
- │
- └── hotfix/*
+Organization = Tenant técnico
+Clinic       = Unidade/entidade operacional
 ```
 
-Para um projeto individual de portfólio, também é aceitável trabalhar apenas com `main` + branches de feature e Pull Requests.
+`organization_id` pode existir em tabelas clínicas para isolamento de tenant, porém não implica ownership clínico.
 
-### Conventional Commits
+## 7.3 Payment != ServiceInvoice
 
 ```text
-feat: adiciona cadastro de pacientes
-fix: corrige conflito de agenda
-refactor: extrai política de autorização
-test: cobre leitura de registro clínico
-docs: atualiza documentação do MVP
-chore: atualiza dependências
+Receivable = obrigação
+Payment = dinheiro
+ServiceInvoice = documento fiscal
+```
+
+São eventos distintos.
+
+## 7.4 Ledgers imutáveis
+
+Históricos importantes não são sobrescritos.
+
+Exemplos:
+
+```text
+PaymentAllocation
+RefundAllocation
+CreditEntry
+SessionCreditEntry
+AuditLog
+MedicalRecordRevision
+MedicalRecordAddendum
+FiscalEvent
+```
+
+Correções são novos eventos.
+
+---
+
+# 8. v0.2 — Core Domain
+
+## Entidades
+
+```text
+User
+Patient
+Psychoanalyst
+Clinic
+ClinicMembership
+ClinicMembershipPeriod
+Availability
+AvailabilityException
+Appointment
+AppointmentSeries
+TherapeuticRelationship
+```
+
+## AppointmentStatus
+
+```text
+SCHEDULED
+CONFIRMED
+COMPLETED
+CANCELLED
+NO_SHOW
+RESCHEDULED
+```
+
+## AppointmentType
+
+```text
+IN_PERSON
+ONLINE
+```
+
+## State machine
+
+```text
+SCHEDULED
+ ├→ CONFIRMED
+ ├→ COMPLETED
+ ├→ NO_SHOW
+ ├→ CANCELLED
+ └→ RESCHEDULED
+
+CONFIRMED
+ ├→ COMPLETED
+ ├→ NO_SHOW
+ ├→ CANCELLED
+ └→ RESCHEDULED
+```
+
+Estados terminais não regressam.
+
+## Conflict prevention
+
+PostgreSQL:
+
+```text
+btree_gist
++
+EXCLUDE USING gist
+```
+
+para impedir overlap de `SCHEDULED` / `CONFIRMED` por profissional.
+
+## AppointmentSeries
+
+```text
+RecurrenceFrequency: WEEKLY
+RecurrenceScope: SINGLE | THIS_AND_FUTURE | ENTIRE_SERIES
+```
+
+Split:
+
+```text
+old series → SUPERSEDED
+successor  → previousSeries
+```
+
+Histórico nunca é reescrito.
+
+---
+
+# 9. TherapeuticRelationship
+
+Status:
+
+```text
+ACTIVE
+SUSPENDED
+ENDED
+```
+
+Regras:
+
+```text
+ACTIVE → SUSPENDED / ENDED
+SUSPENDED → ACTIVE / ENDED
+ENDED → terminal
+```
+
+Relação é `Patient ↔ Psychoanalyst`, independente de clínica.
+
+---
+
+# 10. ClinicMembershipPeriod
+
+`ClinicMembership` representa o par estável. Os períodos representam participação real ao longo do tempo.
+
+```text
+ClinicMembership
+   └── ClinicMembershipPeriod[]
+```
+
+Uma pessoa que sai e retorna recebe novo período.
+
+---
+
+# 11. Lifecycle
+
+Entidades com lifecycle administrativo:
+
+```text
+User
+Patient
+Psychoanalyst
+Clinic
+Availability
+```
+
+Campos:
+
+```text
+active
+deactivatedAt
+deactivationReason
+reactivatedAt
+```
+
+Sem hard delete para histórico relevante.
+
+---
+
+# 12. v0.3 — Security
+
+## Objetivos
+
+Proteção contra:
+
+```text
+credential stuffing
+brute force
+session theft
+token replay
+IDOR/BOLA
+privilege escalation
+SQLi
+XSS
+CSRF
+exfiltration
+ransomware
+DDoS
+insider threat
+backup theft
+secret theft
+```
+
+## Authentication
+
+JWT RSA/RS256 com claims mínimos:
+
+```text
+iss
+aud
+sub
+jti
+roles
+sv
+sid
+token_type
+iat
+exp
+```
+
+Sem CPF, dados de paciente ou conteúdo clínico.
+
+## Refresh token
+
+```text
+opaque
+256-bit random
+```
+
+Persistência:
+
+```text
+SHA-256 hash
+```
+
+Rotação:
+
+```text
+A → B → C
+```
+
+Reuse:
+
+```text
+revoke family
+SecurityEvent CRITICAL
+```
+
+## Session security
+
+`UserSession` representa sessão física. JWT contém `sid`.
+
+```text
+session revoked → um device
+securityVersion++ → todos os devices
+```
+
+## MFA
+
+Política definida:
+
+```text
+PATIENT → opcional/recomendado
+PSYCHOANALYST → obrigatório
+CLINIC_ADMIN → obrigatório
+SYSTEM_ADMIN → obrigatório
+```
+
+TOTP:
+
+```text
+RFC 6238
+HMAC-SHA1
+30s
+6 digits
+±1 step
+```
+
+Recovery codes: hash-only e single-use.
+
+---
+
+# 13. Authorization
+
+Role sozinho não basta.
+
+Exemplo:
+
+```text
+CLINIC_ADMIN
+```
+
+não lê `MedicalRecord` só por ser admin.
+
+Política:
+
+```text
+Patient → próprio perfil
+Psychoanalyst → pacientes sob relationship válido
+Clinic Admin → administrativo
+System Admin → sem acesso clínico por padrão
 ```
 
 ---
 
-# 17. CI/CD
+# 14. SecurityEvent / SecurityAlert
 
-Pipeline inicial:
+Eventos de segurança registram login, rate limit, refresh reuse, access denied, MFA, session revoke, mass access e atividade suspeita.
+
+Alertas incluem:
 
 ```text
-Push / Pull Request
-        ↓
-Install
-        ↓
-Lint
-        ↓
-Typecheck
-        ↓
-Unit tests
-        ↓
-Build
-        ↓
+ID enumeration
+mass patient access
+mass clinical access
+mass export
+credential stuffing
+brute force
+session anomaly
+refresh compromise
+authorization abuse
+```
+
+Nunca logar password, JWT completo, refresh token, TOTP, recovery code, clinical plaintext ou chaves criptográficas.
+
+---
+
+# 15. AuditLog
+
+AuditLog é separado de SecurityEvent.
+
+Integridade:
+
+```text
+HMAC-SHA-256 chain
+```
+
+Campos principais:
+
+```text
+sequence
+previousMac
+entryMac
+keyId
+actor
+session
+action
+resource
+patient
+clinic context
+outcome
+timestamp
+correlationId
+metadata
+```
+
+Key fora do banco.
+
+---
+
+# 16. Clinical Encryption
+
+```text
+AES-256-GCM
+96-bit IV
+128-bit auth tag
+```
+
+Envelope encryption:
+
+```text
+plaintext
+↓
+DEK random
+↓
+AES-GCM
+↓
+DEK wrapped by KEK/KMS
+```
+
+AAD liga ciphertext ao recurso correto.
+
+---
+
+# 17. v0.4 — Clinical
+
+## MedicalRecord
+
+Status:
+
+```text
+DRAFT
+FINALIZED
+```
+
+Regras:
+
+```text
+DRAFT → editable
+FINALIZED → immutable
+```
+
+Correções após finalização: `MedicalRecordAddendum`.
+
+## MedicalRecordRevision
+
+Cada save explícito cria novo snapshot cifrado e imutável.
+
+Restore futuro copia conteúdo antigo para **nova** revision.
+
+## Addendum
+
+Somente em `FINALIZED`. Não edita prontuário original.
+
+## Clinical Timeline
+
+Metadados de:
+
+```text
+Appointment completed
+Record created
+Record finalized
+Addendum
+Relationship changes
+```
+
+Draft revisions não entram normalmente.
+
+## Clinical Export
+
+High-risk:
+
+```text
+1 patient
+date range
+finalized content
+private storage
+short TTL
+hash
+audit
+rate limit
+```
+
+---
+
+# 18. v0.5 — Finance
+
+## Core
+
+```text
+FinancialEntity
+Receivable
+Payment
+PaymentAllocation
+Refund
+RefundAllocation
+CreditAccount
+CreditEntry
+ReceivableAdjustment
+```
+
+## FinancialEntity
+
+Representa o recebedor econômico.
+
+```text
+CLINIC
+PSYCHOANALYST
+```
+
+## Receivable
+
+Status:
+
+```text
+OPEN
+PARTIALLY_PAID
+PAID
+CANCELLATION_PENDING
+CANCELLED
+```
+
+`OVERDUE` é derivado.
+
+## Payment
+
+Status:
+
+```text
+PENDING
+CONFIRMED
+FAILED
+CANCELLED
+PARTIALLY_REFUNDED
+REFUNDED
+```
+
+Pagamento não implica automaticamente quitação de Receivable.
+
+## PaymentAllocation
+
+Permite:
+
+```text
+1 Payment → múltiplos Receivables
+múltiplos Payments → 1 Receivable
+```
+
+## Refund
+
+Refund não altera o Payment original.
+
+## CreditAccount
+
+Saldo credor é ledger `CREDIT/DEBIT`, não campo mutável no paciente.
+
+## Cancellation
+
+Cobrança com pagamento exige settlement:
+
+```text
+REFUND
+ou
+CREDIT_BALANCE
+```
+
+---
+
+# 19. PaymentProvider e webhooks
+
+```text
+PaymentProvider
+├── AsaasPaymentProvider
+├── MercadoPagoPaymentProvider
+├── PagarmePaymentProvider
+└── ...
+```
+
+Webhook:
+
+```text
+raw body
+↓
+signature
+↓
+timestamp/replay
+↓
+provider event id
+↓
+inbox
+↓
+idempotent processor
+↓
+domain services
+```
+
+Provider callback não altera entity diretamente.
+
+---
+
+# 20. Bank Reconciliation
+
+```text
+BankAccount
+BankStatementImport
+BankTransaction
+BankReconciliationAllocation
+```
+
+Descrição bancária pode ser cifrada.
+
+---
+
+# 21. ProviderSettlement
+
+Resolve:
+
+```text
+gross payments
+- refunds
+- provider fees
+- chargebacks
+± adjustments
+=
+net payout
+```
+
+Depois `ProviderSettlement ↔ BankTransaction`.
+
+---
+
+# 22. Fiscal
+
+## FiscalIssuer
+
+Ligado a `FinancialEntity`. Tax identifiers são strings, não números.
+
+## FiscalConfiguration
+
+Versionada e efetiva por período. Credenciais são referências ao Secret Manager.
+
+## ServiceInvoice
+
+Status:
+
+```text
+DRAFT
+PENDING
+PROCESSING
+AUTHORIZED
+REJECTED
+CANCEL_PENDING
+CANCELLED
+ERROR
+RECONCILIATION_REQUIRED
+```
+
+## TaxSnapshot
+
+Congela os impostos usados na emissão.
+
+## DPS
+
+Numeração segura e única por emissor/série.
+
+## FiscalProvider
+
+```text
+FiscalProvider
+├── NationalNfseProvider
+├── MunicipalProvider
+└── ThirdPartyProvider
+```
+
+## Timeout fiscal
+
+```text
+timeout != rejected
+```
+
+Resultado externo incerto → `RECONCILIATION_REQUIRED`.
+
+## Imutabilidade fiscal
+
+NFS-e autorizada não é editada nem deletada.
+
+Correção:
+
+```text
+cancel
+substitute
+```
+
+---
+
+# 23. v0.6 — Packages & Subscriptions
+
+## Packages
+
+```text
+PackagePlan
+PackagePlanVersion
+PackagePlanItem
+PatientPackage
+PatientPackageItem
+SessionCreditEntry
+PackageConsumption
+```
+
+Versões comerciais publicadas são imutáveis.
+
+## SessionCredit ledger
+
+Tipos:
+
+```text
+PACKAGE_ACTIVATION
+APPOINTMENT_CONSUMPTION
+CONSUMPTION_REVERSAL
+EXPIRATION
+PACKAGE_CANCELLATION
+MANUAL_ADJUSTMENT
+```
+
+Saldo é derivado do ledger.
+
+## FEFO
+
+```text
+First Expire, First Out
+```
+
+## Package cancellation
+
+```text
+package value
+-
+consumed economic value
+=
+remaining service value
+```
+
+Depois:
+
+```text
+paid
+-
+adjusted receivable
+=
+settlement amount
+```
+
+Settlement por Refund ou CreditBalance.
+
+## Subscriptions
+
+```text
+SubscriptionPlan
+SubscriptionPlanVersion
+PatientSubscription
+SubscriptionCycle
+```
+
+Cada ciclo gera `Receivable` e, quando aplicável, `PatientPackage`.
+
+## Billing anchor
+
+Anchor 31:
+
+```text
+31/01
+28/02
+31/03
+30/04
+```
+
+sem drift.
+
+---
+
+# 24. v0.7 — Notifications
+
+```text
+Notification
+Recipient
+Delivery
+Template
+Provider
+```
+
+Canais:
+
+```text
+EMAIL
+WHATSAPP
+SMS
+```
+
+Regras:
+
+- destino cifrado;
+- templates versionados;
+- retry controlado;
+- webhooks assinados;
+- quiet hours;
+- outbound rate limiting;
+- mass send detection;
+- nenhum conteúdo clínico sensível por padrão.
+
+---
+
+# 25. v0.8 — LGPD
+
+## ProcessingActivity
+
+Registra:
+
+```text
+purpose
+legal basis
+role
+data categories
+recipients
+retention
+```
+
+## PrivacyNotice
+
+Versionado e imutável após publicação.
+
+## ConsentRecord
+
+Consentimento não é base universal.
+
+## DataSubjectRequest
+
+Tipos:
+
+```text
+CONFIRMATION
+ACCESS
+CORRECTION
+ANONYMIZATION
+BLOCKING
+DELETION
+PORTABILITY
+SHARING_INFORMATION
+CONSENT_REVOCATION
+AUTOMATED_DECISION_REVIEW
+```
+
+## Retention
+
+Configurável por domínio. Clinical começa em `MANUAL_REVIEW` até validação jurídica específica.
+
+## LegalHold
+
+Bloqueia disposal automático em caso de litígio, incidente, obrigação legal ou investigação.
+
+## Privacy incidents
+
+`SecurityIncident` pode gerar `PrivacyIncidentAssessment`. Decisão regulatória não é feita automaticamente só por score.
+
+---
+
+# 26. v0.9 — Frontend
+
+Áreas esperadas:
+
+```text
+Auth
+MFA
+Dashboard
+Calendar
+Patients
+Clinical
+Finance
+Fiscal
+Packages
+Subscriptions
+Notifications
+Privacy
+Settings
+Billing
+```
+
+Padrões:
+
+```text
+typed API client
+TanStack Query
+React Hook Form
+Zod
+route guards
+error boundaries
+loading states
+empty states
+accessibility
+responsive layouts
+```
+
+Frontend foi informado como concluído, mas integração real com backend deve ser comprovada no Production Audit.
+
+---
+
+# 27. v1.0 — SaaS
+
+## Organization
+
+Tenant técnico.
+
+Tipos:
+
+```text
+SOLO
+CLINIC
+NETWORK
+```
+
+## OrganizationMembership
+
+```text
+OWNER
+ADMIN
+BILLING
+MEMBER
+```
+
+Não substitui permissões clínicas.
+
+---
+
+# 28. Tenant Isolation
+
+Camadas:
+
+```text
+Authorization
++
+TenantContext
++
+PostgreSQL RLS
+```
+
+Regra:
+
+```text
+Tenant crossover = release blocker
+```
+
+O runtime user do banco não deve ter `BYPASSRLS`.
+
+---
+
+# 29. SaaS Plans
+
+```text
+SaasPlan
+SaasPlanVersion
+SaasFeature
+SaasPlanEntitlement
+```
+
+Frontend esconder feature é só UX; backend valida entitlement e limite.
+
+Downgrade nunca apaga dados históricos.
+
+---
+
+# 30. SaasSubscription
+
+Estados:
+
+```text
+TRIALING
+ACTIVE
+PAST_DUE
+RESTRICTED
+CANCEL_AT_PERIOD_END
+CANCELLED
+EXPIRED
+```
+
+Trial expirado não apaga dados.
+
+Inadimplência deve ter grace/restricted mode, evitando bloqueio destrutivo de dados clínicos.
+
+---
+
+# 31. SaaS Billing
+
+Separado do financeiro do paciente.
+
+```text
+SaasInvoice
+SaasPayment
+SaasBillingProvider
+```
+
+Nunca misturar mensalidade do produto com `Payment` da clínica.
+
+---
+
+# 32. Usage e Feature Flags
+
+```text
+SaasUsageEvent
+SaasUsageMonthly
+```
+
+Métricas de uso podem incluir equipe, mensagens, exports e storage.
+
+Feature Flag != Plan Entitlement.
+
+```text
+Entitlement = cliente pagou?
+Feature Flag = queremos liberar feature?
+```
+
+---
+
+# 33. Support Access
+
+Suporte nunca pede senha.
+
+Usar `SupportAccessGrant` com:
+
+```text
+scope
+approval
+reason
+TTL
+audit
+```
+
+Acesso clínico excepcional usa break-glass.
+
+---
+
+# 34. Production Architecture
+
+```text
+Internet
+↓
+CDN / DDoS
+↓
+WAF
+↓
+Load Balancer
+↓
+Spring APIs
+↓
+PostgreSQL / Redis / Workers
+↓
+Storage / KMS
+```
+
+Ambientes:
+
+```text
+development
+staging
+production
+```
+
+---
+
+# 35. Database users
+
+Separar:
+
+```text
+app_runtime
+migration_service
+backup_service
+restore_service
+security_admin
+```
+
+`app_runtime`:
+
+```text
+no SUPERUSER
+no BYPASSRLS
+no backup privileges
+```
+
+---
+
+# 36. CI/CD
+
+Pipeline desejado:
+
+```text
+compile
+unit
+integration
+tenant isolation
+security integration
+frontend tests
+lint
+typecheck
+SAST
+SCA
+secret scan
+SBOM
+container scan
+build
+sign
+staging
 E2E
-        ↓
-Deploy
+DAST
+manual approval
+production
 ```
 
-Em produção:
-
-- migrations controladas;
-- secrets separados por ambiente;
-- rollback documentado;
-- monitoramento de erros;
-- backups;
-- teste periódico de restauração.
-
 ---
 
-# 18. Evolução para médio porte
+# 37. Observability
 
-## Multi-tenant
-
-Desde o início, adicionar `organization_id` às entidades relevantes e centralizar a autorização. Isso permite hospedar várias clínicas sem misturar dados.
-
-## Multiunidade
-
-Adicionar `clinic_unit_id` em agenda e recursos relacionados.
-
-## Cache
-
-Introduzir cache apenas em leituras que demonstrem necessidade, como dashboards e configurações de baixa mutação.
-
-## Jobs assíncronos
-
-Mover para fila:
-
-- envio de notificações;
-- geração de relatórios;
-- exports grandes;
-- tarefas de limpeza;
-- processamento de arquivos.
-
-## Storage
-
-Arquivos não devem ficar no banco sem uma razão clara. Quando houver anexos, usar storage apropriado com URLs assinadas e autorização.
-
-## Observabilidade
-
-Adicionar:
-
-- logs estruturados;
-- métricas;
-- tracing;
-- error tracking;
-- alertas;
-- dashboards operacionais.
-
-## Feature flags
-
-Permitir ativação gradual de funcionalidades por organização.
-
----
-
-# 19. Monetização futura
-
-O produto pode evoluir para SaaS B2B com planos por organização.
-
-### Exemplo conceitual
-
-**Solo**
-
-- 1 profissional;
-- agenda;
-- pacientes;
-- sessões;
-- financeiro básico.
-
-**Clinic**
-
-- múltiplos profissionais;
-- permissões;
-- relatórios;
-- unidades;
-- repasses.
-
-**Enterprise**
-
-- multiunidade;
-- SSO;
-- auditoria avançada;
-- políticas personalizadas;
-- suporte prioritário;
-- contratos empresariais.
-
-Os preços não fazem parte do MVP porque precisam ser validados com mercado, custos e posicionamento.
-
----
-
-# 20. Riscos
-
-| Risco                            | Impacto | Mitigação                                                         |
-| -------------------------------- | ------- | ----------------------------------------------------------------- |
-| Vazamento de dados clínicos      | Crítico | RBAC, minimização, auditoria, criptografia e revisão de segurança |
-| IDOR/BOLA                        | Crítico | autorização por tenant + recurso em todas as leituras/mutações    |
-| Crescimento de escopo            | Alto    | manter MVP fechado                                                |
-| Queries lentas                   | Médio   | índices, paginação, profiling                                     |
-| Logs com dados sensíveis         | Alto    | logger sanitizado                                                 |
-| Dependência externa indisponível | Médio   | retries, timeout, fallback                                        |
-| Migração quebrada                | Alto    | migrations revisadas + backup + staging                           |
-| Uso de dados reais no GitHub     | Crítico | dataset fictício e revisão antes do push                          |
-
----
-
-# 21. Definition of Done
-
-Uma funcionalidade só está “pronta” quando:
-
-- funciona pelo fluxo da interface;
-- possui validação;
-- possui autorização;
-- trata erros;
-- possui teste relevante;
-- não vaza dados sensíveis;
-- segue padrão de código;
-- está documentada quando necessário;
-- foi validada com dados fictícios;
-- passa CI.
-
----
-
-# 22. Checklist do MVP antes de publicar no GitHub
+Métricas técnicas:
 
 ```text
-[ ] README completo
-[ ] PROJETO.md completo
-[ ] LICENSE
-[ ] .env.example
-[ ] .gitignore correto
-[ ] seed apenas com dados fictícios
-[ ] nenhum segredo versionado
-[ ] nenhum dado real de paciente
-[ ] autenticação
-[ ] autorização/RBAC
-[ ] isolamento por organização
-[ ] pacientes
-[ ] agenda
-[ ] sessões
-[ ] registros privados
-[ ] financeiro básico
-[ ] dashboard
-[ ] auditoria
-[ ] testes unitários
-[ ] testes E2E
-[ ] CI
-[ ] Docker local
-[ ] deploy de demonstração
-[ ] screenshots sem dados pessoais
+requests/sec
+p50/p95/p99
+5xx
+DB pool
+DB latency
+Redis
+queue backlog
+webhook lag
+provider failures
+KMS errors
+```
+
+Sem conteúdo clínico em traces.
+
+Métricas comerciais:
+
+```text
+MRR
+ARR
+active organizations
+trial conversion
+churn
+ARPA
+plan distribution
+onboarding completion
 ```
 
 ---
 
-# 23. Critério de sucesso do portfólio
+# 38. Backup / Disaster Recovery
 
-O projeto terá maior força como portfólio quando o recrutador conseguir enxergar, em poucos minutos:
+```text
+PITR
+WAL
+daily backup
+immutable copy
+```
 
-1. **produto:** problema real e usuários claros;
-2. **engenharia:** arquitetura organizada;
-3. **backend:** regras de negócio e autorização reais;
-4. **banco:** modelagem relacional coerente;
-5. **frontend:** dashboard e fluxos usáveis;
-6. **qualidade:** testes e CI;
-7. **segurança:** tenant isolation, RBAC e auditoria;
-8. **maturidade:** roadmap de MVP → médio porte;
-9. **deploy:** aplicação demonstrável;
-10. **documentação:** decisões técnicas explicadas.
+Aplicação não pode apagar backup.
 
-Esse conjunto faz o projeto parecer menos “CRUD de curso” e mais um produto SaaS pensado por alguém que entende desenvolvimento, arquitetura e operação.
+Restore validation:
+
+```text
+restore
+↓
+Flyway validate
+↓
+DB integrity
+↓
+Audit chain
+↓
+decrypt controlled sample
+↓
+smoke tests
+```
+
+Backup nunca restaurado não é backup comprovado.
 
 ---
 
-# 24. Referências técnicas
+# 39. Production Audit
 
-- Next.js — https://nextjs.org/docs
-- Auth.js — https://authjs.dev/
-- Prisma ORM — https://www.prisma.io/docs/
-- PostgreSQL — https://www.postgresql.org/docs/
-- ANPD / LGPD — https://www.gov.br/anpd/
+Cada item deve ser classificado como:
 
-## Nota sobre versões
+```text
+IMPLEMENTADO ✅
+PARCIAL 🟡
+FALTANDO ❌
+BLOQUEADOR DE VENDA 🚨
+```
 
-Evite fixar versões de framework no documento de produto. As versões exatas devem viver no `package.json` e no lockfile, com atualização controlada. A documentação atual do Prisma, por exemplo, já descreve Prisma ORM 8 e requisitos modernos de Node.js; isso reforça a ideia de manter o README orientado à arquitetura e o `package.json` como fonte da verdade para versões. [Prisma](https://www.prisma.io/docs/prisma-orm/quickstart/postgresql)
+Nunca marcar algo como implementado apenas porque foi planejado.
+
+---
+
+# 40. Priorização
+
+## P0 — bloqueadores típicos
+
+```text
+tenant crossover
+auth broken
+clinical access leak
+secrets exposed
+no backup
+restore not validated
+broken migrations
+payment duplication
+missing audit on clinical access
+plaintext medical records
+production mocks
+```
+
+## P1
+
+```text
+provider integration
+notifications
+onboarding
+support tooling
+observability
+alerts
+legal docs
+privacy workflows
+```
+
+## P2
+
+```text
+advanced dashboards
+extra automation
+UX polish
+analytics
+additional integrations
+```
+
+## P3
+
+```text
+nice-to-have
+AI features
+advanced reporting
+secondary providers
+```
+
+---
+
+# 41. GO LIVE
+
+## Backend
+- [ ] compile;
+- [ ] integration tests;
+- [ ] security tests;
+- [ ] tenant isolation;
+- [ ] migrations valid;
+- [ ] RLS;
+- [ ] KMS;
+- [ ] Redis;
+- [ ] PostgreSQL privado.
+
+## Frontend
+- [ ] production build;
+- [ ] sem mocks críticos;
+- [ ] auth integrada;
+- [ ] MFA;
+- [ ] permissions;
+- [ ] sem sensitive console logs.
+
+## Providers
+- [ ] payment;
+- [ ] webhook;
+- [ ] email;
+- [ ] WhatsApp;
+- [ ] NFS-e ou feature desativada.
+
+## Operations
+- [ ] monitoring;
+- [ ] alerting;
+- [ ] backups;
+- [ ] PITR;
+- [ ] restore;
+- [ ] runbooks;
+- [ ] suporte.
+
+## Legal
+- [ ] Terms of Service;
+- [ ] Privacy Notice;
+- [ ] SaaS contract;
+- [ ] controlador/operador revisado;
+- [ ] retention review;
+- [ ] incident procedure.
+
+## Security
+- [ ] pentest;
+- [ ] rate limits;
+- [ ] WAF;
+- [ ] TLS;
+- [ ] secret scan;
+- [ ] dependency scan;
+- [ ] tenant crossover test.
+
+---
+
+# 42. Commercial launch
+
+Estratégia:
+
+```text
+internal
+↓
+demo
+↓
+1 pilot
+↓
+3–5 pilots
+↓
+10 customers
+↓
+50 customers
+↓
+scale
+```
+
+Ambiente demo separado de produção, somente com dados fictícios e resetáveis.
+
+---
+
+# 43. Planos SaaS
+
+A arquitetura suporta:
+
+```text
+Solo
+Start
+Pro
+Enterprise
+```
+
+Preços definitivos são decisão comercial e devem evoluir por `SaasPlanVersion`, nunca hardcoded no domínio.
+
+---
+
+# 44. Trial e onboarding
+
+```text
+landing
+↓
+signup
+↓
+email verification
+↓
+Organization
+↓
+trial
+↓
+onboarding
+↓
+dashboard
+↓
+checkout
+↓
+paid subscription
+```
+
+---
+
+# 45. Status do projeto
+
+Com base no planejamento confirmado:
+
+```text
+✅ v0.2 Core Domain — arquitetura definida
+✅ v0.3 Security — arquitetura definida
+✅ v0.4 Clinical — arquitetura definida
+✅ v0.5 Finance & Fiscal — arquitetura definida
+✅ v0.6 Packages — arquitetura definida
+✅ v0.7 Notifications — arquitetura definida
+✅ v0.8 LGPD — arquitetura definida
+✅ v0.9 Frontend — informado como concluído
+
+🟡 v1.0 Production Readiness
+🟡 SaaS Commercial Layer
+🟡 Production Audit
+
+🚨 Implementação real deve ser confirmada no repositório.
+```
+
+---
+
+# 46. Próxima fase
+
+```text
+v1.0 Production Audit
+↓
+v1.0.1 Hardening
+↓
+v1.0.2 Pilot
+↓
+v1.0.3 Commercial Launch
+```
+
+O foco agora passa a ser:
+
+```text
+prove
+test
+secure
+deploy
+observe
+sell
+```
+
+e não adicionar features continuamente.
+
+---
+
+# 47. Critério de sucesso
+
+O PsicoGest estará pronto para venda quando:
+
+1. nenhum P0 permanecer;
+2. integrações reais estiverem validadas;
+3. tenant isolation estiver provado;
+4. restore tiver sido executado;
+5. produção estiver observável;
+6. fluxos críticos tiverem E2E;
+7. documentos legais estiverem revisados;
+8. onboarding funcionar sem acesso manual ao banco;
+9. billing SaaS estiver operacional;
+10. 3–5 pilotos conseguirem usar o sistema de ponta a ponta.
+
+---
+
+# 48. Regra final
+
+Não adicionar feature nova apenas porque parece interessante enquanto existirem bloqueadores de produção.
+
+Prioridade:
+
+```text
+segurança
+consistência
+backup
+observabilidade
+onboarding
+suporte
+clientes reais
+```
+
+Depois disso, novas features devem ser guiadas principalmente por feedback de uso real.
