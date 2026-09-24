@@ -9,7 +9,7 @@ interface AuthContextValue {
   pendingMfaEmail: string | null;
   pendingMfaChallenge: string | null;
   pendingMfaEnrollment: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<{ mfaRequired: boolean }>;
   verifyMfa: (code: string) => Promise<void>;
   setupMfa: () => Promise<{ secret: string; otpauthUri: string }>;
   confirmMfa: (code: string) => Promise<void>;
@@ -46,10 +46,27 @@ function permissionsFor(role: UserRole): Permission[] {
   return ["dashboard:read", "clinical:read", "clinical:write", "patients:read", "patients:write", "packages:read", "notifications:read", "privacy:read"];
 }
 
+// Mapeia papeis do backend para os 4 papeis reconhecidos no frontend.
+// Papeis desconhecidos NAO recebem acesso clinico por padrao (fail-safe).
+const backendRoleMap: Record<string, UserRole> = {
+  ADMIN: "ADMIN",
+  CLINIC_ADMIN: "OWNER",
+  SYSTEM_ADMIN: "OWNER",
+  OWNER: "OWNER",
+  PSYCHOANALYST: "CLINICAL",
+  CLINICAL: "CLINICAL",
+  FINANCE: "FINANCE",
+  FINANCEIRO: "FINANCE",
+  BILLING: "FINANCE",
+};
+
 function frontendRole(role: string): UserRole {
-  if (["ADMIN", "CLINIC_ADMIN", "SYSTEM_ADMIN"].includes(role)) return role === "ADMIN" ? "ADMIN" : "OWNER";
-  if (role === "PSYCHOANALYST") return "CLINICAL";
-  return "CLINICAL";
+  return backendRoleMap[(role ?? "").trim().toUpperCase()] ?? "CLINICAL";
+}
+
+function permissionsForProfile(role: string): Permission[] {
+  const mapped = backendRoleMap[(role ?? "").trim().toUpperCase()];
+  return mapped ? permissionsFor(mapped) : ["dashboard:read"];
 }
 
 function userFromProfile(profile: AuthProfile): AuthUser {
@@ -68,7 +85,7 @@ function userFromProfile(profile: AuthProfile): AuthUser {
     timezone: item.timezone,
     role: item.role as OrganizationOption["role"],
   }));
-  return { id: String(profile.userId), name, email: profile.email, role, initials: name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase(), tenant, organizations, permissions: permissionsFor(role) };
+  return { id: String(profile.userId), name, email: profile.email, role, initials: name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase(), tenant, organizations, permissions: permissionsForProfile(profile.role) };
 }
 
 async function profileSession(): Promise<AuthSession> {
@@ -115,12 +132,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async login(email, password) {
       if (DEMO_MODE) {
         if (email.trim().toLowerCase() !== DEMO_EMAIL || password !== DEMO_PASSWORD) throw new Error("Use as credenciais de demonstração exibidas nesta tela.");
-        setPendingMfaEmail(email); setPendingMfaChallenge("demo"); setPendingMfaEnrollment(false); return;
+        setPendingMfaEmail(email); setPendingMfaChallenge("demo"); setPendingMfaEnrollment(false); return { mfaRequired: true };
       }
       const response = await apiClient.request<LoginResponse>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
-      if (response.status === "AUTHENTICATED" && response.authentication) { await finishAuthentication(response.authentication.accessToken); return; }
+      if (response.status === "AUTHENTICATED" && response.authentication) { await finishAuthentication(response.authentication.accessToken); return { mfaRequired: false }; }
       if (!response.challenge) throw new ApiError("O servidor não retornou o desafio de autenticação.", 502);
       setPendingMfaEmail(email); setPendingMfaChallenge(response.challenge); setPendingMfaEnrollment(response.status === "MFA_ENROLLMENT_REQUIRED");
+      return { mfaRequired: true };
     },
     async verifyMfa(code) {
       if (DEMO_MODE) {

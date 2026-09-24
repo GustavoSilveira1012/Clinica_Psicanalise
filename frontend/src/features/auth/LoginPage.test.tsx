@@ -23,7 +23,7 @@ describe("LoginPage", () => {
 
     const user = userEvent.setup();
     render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={["/login"]}><AppProviders><AppRouter /></AppProviders></MemoryRouter>);
-    await user.type(screen.getByLabelText("E-mail profissional"), "clinica@example.com");
+    await user.type(await screen.findByLabelText("E-mail profissional"), "clinica@example.com");
     await user.type(screen.getByLabelText("Senha"), "senha-segura");
     await user.click(screen.getByRole("button", { name: /continuar/i }));
     expect(await screen.findByText("Segundo fator")).toBeInTheDocument();

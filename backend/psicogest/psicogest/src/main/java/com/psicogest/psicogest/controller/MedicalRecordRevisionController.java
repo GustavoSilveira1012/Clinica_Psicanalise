@@ -69,7 +69,7 @@ public class MedicalRecordRevisionController {
      */
     @GetMapping("/medical-records/{recordId}/revisions")
     @PreAuthorize("""
-            @clinicalAuthorization.canReadMedicalRecord(
+            @clinicalAuthorizationService.canReadMedicalRecord(
                 authentication,
                 #recordId
             )
@@ -109,7 +109,7 @@ public class MedicalRecordRevisionController {
      */
     @GetMapping("/medical-record-revisions/{revisionId}")
     @PreAuthorize("""
-            @clinicalAuthorization.canReadMedicalRecordRevision(
+            @clinicalAuthorizationService.canReadMedicalRecordRevision(
                 authentication,
                 #revisionId
             )

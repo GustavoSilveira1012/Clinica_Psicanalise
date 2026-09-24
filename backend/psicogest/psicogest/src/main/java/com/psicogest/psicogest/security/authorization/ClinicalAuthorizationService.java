@@ -1,10 +1,13 @@
 package com.psicogest.psicogest.security.authorization;
 
+import com.psicogest.psicogest.model.entity.Patient;
 import com.psicogest.psicogest.model.entity.Psychoanalyst;
 import com.psicogest.psicogest.model.enums.MedicalRecordStatus;
 import com.psicogest.psicogest.repository.AddendumRepository;
+import com.psicogest.psicogest.repository.AppointmentRepository;
 import com.psicogest.psicogest.repository.MedicalRecordRepository;
 import com.psicogest.psicogest.repository.MedicalRecordRevisionRepository;
+import com.psicogest.psicogest.repository.PatientRepository;
 import com.psicogest.psicogest.repository.PsychoanalystRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
@@ -24,6 +27,10 @@ public class ClinicalAuthorizationService {
 
     private final MedicalRecordRevisionRepository revisionRepository;
 
+    private final PatientRepository patientRepository;
+
+    private final AppointmentRepository appointmentRepository;
+
     private final SecurityContextService contextService;
 
     public ClinicalAuthorizationService(
@@ -31,6 +38,8 @@ public class ClinicalAuthorizationService {
             PsychoanalystRepository psychoanalystRepository,
             AddendumRepository addendumRepository,
             MedicalRecordRevisionRepository revisionRepository,
+            PatientRepository patientRepository,
+            AppointmentRepository appointmentRepository,
             SecurityContextService contextService
     ) {
 
@@ -38,6 +47,8 @@ public class ClinicalAuthorizationService {
         this.psychoanalystRepository = psychoanalystRepository;
         this.addendumRepository = addendumRepository;
         this.revisionRepository = revisionRepository;
+        this.patientRepository = patientRepository;
+        this.appointmentRepository = appointmentRepository;
         this.contextService = contextService;
     }
 
@@ -402,5 +413,99 @@ public class ClinicalAuthorizationService {
                 authentication,
                 patientId
         );
+    }
+
+    /**
+     * Autorização para leitura de perfil (cadastro) de paciente.
+     *
+     * Espelha o modelo de acesso de {@code PatientAccessQueryService#findAccessible}:
+     * - PATIENT: apenas o próprio cadastro
+     * - PSYCHOANALYST: pacientes com vínculo terapêutico ACTIVE ou SUSPENDED
+     * - CLINIC_ADMIN: qualquer paciente ativo do tenant (isolamento garantido por RLS)
+     *
+     * Fail-closed: qualquer outra role, usuário sem id, ou paciente inexistente => negado.
+     */
+    public boolean canReadPatientProfile(
+            Authentication authentication,
+            Long patientId
+    ) {
+
+        Long userId = contextService
+                .userId(authentication)
+                .orElse(null);
+
+        if (userId == null) {
+            log.debug("Acesso negado: userId não encontrado");
+            return false;
+        }
+
+        if (contextService.hasRole(authentication, "PATIENT")) {
+            return patientRepository.existsByIdAndUserId(patientId, userId);
+        }
+
+        if (contextService.hasRole(authentication, "PSYCHOANALYST")) {
+            return psychoanalystRepository
+                    .findByUserId(userId)
+                    .map(psychoanalyst ->
+                            psychoanalystRepository.existsTherapeuticRelationship(
+                                    psychoanalyst.getId(),
+                                    patientId
+                            )
+                    )
+                    .orElse(false);
+        }
+
+        if (contextService.hasRole(authentication, "CLINIC_ADMIN")) {
+            return patientRepository
+                    .findById(patientId)
+                    .map(Patient::getActive)
+                    .orElse(false);
+        }
+
+        log.warn(
+                "Tentativa de leitura de perfil não autorizada: patientId={}, userId={}",
+                patientId,
+                userId
+        );
+        return false;
+    }
+
+    /**
+     * Autorização para leitura de um agendamento específico.
+     *
+     * Permite apenas às partes diretamente envolvidas:
+     * - o psicanalista responsável pelo atendimento, ou
+     * - o paciente do atendimento.
+     *
+     * Fail-closed: usuário sem id ou sem vínculo direto com o agendamento => negado.
+     */
+    public boolean canReadAppointment(
+            Authentication authentication,
+            Long appointmentId
+    ) {
+
+        Long userId = contextService
+                .userId(authentication)
+                .orElse(null);
+
+        if (userId == null) {
+            log.debug("Acesso negado: userId não encontrado");
+            return false;
+        }
+
+        if (appointmentRepository.existsByIdAndPsychoanalystUserId(appointmentId, userId)) {
+            return true;
+        }
+
+        if (appointmentRepository.existsByIdAndPatientUserId(appointmentId, userId)) {
+            return true;
+        }
+
+        log.warn(
+                "Tentativa de leitura de agendamento não autorizada: appointmentId={}, userId={}",
+                appointmentId,
+                userId
+        );
+        return false;
     }
 }

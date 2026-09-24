@@ -4,6 +4,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -12,6 +13,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -373,6 +375,40 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity
                 .status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(response);
+    }
+
+    /**
+     * Catch-all: qualquer excecao nao mapeada acima.
+     * - Excecoes nativas do Spring MVC (ErrorResponse: 400 corpo invalido, 404,
+     *   405, ...) preservam seu status HTTP original.
+     * - Demais excecoes inesperadas -> 500 com mensagem generica (sem vazar
+     *   stacktrace / detalhes internos) e log server-side para observabilidade.
+     */
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Map<String, Object>> handleUnexpected(
+            Exception exception) {
+
+        if (exception instanceof org.springframework.web.ErrorResponse errorResponse) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("timestamp", LocalDateTime.now());
+            response.put("status", errorResponse.getStatusCode().value());
+            response.put("error", "Request Error");
+            return ResponseEntity
+                    .status(errorResponse.getStatusCode())
+                    .body(response);
+        }
+
+        log.error("Erro interno nao tratado", exception);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("timestamp", LocalDateTime.now());
+        response.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
+        response.put("error", "Internal Server Error");
+        response.put("message", "Ocorreu um erro interno. Tente novamente mais tarde.");
+
+        return ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(response);
     }
 

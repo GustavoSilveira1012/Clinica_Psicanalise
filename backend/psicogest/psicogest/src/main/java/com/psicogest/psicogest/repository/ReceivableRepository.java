@@ -2,7 +2,7 @@ package com.psicogest.psicogest.repository;
 
 import com.psicogest.psicogest.model.entity.Receivable;
 
-import io.lettuce.core.dynamic.annotation.Param;
+import org.springframework.data.repository.query.Param;
 import jakarta.persistence.LockModeType;
 
 import org.springframework.data.jpa.repository.JpaRepository;

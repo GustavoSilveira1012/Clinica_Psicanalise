@@ -52,7 +52,7 @@ public class PatientController {
 
     @GetMapping("/{id}")
 @PreAuthorize("""
-        @clinicalAuthorization.canReadPatientProfile(
+        @clinicalAuthorizationService.canReadPatientProfile(
             authentication,
             #id
         )

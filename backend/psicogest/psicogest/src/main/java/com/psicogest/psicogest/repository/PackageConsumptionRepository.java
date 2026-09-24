@@ -122,7 +122,7 @@ public interface PackageConsumptionRepository
         SELECT COUNT(c)
         FROM PackageConsumption c
         WHERE c.patientPackage.id = :packageId
-          AND c.patientPackageItem.id = :itemId
+          AND c.packageItemId = :itemId
           AND c.status = 
             com.psicogest.psicogest.model.enums.PackageConsumptionStatus.ACTIVE
     """)

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
 import { AlertCircle, CheckCircle2, X } from "lucide-react";
 import { IconButton } from "../components/ui";
 
@@ -7,8 +7,9 @@ const ToastContext = createContext<{ toast: (message: string, tone?: Toast["tone
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const counter = useRef(0);
   const toast = useCallback((message: string, tone: Toast["tone"] = "success") => {
-    const id = Date.now();
+    const id = ++counter.current;
     setToasts((current) => [...current, { id, message, tone }]);
     window.setTimeout(() => setToasts((current) => current.filter((item) => item.id !== id)), 4000);
   }, []);

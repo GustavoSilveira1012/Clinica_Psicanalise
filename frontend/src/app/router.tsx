@@ -32,6 +32,12 @@ function PublicHome() {
   return session ? <Navigate to="/dashboard" replace /> : <LandingPage />;
 }
 
+function GuestOnly() {
+  const { session, isInitializing } = useAuth();
+  if (isInitializing) return <div className="grid min-h-screen place-items-center bg-cream text-sm text-slate-500 dark:bg-slate-950 dark:text-slate-300">Validando sua sessão…</div>;
+  return session ? <Navigate to="/dashboard" replace /> : <Outlet />;
+}
+
 function PageLoading() {
   return <div className="space-y-5" aria-busy="true" aria-label="Carregando módulo"><Skeleton className="h-8 w-56" /><Skeleton className="h-4 w-96 max-w-full" /><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Skeleton className="h-32" /><Skeleton className="h-32" /><Skeleton className="h-32" /><Skeleton className="h-32" /></div><Skeleton className="h-72" /></div>;
 }
@@ -61,7 +67,9 @@ export function AppRouter() {
   return <Routes>
     <Route path="/" element={<PublicHome />} />
     <Route path="/demo" element={<DemoRequestPage />} />
-    <Route path="/login" element={<LoginPage />} />
+    <Route element={<GuestOnly />}>
+      <Route path="/login" element={<LoginPage />} />
+    </Route>
     <Route path="/mfa" element={<MfaPage />} />
     <Route path="/invite/:token" element={<InvitePage />} />
     <Route element={<RequireAuth />}>

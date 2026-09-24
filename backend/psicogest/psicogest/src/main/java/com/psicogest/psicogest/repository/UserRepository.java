@@ -26,14 +26,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("select u from User u where lower(u.email) = :email")
     Optional<User> findByEmailForUpdate(@Param("email") String email);
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("""
-            SELECT u
-            FROM User u
-            WHERE u.id = :userId
-            """)
-    Optional<User> findByIdForSecurityUpdate1(@Param("userId") Long userId);
-
     interface UserSecurityView {
         Boolean getActive();
         Integer getSecurityVersion();
@@ -49,5 +41,11 @@ public interface UserRepository extends JpaRepository<User, Long> {
             """)
     Optional<UserSecurityView> findProjectedById(@Param("id") Long id);
 
-    Optional<User> findByIdForSecurityUpdate(Long userId);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT u
+            FROM User u
+            WHERE u.id = :userId
+            """)
+    Optional<User> findByIdForSecurityUpdate(@Param("userId") Long userId);
 }

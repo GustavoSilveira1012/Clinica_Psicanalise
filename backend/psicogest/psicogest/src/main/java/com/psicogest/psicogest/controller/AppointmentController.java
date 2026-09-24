@@ -78,7 +78,7 @@ public class AppointmentController {
 
     @GetMapping("/{appointmentId}")
     @PreAuthorize("""
-            @clinicalAuthorization.canReadAppointment(
+            @clinicalAuthorizationService.canReadAppointment(
                 authentication,
                 #appointmentId
             )

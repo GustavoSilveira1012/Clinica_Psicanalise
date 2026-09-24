@@ -7,7 +7,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
-import java.util.AbstractCollection;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
@@ -48,36 +47,7 @@ public interface AppointmentRepository
       Long appointmentId,
       Long psychoanalystId);
 
-  @Query("""
-        SELECT COUNT(a) > 0
-
-        FROM Appointment a,
-             ClinicUserMembership access
-
-        WHERE a.patient.id = :patientId
-
-          AND a.clinicMembership IS NOT NULL
-
-          AND access.clinic.id =
-                a.clinicMembership.clinic.id
-
-          AND access.user.id = :userId
-
-          AND access.accessRole =
-                com.psicogest.model.enums.ClinicAccessRole.ADMIN
-
-          AND access.status =
-                com.psicogest.model.enums.ClinicUserMembershipStatus.ACTIVE
-        """)
-boolean existsPatientInClinicAdminScope1(
-        @Param("patientId")
-        Long patientId,
-
-        @Param("userId")
-        Long userId
-);
-
-boolean existsByIdAndPatientUserId(
+  boolean existsByIdAndPatientUserId(
         Long appointmentId,
         Long userId
 );
@@ -100,8 +70,19 @@ Optional<Long> findClinicIdByAppointmentId(
         Long appointmentId
 );
 
-  boolean existsPatientInClinicAdminScope(Long patientId, Long userId);
-
-  AbstractCollection<AppointmentStatus> findConflicts(Long psychoanalystId, LocalDateTime start, LocalDateTime end,
-        EnumSet<AppointmentStatus> blockingStatuses, Long ignoredAppointmentId);
+  @Query("""
+        SELECT a.status
+        FROM Appointment a
+        WHERE a.psychoanalyst.id = :psychoanalystId
+          AND a.status IN :blockingStatuses
+          AND a.scheduledStart < :end
+          AND a.scheduledEnd > :start
+          AND (:ignoredAppointmentId IS NULL OR a.id <> :ignoredAppointmentId)
+        """)
+  List<AppointmentStatus> findConflicts(
+        @Param("psychoanalystId") Long psychoanalystId,
+        @Param("start") LocalDateTime start,
+        @Param("end") LocalDateTime end,
+        @Param("blockingStatuses") EnumSet<AppointmentStatus> blockingStatuses,
+        @Param("ignoredAppointmentId") Long ignoredAppointmentId);
 }
