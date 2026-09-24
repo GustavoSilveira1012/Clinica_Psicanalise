@@ -57,16 +57,23 @@ public class ReceivableCancellation {
     /**
      * Status do cancelamento
      */
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = StatusConverter.class)
     @Column(nullable = false)
     private ReceivableCancellationStatus status;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "previous_receivable_status", nullable = false, updatable = false)
+    private Receivable.ReceivableStatus previousReceivableStatus;
+
+    @Column(name = "requested_at", nullable = false, updatable = false)
+    private Instant requestedAt;
 
     /**
      * Quem solicitou
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(
-            name = "created_by_user_id",
+            name = "requested_by_user_id",
             nullable = false,
             updatable = false
     )
@@ -113,5 +120,17 @@ public class ReceivableCancellation {
         PENDING,      // Aguardando conclusão (refunds pendentes)
         COMPLETED,    // Cancelamento concluído
         FAILED        // Cancelamento falhou (alguns refunds falharam)
+    }
+
+    /** Preserve the persisted SETTLING value while keeping the public API's PENDING state. */
+    @Converter
+    public static class StatusConverter implements AttributeConverter<ReceivableCancellationStatus, String> {
+        public String convertToDatabaseColumn(ReceivableCancellationStatus value) {
+            return value == null ? null : value == ReceivableCancellationStatus.PENDING ? "SETTLING" : value.name();
+        }
+        public ReceivableCancellationStatus convertToEntityAttribute(String value) {
+            return value == null ? null : "SETTLING".equals(value) ? ReceivableCancellationStatus.PENDING
+                    : ReceivableCancellationStatus.valueOf(value);
+        }
     }
 }

@@ -7,16 +7,12 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.context.annotation.Import;
 
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
-@Testcontainers
 @SpringBootTest
 @ActiveProfiles("test")
 @Import(TestJwtConfiguration.class)
 public abstract class PostgresIntegrationTest {
 
-    @Container
     protected static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(
             "postgres:16-alpine")
             .withDatabaseName(
@@ -25,6 +21,12 @@ public abstract class PostgresIntegrationTest {
                     "psicogest_test")
             .withPassword(
                     "psicogest_test");
+
+    // One JVM-wide container matches Spring's cached ApplicationContext lifetime.
+    // Ryuk removes it when the test JVM exits; no stale JDBC URL between subclasses.
+    static {
+        POSTGRES.start();
+    }
 
     @DynamicPropertySource
     static void configureDatabase(

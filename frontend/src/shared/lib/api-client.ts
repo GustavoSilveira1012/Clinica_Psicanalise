@@ -15,6 +15,7 @@ export class ApiClient {
   private organizationId: string | null = null;
   private professionalId: number | null = null;
   private refreshPromise: Promise<string | null> | null = null;
+  private sessionVersion = 0;
 
   constructor(private readonly baseUrl: string) {}
 
@@ -23,6 +24,7 @@ export class ApiClient {
   }
 
   setOrganizationId(organizationId: string | null) {
+    if (this.organizationId !== organizationId) this.sessionVersion += 1;
     this.organizationId = organizationId;
   }
 
@@ -35,6 +37,7 @@ export class ApiClient {
   }
 
   clearSession() {
+    this.sessionVersion += 1;
     this.accessToken = null;
     this.csrfToken = null;
     this.organizationId = null;
@@ -42,11 +45,13 @@ export class ApiClient {
   }
 
   async request<T>(path: string, init?: RequestInit & { skipAuthRefresh?: boolean }): Promise<T> {
+    const version = this.sessionVersion;
     const method = (init?.method ?? "GET").toUpperCase();
     const mutating = !["GET", "HEAD", "OPTIONS", "TRACE"].includes(method);
     if (mutating && path.startsWith("/auth/") && path !== "/auth/csrf" && !this.csrfToken) {
       await this.ensureCsrf();
     }
+    this.assertSessionUnchanged(version);
 
     const headers = new Headers(init?.headers);
     if (!(init?.body instanceof FormData) && !headers.has("Content-Type")) {
@@ -65,39 +70,50 @@ export class ApiClient {
       headers,
       credentials: "include",
     });
+    this.assertSessionUnchanged(version);
 
     if (response.status === 401 && !init?.skipAuthRefresh && !path.startsWith("/auth/")) {
       const token = await this.refresh();
+      this.assertSessionUnchanged(version);
       if (token) return this.request<T>(path, { ...init, skipAuthRefresh: true });
     }
 
     if (!response.ok) {
       const payload = await response.json().catch(() => null) as { detail?: string; message?: string; code?: string } | null;
-      const message = payload?.detail ?? payload?.message ?? "Não foi possível completar a operação.";
+      const message = response.status >= 500
+        ? "Serviço temporariamente indisponível. Tente novamente."
+        : payload?.detail ?? payload?.message ?? "Não foi possível completar a operação.";
       throw new ApiError(message, response.status, payload?.code);
     }
 
     if (response.status === 204) return undefined as T;
-    return response.json() as Promise<T>;
+    const payload = await response.json() as T;
+    this.assertSessionUnchanged(version);
+    return payload;
   }
 
   private async ensureCsrf() {
+    const version = this.sessionVersion;
     const response = await fetch(`${this.baseUrl}/auth/csrf`, { credentials: "include" });
     if (!response.ok) throw new ApiError("Não foi possível iniciar a sessão segura.", response.status);
     const payload = await response.json() as { token?: string };
+    this.assertSessionUnchanged(version);
     if (!payload.token) throw new ApiError("Token CSRF ausente na resposta do servidor.", 500);
     this.csrfToken = payload.token;
   }
 
   private async refresh(): Promise<string | null> {
     if (!this.refreshPromise) {
+      const version = this.sessionVersion;
       this.refreshPromise = (async () => {
         try {
           const response = await this.request<{ accessToken: string }>("/auth/refresh", { method: "POST", skipAuthRefresh: true });
+          this.assertSessionUnchanged(version);
+          if (!response.accessToken || typeof response.accessToken !== "string") return null;
           this.accessToken = response.accessToken;
           return this.accessToken;
         } catch {
-          this.accessToken = null;
+          if (version === this.sessionVersion) this.accessToken = null;
           return null;
         } finally {
           this.refreshPromise = null;
@@ -105,6 +121,12 @@ export class ApiClient {
       })();
     }
     return this.refreshPromise;
+  }
+
+  private assertSessionUnchanged(version: number) {
+    if (version !== this.sessionVersion) {
+      throw new ApiError("A sessão ou organização mudou. Atualize a tela para continuar.", 409, "SESSION_CONTEXT_CHANGED");
+    }
   }
 }
 

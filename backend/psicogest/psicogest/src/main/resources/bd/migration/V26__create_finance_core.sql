@@ -1,5 +1,12 @@
 -- Drop old payments table from V01 if exists (due to redesign)
-DROP TABLE IF EXISTS payments CASCADE;
+DO $$ BEGIN
+    IF to_regclass('payments') IS NOT NULL THEN
+    IF EXISTS (SELECT 1 FROM payments LIMIT 1) THEN
+        RAISE EXCEPTION 'Legacy payments require an explicit ledger migration; refusing to delete financial data';
+    END IF;
+    END IF;
+END $$;
+DROP TABLE IF EXISTS payments;
 
 CREATE TABLE receivables (
 

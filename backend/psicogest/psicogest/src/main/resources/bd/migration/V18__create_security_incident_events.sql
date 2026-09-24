@@ -1,6 +1,6 @@
 -- Tabela de timeline para eventos de security incidents (somente insert, sem delete)
 
-CREATE TABLE security_incident_events (
+CREATE TABLE IF NOT EXISTS security_incident_events (
     id UUID PRIMARY KEY,
     
     incident_id UUID NOT NULL,
@@ -47,6 +47,18 @@ CREATE TABLE security_incident_events (
 );
 
 
+-- V17 creates the legacy shape. Preserve the immutable timeline.
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema()
+        AND table_name = 'security_incident_events' AND column_name = 'event_type')
+       AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema()
+        AND table_name = 'security_incident_events' AND column_name = 'type') THEN
+        ALTER TABLE security_incident_events RENAME COLUMN event_type TO type;
+    END IF;
+END $$;
+ALTER TABLE security_incident_events ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE security_incident_events ALTER COLUMN description TYPE TEXT;
+
 CREATE INDEX idx_security_incident_event_incident
     ON security_incident_events(incident_id, occurred_at);
 
@@ -55,12 +67,5 @@ CREATE INDEX idx_security_incident_event_type
     ON security_incident_events(type, occurred_at);
 
 
--- Garantir que a tabela seja append-only (sem updates/deletes)
-CREATE RULE security_incident_events_no_update AS
-    ON UPDATE TO security_incident_events
-    DO INSTEAD NOTHING;
-
-
-CREATE RULE security_incident_events_no_delete AS
-    ON DELETE TO security_incident_events
-    DO INSTEAD NOTHING;
+-- V17's immutable trigger raises on mutation; do not mask rejected writes
+-- with DO INSTEAD NOTHING rules that report apparent success.

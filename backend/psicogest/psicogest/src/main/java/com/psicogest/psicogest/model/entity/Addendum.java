@@ -18,7 +18,8 @@ import java.util.UUID;
  * - Prevents ciphertext swap attacks via GCM-AAD
  */
 @Entity
-@Table(name = "addendums")
+@Table(name = "medical_record_addendums")
+@org.hibernate.annotations.Immutable
 @Getter
 @Setter
 @NoArgsConstructor

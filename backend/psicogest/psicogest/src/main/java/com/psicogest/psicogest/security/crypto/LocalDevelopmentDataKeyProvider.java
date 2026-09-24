@@ -16,7 +16,7 @@ import java.util.Arrays;
 import java.util.Base64;
 
 @Component
-@Profile( "!prod" )
+@Profile( "!prod & !production" )
 @ConditionalOnProperty(
         name = "app.security.crypto.provider",
         havingValue = "local"
@@ -112,12 +112,14 @@ public class LocalDevelopmentDataKeyProvider implements DataKeyProvider {
         byte[] raw = Base64
                 .getDecoder()
                 .decode( encoded );
-        if ( raw.length != 32 ) {
-            throw new IllegalStateException(
-                    "CLINICAL_LOCAL_KEK deve possuir 256 bits"
-            );
+        try {
+            if ( raw.length != 32 ) {
+                throw new IllegalStateException("CLINICAL_LOCAL_KEK deve possuir 256 bits");
+            }
+            return new SecretKeySpec( raw, "AES" );
+        } finally {
+            Arrays.fill(raw, (byte) 0);
         }
-        return new SecretKeySpec( raw, "AES" );
     }
 
     private byte[] wrap(

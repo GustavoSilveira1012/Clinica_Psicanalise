@@ -131,14 +131,11 @@ public class PaymentWebhookIngressService {
                 logSecurityEvent(
                         provider,
                         SecurityEventType.WEBHOOK_SIGNATURE_INVALID,
-                        e.getMessage(),
+                        "Assinatura de webhook inválida",
                         sourceIp,
                         Map.of(
                                 "eventId",
-                                headers.getOrDefault(
-                                        "X-Event-ID",
-                                        "unknown"
-                                )
+                                safeMetadataValue(headers.get("X-Event-ID"))
                         )
                 );
 
@@ -206,12 +203,9 @@ public class PaymentWebhookIngressService {
                 // Mesmo evento, hash diferente = suspeito
                 log.warn(
                         "Colisão de evento de webhook: " +
-                                "provider={}, eventId={}, " +
-                                "hash antigo={}, hash novo={}",
+                                "provider={}, eventId={}",
                         provider,
-                        verified.providerEventId(),
-                        inbox.getPayloadSha256(),
-                        payloadHash
+                        safeMetadataValue(verified.providerEventId())
                 );
 
                 logSecurityEvent(
@@ -309,16 +303,15 @@ public class PaymentWebhookIngressService {
         } catch (Exception e) {
 
             log.error(
-                    "Falha ao ingressar webhook: provider={}, error={}",
+                    "Falha ao ingressar webhook: provider={}, errorType={}",
                     provider,
-                    e.getMessage(),
-                    e
+                    e.getClass().getSimpleName()
             );
 
             logSecurityEvent(
                     provider,
                     SecurityEventType.WEBHOOK_PROCESSING_FAILED,
-                    e.getMessage(),
+                    "Falha no processamento do webhook",
                     sourceIp,
                     Map.of("reason", e.getClass()
                             .getSimpleName())
@@ -341,10 +334,11 @@ public class PaymentWebhookIngressService {
             Map<String, String> metadata
     ) {
 
-        Map<String, Object> metadataObj =
-                new HashMap<>(metadata);
+        Map<String, Object> metadataObj = new HashMap<>();
+        metadata.forEach((key, value) ->
+                metadataObj.put(safeMetadataValue(key), safeMetadataValue(value)));
 
-        metadataObj.put("description", java.util.Objects.toString(description, "sem detalhes"));
+        metadataObj.put("description", safeMetadataValue(description));
 
         SecurityEvent event = SecurityEvent
                 .builder()
@@ -355,5 +349,15 @@ public class PaymentWebhookIngressService {
                 .build();
 
         securityEventRepository.save(event);
+    }
+
+    private static String safeMetadataValue(String value) {
+        if (value == null || value.isBlank()) {
+            return "unknown";
+        }
+        String sanitized = value.replaceAll("[\\r\\n\\t]", " ").trim();
+        return sanitized.length() <= 128
+                ? sanitized
+                : sanitized.substring(0, 128);
     }
 }

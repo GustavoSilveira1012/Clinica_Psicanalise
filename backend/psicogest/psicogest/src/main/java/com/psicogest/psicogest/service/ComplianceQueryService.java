@@ -12,18 +12,26 @@ import org.springframework.transaction.annotation.Transactional;
 import com.psicogest.psicogest.dto.AuditEventResponse;
 import com.psicogest.psicogest.dto.PrivacyRequestResponse;
 import com.psicogest.psicogest.dto.SecuritySignalResponse;
+import com.psicogest.psicogest.exception.AccessDeniedException;
+import com.psicogest.psicogest.model.enums.OrganizationMembershipStatus;
+import com.psicogest.psicogest.model.enums.OrganizationRole;
+import com.psicogest.psicogest.repository.OrganizationMembershipRepository;
+import com.psicogest.psicogest.security.tenant.TenantContextHolder;
 
 @Service
 public class ComplianceQueryService {
 
     private final JdbcTemplate jdbcTemplate;
+    private final OrganizationMembershipRepository membershipRepository;
 
-    public ComplianceQueryService(JdbcTemplate jdbcTemplate) {
+    public ComplianceQueryService(JdbcTemplate jdbcTemplate, OrganizationMembershipRepository membershipRepository) {
         this.jdbcTemplate = jdbcTemplate;
+        this.membershipRepository = membershipRepository;
     }
 
     @Transactional(readOnly = true)
     public List<PrivacyRequestResponse> listPrivacyRequests() {
+        requireComplianceManager();
         return jdbcTemplate.query("""
                 SELECT r.id, r.request_type, r.status, r.submitted_at,
                        COALESCE(patient_user.name, request_user.name) AS subject_name
@@ -31,6 +39,7 @@ public class ComplianceQueryService {
                   LEFT JOIN patients p ON p.id = r.patient_id
                   LEFT JOIN users patient_user ON patient_user.id = p.user_id
                   LEFT JOIN users request_user ON request_user.id = r.user_id
+                 WHERE r.organization_id = app.current_organization_id()
                  ORDER BY r.submitted_at DESC
                  LIMIT 100
                 """, (rs, rowNum) -> new PrivacyRequestResponse(
@@ -43,11 +52,13 @@ public class ComplianceQueryService {
 
     @Transactional(readOnly = true)
     public List<AuditEventResponse> listAuditEvents() {
+        requireComplianceManager();
         return jdbcTemplate.query("""
                 SELECT a.id, a.action, a.resource_type, a.resource_id, a.outcome,
                        a.occurred_at, u.name AS actor_name
                   FROM audit_logs a
                   LEFT JOIN users u ON u.id = a.actor_user_id
+                 WHERE a.organization_id = app.current_organization_id()
                  ORDER BY a.occurred_at DESC
                  LIMIT 100
                 """, (rs, rowNum) -> new AuditEventResponse(
@@ -61,12 +72,14 @@ public class ComplianceQueryService {
 
     @Transactional(readOnly = true)
     public List<SecuritySignalResponse> listSecuritySignals() {
+        requireComplianceManager();
         return jdbcTemplate.query("""
                 SELECT id, event_type, severity, outcome, occurred_at,
-                       COALESCE(metadata ->> 'description', request_path, 'Sinal registrado pelo mecanismo de segurança') AS description
+                       'Sinal registrado pelo mecanismo de segurança' AS description
                   FROM security_events
-                 WHERE severity IN ('MEDIUM', 'HIGH', 'CRITICAL')
-                    OR outcome IN ('FAILURE', 'BLOCKED', 'DETECTED')
+                 WHERE organization_id = app.current_organization_id()
+                   AND (severity IN ('MEDIUM', 'HIGH', 'CRITICAL')
+                    OR outcome IN ('FAILURE', 'BLOCKED', 'DETECTED'))
                  ORDER BY occurred_at DESC
                  LIMIT 100
                 """, (rs, rowNum) -> new SecuritySignalResponse(
@@ -76,6 +89,19 @@ public class ComplianceQueryService {
                 instant(rs, "occurred_at"),
                 "SUCCESS".equals(rs.getString("outcome")) ? "REVIEWED" : "OPEN",
                 rs.getString("severity")));
+    }
+
+    private void requireComplianceManager() {
+        var tenant = TenantContextHolder.get();
+        if (tenant == null || tenant.organizationId() == null || tenant.userId() == null) {
+            throw new AccessDeniedException("Contexto de organização obrigatório");
+        }
+        var role = membershipRepository.findByOrganizationIdAndUserIdAndStatus(
+                tenant.organizationId(), tenant.userId(), OrganizationMembershipStatus.ACTIVE)
+                .map(membership -> membership.getRole()).orElse(null);
+        if (role != OrganizationRole.OWNER && role != OrganizationRole.ADMIN) {
+            throw new AccessDeniedException("Permissão de governança necessária");
+        }
     }
 
     private static String privacyType(String requestType) {

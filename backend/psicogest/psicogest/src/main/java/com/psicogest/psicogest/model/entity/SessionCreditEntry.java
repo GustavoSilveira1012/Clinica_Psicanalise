@@ -30,6 +30,7 @@ import lombok.Setter;
  * Imutável após criação
  */
 @Entity
+@org.hibernate.annotations.Immutable
 @Table(
     name = "session_credit_entries",
     indexes = {
@@ -84,20 +85,20 @@ public class SessionCreditEntry {
     /**
      * Quantidade de sessões movimentadas
      */
-    @Column(nullable = false, updatable = false)
+    @Column(name = "quantity", nullable = false, updatable = false)
     private Long sessionCount;
 
     /**
      * Motivo (para MANUAL_ADJUSTMENT)
      */
-    @Column(name = "reason", length = 500, updatable = false)
+    @Column(name = "reason_code", length = 500, updatable = false)
     private String reason;
 
     /**
      * Referência a agendamento (se consumo/reversão)
      */
     @Column(name = "appointment_id", updatable = false)
-    private UUID appointmentId;
+    private Long appointmentId;
 
     /**
      * Item do pacote (se aplicável)

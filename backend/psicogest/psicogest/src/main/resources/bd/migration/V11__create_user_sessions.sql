@@ -15,6 +15,10 @@ CREATE INDEX idx_user_sessions_user ON user_sessions(user_id);
 CREATE INDEX idx_user_sessions_active ON user_sessions(user_id, revoked_at);
 
 -- Preserve existing refresh families, including families already revoked.
+-- On a clean installation refresh_tokens is created by V13, not V01.
+-- Existing development databases may already have the legacy table.
+DO $$ BEGIN
+IF to_regclass('refresh_tokens') IS NOT NULL THEN
 INSERT INTO user_sessions (
     id, user_id, created_at, last_seen_at, expires_at, created_ip, last_ip,
     revoked_at, revocation_reason
@@ -30,3 +34,5 @@ ON CONFLICT (id) DO NOTHING;
 ALTER TABLE refresh_tokens
     ADD CONSTRAINT fk_refresh_token_session
     FOREIGN KEY (family_id) REFERENCES user_sessions(id) ON DELETE RESTRICT;
+END IF;
+END $$;

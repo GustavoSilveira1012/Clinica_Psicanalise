@@ -82,6 +82,7 @@ public class MedicalRecordAddendum {
     private String keyId;
 
     @Column(
+            name = "reason_code",
             nullable = false,
             length = 500,
             updatable = false

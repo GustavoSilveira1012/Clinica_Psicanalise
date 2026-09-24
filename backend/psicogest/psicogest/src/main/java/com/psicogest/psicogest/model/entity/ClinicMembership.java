@@ -33,7 +33,7 @@ public class ClinicMembership {
 
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "membership_status")
     private MembershipStatus status;
 
     @Column(name = "joined_at", nullable = false)

@@ -16,4 +16,7 @@ frontend/coverage/
 **/node_modules/
 **/coverage/
 ops/backups/
+backups/
+*.dump
+*.dump.sha256
 hs_err_pid*.log

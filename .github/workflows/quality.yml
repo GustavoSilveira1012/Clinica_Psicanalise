@@ -43,7 +43,13 @@ jobs:
           distribution: temurin
           java-version: '25'
           cache: maven
-      - run: ./mvnw test
+      - run: bash ./mvnw --batch-mode verify
+      - name: Preserve backend test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-reports
+          path: backend/psicogest/psicogest/target/surefire-reports/
 
   migration-review:
     runs-on: ubuntu-latest
@@ -61,3 +67,17 @@ jobs:
           versions=$(find backend/psicogest/psicogest/src/main/resources/bd/migration -maxdepth 1 -type f -name 'V*.sql' -printf '%f\n' | sed -E 's/^V([0-9]+(_[0-9]+)*)__.*/\1/' | sort -V)
           duplicates=$(printf '%s\n' "$versions" | uniq -d)
           test -z "$duplicates"
+
+  containers:
+    runs-on: ubuntu-latest
+    env:
+      # Only used to render the local dependency compose file in CI.
+      POSTGRES_PASSWORD: ci-only-not-a-production-secret
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate dependency compose
+        run: docker compose config --quiet
+      - name: Build API image
+        run: docker build --file backend/psicogest/psicogest/Dockerfile backend/psicogest/psicogest
+      - name: Build frontend image
+        run: docker build --file frontend/Dockerfile frontend

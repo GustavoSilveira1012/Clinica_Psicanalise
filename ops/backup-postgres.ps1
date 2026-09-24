@@ -1,10 +1,12 @@
 [CmdletBinding()]
 param(
     [string]$OutputDirectory = ".\backups\postgres",
-    [int]$RetentionDays = 30
+    [int]$RetentionDays = 30,
+    [switch]$PruneExpired
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot 'postgres-common.ps1')
 
 foreach ($name in @("DATABASE_URL", "DATABASE_USERNAME", "DATABASE_PASSWORD")) {
     if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
@@ -21,6 +23,7 @@ if (-not (Get-Command pg_dump -ErrorAction SilentlyContinue)) {
 }
 
 $resolvedOutput = [System.IO.Path]::GetFullPath($OutputDirectory)
+$databaseTarget = Get-PostgresTarget -DatabaseUrl $env:DATABASE_URL
 New-Item -ItemType Directory -Path $resolvedOutput -Force | Out-Null
 
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
@@ -34,7 +37,7 @@ try {
         --file=$backupPath `
         --no-owner `
         --no-privileges `
-        --dbname=$env:DATABASE_URL `
+        --dbname=$databaseTarget.ConnectionString `
         --username=$env:DATABASE_USERNAME
 
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $backupPath)) {
@@ -46,12 +49,14 @@ try {
     Set-Content -LiteralPath $manifestPath -Value "$hash *$(Split-Path -Leaf $backupPath)" -Encoding ascii
 
     $cutoff = (Get-Date).AddDays(-$RetentionDays)
-    Get-ChildItem -LiteralPath $resolvedOutput -Filter "*.dump" -File |
+    if ($PruneExpired) {
+    Get-ChildItem -LiteralPath $resolvedOutput -Filter "psicogest-*.dump" -File |
         Where-Object { $_.LastWriteTime -lt $cutoff } |
         Remove-Item -Force
-    Get-ChildItem -LiteralPath $resolvedOutput -Filter "*.dump.sha256" -File |
+    Get-ChildItem -LiteralPath $resolvedOutput -Filter "psicogest-*.dump.sha256" -File |
         Where-Object { $_.LastWriteTime -lt $cutoff } |
         Remove-Item -Force
+    }
 
     Write-Output "Backup criado: $backupPath"
     Write-Output "SHA-256: $hash"

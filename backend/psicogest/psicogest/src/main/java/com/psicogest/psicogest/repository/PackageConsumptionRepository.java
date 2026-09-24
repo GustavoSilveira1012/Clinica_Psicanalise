@@ -108,7 +108,7 @@ public interface PackageConsumptionRepository
     """)
     List<PackageConsumption> findByAppointment(
         @Param("appointmentId")
-        UUID appointmentId
+        Long appointmentId
     );
 
     /**
@@ -118,14 +118,15 @@ public interface PackageConsumptionRepository
      * Apenas consumos ACTIVE contam como consumo econômico.
      * Reversals e expirations não afetam este cálculo.
      */
-    @Query("""
-        SELECT COUNT(c)
-        FROM PackageConsumption c
-        WHERE c.patientPackage.id = :packageId
-          AND c.patientPackageItem.id = :itemId
-          AND c.status = 
-            com.psicogest.psicogest.model.enums.PackageConsumptionStatus.ACTIVE
-    """)
+    @Query(value = """
+        SELECT COUNT(*)
+        FROM package_consumptions c
+        JOIN patient_package_items i ON i.patient_package_id = c.patient_package_id
+          AND i.package_plan_item_id = c.package_item_id
+        WHERE c.patient_package_id = :packageId
+          AND i.id = :itemId
+          AND c.status = 'ACTIVE'
+    """, nativeQuery = true)
     long countActiveConsumptions(
         @Param("packageId")
         UUID packageId,

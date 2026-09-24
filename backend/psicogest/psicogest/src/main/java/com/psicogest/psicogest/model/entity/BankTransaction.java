@@ -159,7 +159,7 @@ public class BankTransaction {
     /**
      * Usuário que ignorou
      */
-    @Column(name = "ignored_by")
+    @Column(name = "ignored_by_user_id")
     private Long ignoredBy;
 
     /**

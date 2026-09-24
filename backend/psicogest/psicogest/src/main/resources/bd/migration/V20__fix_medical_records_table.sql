@@ -1,7 +1,12 @@
 -- Dropa a tabela medical_records se existir e recriar com as colunas corretas
 -- Isso é necessário se a tabela foi criada anteriormente sem as colunas corretas
 
-DROP TABLE IF EXISTS medical_records CASCADE;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM medical_records LIMIT 1) THEN
+        RAISE EXCEPTION 'Legacy medical records require an explicit encrypted data migration; refusing to delete clinical data';
+    END IF;
+END $$;
+DROP TABLE IF EXISTS medical_records;
 
 CREATE TABLE medical_records (
 

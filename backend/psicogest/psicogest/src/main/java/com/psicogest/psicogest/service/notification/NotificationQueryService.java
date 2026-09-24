@@ -46,6 +46,7 @@ public class NotificationQueryService {
 
     @Transactional(readOnly = true)
     public List<NotificationDeliveryResponse> listDeliveries() {
+        requireTenantContext();
         return jdbcTemplate.query("""
                 SELECT d.id, d.created_at, d.channel, n.notification_type, d.status,
                        d.provider_message_id,
@@ -56,6 +57,8 @@ public class NotificationQueryService {
                   LEFT JOIN patients p ON p.id = r.patient_id
                   LEFT JOIN users patient_user ON patient_user.id = p.user_id
                   LEFT JOIN users direct_user ON direct_user.id = r.user_id
+                 WHERE d.organization_id = app.current_organization_id()
+                   AND n.organization_id = app.current_organization_id()
                  ORDER BY d.created_at DESC
                  LIMIT 100
                 """, (rs, rowNum) -> new NotificationDeliveryResponse(
@@ -70,9 +73,11 @@ public class NotificationQueryService {
 
     @Transactional(readOnly = true)
     public List<NotificationPreferenceResponse> listPreferences() {
+        requireTenantContext();
         return jdbcTemplate.query("""
                 SELECT id, patient_id, notification_type, channel, enabled
                   FROM notification_preferences
+                 WHERE organization_id = app.current_organization_id()
                  ORDER BY notification_type, channel
                  LIMIT 100
                 """, (rs, rowNum) -> toPreference(
@@ -94,6 +99,7 @@ public class NotificationQueryService {
                 SELECT id, patient_id, notification_type, channel, enabled
                   FROM notification_preferences
                  WHERE id = ?
+                   AND organization_id = app.current_organization_id()
                 """,
                 ps -> ps.setObject(1, id),
                 (rs, rowNum) -> new PreferenceRow(
@@ -112,7 +118,7 @@ public class NotificationQueryService {
         }
 
         jdbcTemplate.update(
-                "UPDATE notification_preferences SET enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                "UPDATE notification_preferences SET enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND organization_id = app.current_organization_id()",
                 enabled,
                 id);
 
@@ -196,8 +202,8 @@ public class NotificationQueryService {
     }
 
     private void requireConfigurationManager(SecurityActor actor) {
-        TenantContext tenant = TenantContextHolder.get();
-        if (tenant == null || actor == null) {
+        TenantContext tenant = requireTenantContext();
+        if (actor == null || !tenant.userId().equals(actor.userId())) {
             throw new AccessDeniedException("Contexto de organização obrigatório");
         }
         OrganizationRole role = membershipRepository
@@ -208,6 +214,14 @@ public class NotificationQueryService {
         if (role != OrganizationRole.OWNER && role != OrganizationRole.ADMIN) {
             throw new AccessDeniedException("Somente owner ou admin pode alterar preferências da organização");
         }
+    }
+
+    private TenantContext requireTenantContext() {
+        TenantContext tenant = TenantContextHolder.get();
+        if (tenant == null || tenant.organizationId() == null) {
+            throw new AccessDeniedException("Contexto de organização obrigatório");
+        }
+        return tenant;
     }
 
     private record PreferenceRow(UUID id, Long patientId, String notificationType, String channel, boolean enabled) {

@@ -2,10 +2,13 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$BackupPath,
+    [Parameter(Mandatory = $true)]
+    [string]$ExpectedDatabaseName,
     [switch]$Force
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot 'postgres-common.ps1')
 
 foreach ($name in @("DATABASE_URL", "DATABASE_USERNAME", "DATABASE_PASSWORD")) {
     if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
@@ -18,6 +21,10 @@ if (-not $Force) {
 }
 
 $resolvedBackup = [System.IO.Path]::GetFullPath($BackupPath)
+$databaseTarget = Get-PostgresTarget -DatabaseUrl $env:DATABASE_URL
+if ($databaseTarget.DatabaseName -cne $ExpectedDatabaseName) {
+    throw 'Nome do banco de destino não corresponde a ExpectedDatabaseName. Restore cancelado.'
+}
 if (-not (Test-Path -LiteralPath $resolvedBackup -PathType Leaf)) {
     throw "Backup não encontrado: $resolvedBackup"
 }
@@ -27,6 +34,9 @@ if (-not (Get-Command pg_restore -ErrorAction SilentlyContinue)) {
 }
 
 $checksumPath = "$resolvedBackup.sha256"
+if (-not (Test-Path -LiteralPath $checksumPath -PathType Leaf)) {
+    throw 'Manifesto SHA-256 obrigatório. Restore cancelado.'
+}
 if (Test-Path -LiteralPath $checksumPath -PathType Leaf) {
     $expected = (Get-Content -LiteralPath $checksumPath -Raw).Trim().Split(" ")[0].ToLowerInvariant()
     $actual = (Get-FileHash -LiteralPath $resolvedBackup -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -38,14 +48,15 @@ if (Test-Path -LiteralPath $checksumPath -PathType Leaf) {
 $originalPassword = $env:PGPASSWORD
 try {
     $env:PGPASSWORD = $env:DATABASE_PASSWORD
-    if ($PSCmdlet.ShouldProcess($env:DATABASE_URL, "Substituir dados pelo backup $resolvedBackup")) {
+    if ($PSCmdlet.ShouldProcess($databaseTarget.SafeDescription, "Substituir dados pelo backup $resolvedBackup")) {
         & pg_restore `
             --exit-on-error `
             --clean `
             --if-exists `
+            --single-transaction `
             --no-owner `
             --no-privileges `
-            --dbname=$env:DATABASE_URL `
+            --dbname=$databaseTarget.ConnectionString `
             --username=$env:DATABASE_USERNAME `
             $resolvedBackup
 

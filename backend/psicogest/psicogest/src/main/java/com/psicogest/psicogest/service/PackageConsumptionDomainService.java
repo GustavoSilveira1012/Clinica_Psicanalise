@@ -195,7 +195,7 @@ public class PackageConsumptionDomainService {
      * ao agendamento e reverte ambos
      */
     public void reverseConsumption(
-            UUID appointmentId,
+            Long appointmentId,
             String reason
     ) {
 
@@ -244,7 +244,7 @@ public class PackageConsumptionDomainService {
      */
     public Optional<PackageConsumption>
             findByAppointment(
-                    UUID appointmentId
+                    Long appointmentId
             ) {
 
         List<PackageConsumption> consumptions =

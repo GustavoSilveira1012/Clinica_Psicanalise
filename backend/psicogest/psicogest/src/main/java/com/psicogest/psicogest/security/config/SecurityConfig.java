@@ -5,6 +5,7 @@ import com.psicogest.psicogest.security.handler.RestAuthenticationEntryPoint;
 import com.psicogest.psicogest.security.tenant.TenantContextFilter;
 
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -40,6 +41,14 @@ import java.util.List;
         SecurityProperties.class
 )
 public class SecurityConfig {
+
+    @Bean
+    public FilterRegistrationBean<TenantContextFilter> tenantFilterRegistration(TenantContextFilter filter) {
+        FilterRegistrationBean<TenantContextFilter> registration = new FilterRegistrationBean<>(filter);
+        // Run only inside Spring Security, after JWT validation, never as a servlet filter.
+        registration.setEnabled(false);
+        return registration;
+    }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource(
@@ -185,7 +194,8 @@ public class SecurityConfig {
                                         "/health/live",
                                         "/health/ready",
                                         "/actuator/health/liveness",
-                                        "/actuator/health/readiness"
+                                        "/actuator/health/readiness",
+                                        "/actuator/health"
                                 )
                                 .permitAll()
 

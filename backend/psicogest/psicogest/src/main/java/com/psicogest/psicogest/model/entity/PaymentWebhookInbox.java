@@ -175,4 +175,9 @@ public class PaymentWebhookInbox {
      */
     @Column(name = "updated_at")
     private Instant updatedAt;
+
+    @jakarta.persistence.PrePersist
+    void initializeUpdatedAt() {
+        if (updatedAt == null) updatedAt = createdAt != null ? createdAt : receivedAt;
+    }
 }

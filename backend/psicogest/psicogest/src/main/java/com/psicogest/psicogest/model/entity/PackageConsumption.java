@@ -117,6 +117,11 @@ public class PackageConsumption {
     @Version
     private Long version;
 
+    @jakarta.persistence.PrePersist
+    void initializeUpdatedAt() {
+        if (updatedAt == null) updatedAt = createdAt;
+    }
+
     /**
      * Reverte o consumo
      */

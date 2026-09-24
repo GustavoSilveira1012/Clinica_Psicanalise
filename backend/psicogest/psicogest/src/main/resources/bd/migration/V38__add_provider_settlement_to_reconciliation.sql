@@ -3,7 +3,9 @@
 
 -- Remover constraint antiga
 ALTER TABLE bank_reconciliation_allocations
-    DROP CONSTRAINT chk_bank_reconciliation_target;
+    DROP CONSTRAINT IF EXISTS chk_bank_reconciliation_target;
+ALTER TABLE bank_reconciliation_allocations
+    DROP CONSTRAINT IF EXISTS chk_at_least_one_document;
 
 -- Adicionar coluna para ProviderSettlement
 ALTER TABLE bank_reconciliation_allocations

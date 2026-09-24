@@ -12,19 +12,24 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.Instant;
 import java.util.Map;
 
+import com.psicogest.psicogest.infrastructure.health.ProviderReadinessService;
+
 @RestController
-@RequestMapping({"/health", "/actuator/health"})
+@RequestMapping("/health")
 public class HealthController {
 
     private final JdbcTemplate jdbcTemplate;
     private final RedisConnectionFactory redisConnectionFactory;
+    private final ProviderReadinessService providerReadinessService;
 
     public HealthController(
             JdbcTemplate jdbcTemplate,
-            RedisConnectionFactory redisConnectionFactory
+            RedisConnectionFactory redisConnectionFactory,
+            ProviderReadinessService providerReadinessService
     ) {
         this.jdbcTemplate = jdbcTemplate;
         this.redisConnectionFactory = redisConnectionFactory;
+        this.providerReadinessService = providerReadinessService;
     }
 
     @GetMapping({"/live", "/liveness"})
@@ -53,11 +58,22 @@ public class HealthController {
                     throw new IllegalStateException("Redis unavailable");
                 }
             }
+            Map<String, Object> providers = providerReadinessService.status();
+            if (!providerReadinessService.isReady()) {
+                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of(
+                        "status", "DOWN",
+                        "database", "UP",
+                        "redis", "UP",
+                        "migrations", "UP",
+                        "externalProviders", providers,
+                        "timestamp", Instant.now()));
+            }
             return ResponseEntity.ok(Map.of(
                     "status", "UP",
                     "database", "UP",
                     "redis", "UP",
                     "migrations", "UP",
+                    "externalProviders", providers,
                     "timestamp", Instant.now()));
         } catch (RuntimeException exception) {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of(
@@ -65,6 +81,7 @@ public class HealthController {
                     "database", "DOWN",
                     "redis", "DOWN",
                     "migrations", "DOWN",
+                    "externalProviders", providerReadinessService.status(),
                     "timestamp", Instant.now()));
         }
     }

@@ -17,6 +17,7 @@ import com.psicogest.psicogest.repository.ClinicUserMembershipRepository;
 import com.psicogest.psicogest.repository.PaymentRepository;
 import com.psicogest.psicogest.repository.UserRepository;
 import com.psicogest.psicogest.security.SecurityActor;
+import com.psicogest.psicogest.security.tenant.TenantContextHolder;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -133,6 +134,11 @@ public class FinanceAuthorizationService {
         if (actor == null || actor.userId() == null || clinicId == null) {
             throw new AuthorizationException("Contexto financeiro ausente");
         }
+        var tenant = TenantContextHolder.get();
+        if (tenant == null || tenant.organizationId() == null
+                || !actor.userId().equals(tenant.userId())) {
+            throw new AuthorizationException("Contexto de organização não autorizado");
+        }
 
         UserRole role = userRepository.findById(actor.userId())
                 .map(user -> user.getRole())
@@ -145,7 +151,9 @@ public class FinanceAuthorizationService {
                 .findByUserIdAndStatus(actor.userId(), ClinicUserMembershipStatus.ACTIVE)
                 .stream()
                 .filter(membership -> membership.getClinic() != null
-                        && clinicId.equals(membership.getClinic().getId()))
+                        && clinicId.equals(membership.getClinic().getId())
+                        && Boolean.TRUE.equals(membership.getClinic().getActive())
+                        && tenant.organizationId().equals(membership.getClinic().getOrganizationId()))
                 .map(ClinicUserMembership::getAccessRole)
                 .anyMatch(accessRole -> accessRole == ClinicAccessRole.ADMIN
                         || accessRole == ClinicAccessRole.FINANCE);
@@ -166,7 +174,7 @@ public class FinanceAuthorizationService {
             Clinic clinic2
     ) {
 
-        if (!clinic1.getId()
+        if (clinic1 == null || clinic2 == null || clinic1.getId() == null || !clinic1.getId()
                 .equals(clinic2.getId())) {
 
             throw new AuthorizationException(

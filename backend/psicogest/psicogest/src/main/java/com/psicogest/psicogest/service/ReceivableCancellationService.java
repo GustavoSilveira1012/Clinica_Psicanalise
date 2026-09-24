@@ -208,6 +208,9 @@ public class ReceivableCancellationService {
 
                         .mode(ReceivableCancellationMode.NONE)
 
+                        .previousReceivableStatus(receivable.getStatus())
+                        .requestedAt(now)
+
                         .status(
                                 ReceivableCancellationStatus.COMPLETED
                         )
@@ -292,6 +295,9 @@ public class ReceivableCancellationService {
                         .reason(reason)
 
                         .mode(ReceivableCancellationMode.CREDIT_BALANCE)
+
+                        .previousReceivableStatus(receivable.getStatus())
+                        .requestedAt(now)
 
                         .status(
                                 ReceivableCancellationStatus.COMPLETED
@@ -421,6 +427,9 @@ public class ReceivableCancellationService {
                         .reason(reason)
 
                         .mode(ReceivableCancellationMode.REFUND)
+
+                        .previousReceivableStatus(receivable.getStatus())
+                        .requestedAt(now)
 
                         .status(
                                 ReceivableCancellationStatus.PENDING

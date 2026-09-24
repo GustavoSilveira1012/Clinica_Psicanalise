@@ -33,7 +33,7 @@ public class User implements DeactivatableEntity {
 
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "user_role")
     private UserRole role;
 
     @Column(nullable = false)

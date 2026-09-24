@@ -63,11 +63,13 @@ public class Appointment {
         private LocalDateTime scheduledEnd;
 
         @Enumerated(EnumType.STRING)
-        @Column(nullable = false, length = 30)
+        @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.NAMED_ENUM)
+        @Column(nullable = false, length = 30, columnDefinition = "appointment_status")
         private AppointmentStatus status;
 
         @Enumerated(EnumType.STRING)
-        @Column(name = "appointment_type", nullable = false, length = 30)
+        @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.NAMED_ENUM)
+        @Column(name = "appointment_type", nullable = false, length = 30, columnDefinition = "appointment_type")
         private AppointmentType appointmentType;
 
         @Column(name = "cancellation_reason", length = 255)

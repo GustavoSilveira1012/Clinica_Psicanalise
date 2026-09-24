@@ -7,7 +7,7 @@
  */
 
 ALTER TABLE medical_records
-ADD COLUMN finalized_revision_number BIGINT;
+ADD COLUMN IF NOT EXISTS finalized_revision_number BIGINT;
 
 ALTER TABLE medical_records
 ADD CONSTRAINT fk_finalized_revision_number

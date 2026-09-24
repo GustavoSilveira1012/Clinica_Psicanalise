@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -15,9 +16,9 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import jakarta.persistence.Version;
 
 import com.psicogest.psicogest.model.enums.ReceivableAdjustmentDirection;
+import com.psicogest.psicogest.model.enums.ReceivableAdjustmentType;
 
 /**
  * Ajuste de cobrança (receivable)
@@ -28,6 +29,7 @@ import com.psicogest.psicogest.model.enums.ReceivableAdjustmentDirection;
  * Cada ajuste é imutável e auditado.
  */
 @Entity
+@org.hibernate.annotations.Immutable
 @Table(
     name = "receivable_adjustments",
     indexes = {
@@ -45,44 +47,47 @@ public class ReceivableAdjustment {
     @JoinColumn(name = "receivable_id", nullable = false)
     private Receivable receivable;
 
-    @Enumerated
+    @Enumerated(EnumType.STRING)
     @Column(name = "direction", nullable = false)
     private ReceivableAdjustmentDirection direction;
 
     @Column(name = "amount", nullable = false, precision = 19, scale = 2)
     private BigDecimal amount;
 
-    @Column(name = "reason", length = 500)
+    @Column(name = "reason_code", length = 500)
     private String reason;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
-    @Column(name = "updated_at", nullable = false)
-    private Instant updatedAt;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "adjustment_type", nullable = false, updatable = false)
+    private ReceivableAdjustmentType adjustmentType;
 
-    @Version
-    @Column(name = "version")
-    private Long version;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "created_by_user_id", nullable = false, updatable = false)
+    private User createdBy;
 
     // Constructors
     public ReceivableAdjustment() {
         this.createdAt = Instant.now();
-        this.updatedAt = Instant.now();
     }
 
     public ReceivableAdjustment(
             Receivable receivable,
             ReceivableAdjustmentDirection direction,
             BigDecimal amount,
-            String reason
+            String reason,
+            ReceivableAdjustmentType adjustmentType,
+            User createdBy
     ) {
         this.receivable = receivable;
         this.direction = direction;
         this.amount = amount;
         this.reason = reason;
+        this.adjustmentType = java.util.Objects.requireNonNull(adjustmentType);
+        this.createdBy = java.util.Objects.requireNonNull(createdBy);
         this.createdAt = Instant.now();
-        this.updatedAt = Instant.now();
     }
 
     // Getters e setters
@@ -134,19 +139,7 @@ public class ReceivableAdjustment {
         this.createdAt = createdAt;
     }
 
-    public Instant getUpdatedAt() {
-        return updatedAt;
-    }
+    public ReceivableAdjustmentType getAdjustmentType() { return adjustmentType; }
 
-    public void setUpdatedAt(Instant updatedAt) {
-        this.updatedAt = updatedAt;
-    }
-
-    public Long getVersion() {
-        return version;
-    }
-
-    public void setVersion(Long version) {
-        this.version = version;
-    }
+    public User getCreatedBy() { return createdBy; }
 }

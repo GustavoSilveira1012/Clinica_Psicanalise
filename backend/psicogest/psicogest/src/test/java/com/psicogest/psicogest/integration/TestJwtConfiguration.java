@@ -4,42 +4,53 @@ import com.psicogest.psicogest.security.auth.jwt.JwtProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
-import org.springframework.security.oauth2.jwt.Jwt;
+import com.nimbusds.jose.jwk.JWKSet;
+import com.nimbusds.jose.jwk.RSAKey;
+import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
+import com.psicogest.psicogest.security.auth.jwt.AccountStateJwtValidator;
+import com.psicogest.psicogest.security.auth.jwt.AudienceValidator;
+import com.psicogest.psicogest.security.auth.jwt.JwtConfiguration;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.jwt.JwtValidators;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 
-import java.time.Instant;
-import java.util.List;
+import java.security.KeyPairGenerator;
+import java.security.interfaces.RSAPrivateKey;
+import java.security.interfaces.RSAPublicKey;
 
 @TestConfiguration(proxyBeanMethods = false)
 @EnableConfigurationProperties(JwtProperties.class)
 public class TestJwtConfiguration {
 
     @Bean
-    JwtEncoder testJwtEncoder() {
-        return parameters -> testJwt("test-token");
+    RSAKey testSigningKey() throws Exception {
+        var generator = KeyPairGenerator.getInstance("RSA");
+        generator.initialize(2048);
+        var pair = generator.generateKeyPair();
+        return new RSAKey.Builder((RSAPublicKey) pair.getPublic())
+                .privateKey((RSAPrivateKey) pair.getPrivate()).keyID("integration-test").build();
     }
 
     @Bean
-    JwtDecoder testJwtDecoder() {
-        return token -> testJwt(token);
+    JwtEncoder testJwtEncoder(RSAKey key) {
+        return new NimbusJwtEncoder(new ImmutableJWKSet<>(new JWKSet(key)));
+    }
+
+    @Bean
+    JwtDecoder testJwtDecoder(RSAKey key, JwtProperties properties, AccountStateJwtValidator accountValidator) throws Exception {
+        var decoder = NimbusJwtDecoder.withPublicKey(key.toRSAPublicKey()).build();
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+                JwtValidators.createDefaultWithIssuer(properties.issuer()),
+                new AudienceValidator(properties.audience()), accountValidator));
+        return decoder;
     }
 
     @Bean
     JwtAuthenticationConverter testJwtAuthenticationConverter() {
-        return new JwtAuthenticationConverter();
-    }
-
-    private Jwt testJwt(String token) {
-        Instant issuedAt = Instant.now();
-        return Jwt.withTokenValue(token)
-                .header("alg", "none")
-                .issuer("psicogest-api")
-                .audience(List.of("psicogest-web"))
-                .subject("test-user")
-                .issuedAt(issuedAt)
-                .expiresAt(issuedAt.plusSeconds(600))
-                .build();
+        return new JwtConfiguration().jwtAuthenticationConverter();
     }
 }

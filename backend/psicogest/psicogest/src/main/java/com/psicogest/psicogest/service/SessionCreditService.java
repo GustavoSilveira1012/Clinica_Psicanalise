@@ -154,7 +154,7 @@ public class SessionCreditService {
      */
     public void recordAppointmentConsumption(
             Patient patient,
-            UUID appointmentId
+            Long appointmentId
     ) {
 
         Instant now = clock.instant();
@@ -195,7 +195,7 @@ public class SessionCreditService {
      */
     public void recordConsumptionReversal(
             Patient patient,
-            UUID appointmentId
+            Long appointmentId
     ) {
 
         Instant now = clock.instant();
