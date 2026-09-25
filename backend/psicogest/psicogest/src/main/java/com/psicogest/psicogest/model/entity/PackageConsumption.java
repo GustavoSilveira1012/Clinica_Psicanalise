@@ -77,6 +77,14 @@ public class PackageConsumption {
     @Column(name = "package_item_id", nullable = false, updatable = false)
     private UUID packageItemId;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "debit_entry_id", nullable = false, updatable = false)
+    private SessionCreditEntry debitEntry;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reversal_entry_id")
+    private SessionCreditEntry reversalEntry;
+
     /**
      * Status da consumção
      */
@@ -125,7 +133,7 @@ public class PackageConsumption {
     /**
      * Reverte o consumo
      */
-    public void reverse(String reason, Instant now) {
+    public void reverse(String reason, Instant now, SessionCreditEntry reversalEntry) {
         if (this.status == PackageConsumptionStatus.REVERSED) {
             throw new IllegalStateException(
                 "Consumo já foi revertido"
@@ -134,6 +142,7 @@ public class PackageConsumption {
         this.status = PackageConsumptionStatus.REVERSED;
         this.reversedAt = now;
         this.reversalReason = reason;
+        this.reversalEntry = reversalEntry;
         this.updatedAt = now;
     }
 }

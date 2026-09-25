@@ -24,7 +24,7 @@ public interface BankReconciliationAllocationRepository
      */
     @Query("""
             SELECT COALESCE(
-                SUM(a.amount),
+                SUM(a.allocatedAmount),
                 0
             )
             FROM BankReconciliationAllocation a
@@ -42,7 +42,7 @@ public interface BankReconciliationAllocationRepository
      */
     @Query("""
             SELECT COALESCE(
-                SUM(a.amount),
+                SUM(a.allocatedAmount),
                 0
             )
             FROM BankReconciliationAllocation a
@@ -58,7 +58,7 @@ public interface BankReconciliationAllocationRepository
      */
     @Query("""
             SELECT COALESCE(
-                SUM(a.amount),
+                SUM(a.allocatedAmount),
                 0
             )
             FROM BankReconciliationAllocation a

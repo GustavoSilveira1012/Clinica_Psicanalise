@@ -82,7 +82,9 @@ public class ReceivableController {
     @ResponseStatus(HttpStatus.OK)
     public ReceivableResponseDTO findById(
             @PathVariable
-            UUID receivableId
+            UUID receivableId,
+            Authentication authentication,
+            HttpServletRequest request
     ) {
 
         log.info(
@@ -90,8 +92,7 @@ public class ReceivableController {
                 receivableId
         );
 
-        return receivableService.findById(
-                receivableId
-        );
+        return receivableService.findById(receivableId,
+                securityActorFactory.from(authentication, request));
     }
 }

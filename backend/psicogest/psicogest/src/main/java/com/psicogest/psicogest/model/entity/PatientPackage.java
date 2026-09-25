@@ -19,7 +19,6 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import jakarta.persistence.Transient;
 import jakarta.persistence.Version;
 
 import lombok.AllArgsConstructor;
@@ -102,31 +101,12 @@ public class PatientPackage {
     @Column(name = "subscription_cycle_id", updatable = false)
     private UUID subscriptionCycleId;
 
-    /** Compatibilidade com a versão antiga; o saldo oficial é o ledger. */
-    @Transient
-    private Long availableSessions;
-
     public LocalDate getExpirationDate() {
         return expiresAt == null ? null : expiresAt.atZone(ZoneOffset.UTC).toLocalDate();
     }
 
     public LocalDate getActivationDate() {
         return activatedAt == null ? null : activatedAt.atZone(ZoneOffset.UTC).toLocalDate();
-    }
-
-    public void consumeSession() {
-        if (availableSessions != null && availableSessions <= 0) {
-            throw new IllegalStateException("Sem sessões disponíveis");
-        }
-        if (availableSessions != null) {
-            availableSessions--;
-        }
-    }
-
-    public void reverseSession() {
-        if (availableSessions != null) {
-            availableSessions++;
-        }
     }
 
     public void activate(Instant now) {

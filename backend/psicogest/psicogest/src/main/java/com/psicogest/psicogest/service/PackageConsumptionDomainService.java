@@ -12,9 +12,13 @@ import org.springframework.transaction.annotation.Transactional;
 import com.psicogest.psicogest.model.entity.Appointment;
 import com.psicogest.psicogest.model.entity.PackageConsumption;
 import com.psicogest.psicogest.model.entity.PatientPackage;
+import com.psicogest.psicogest.model.entity.SessionCreditEntry;
 import com.psicogest.psicogest.model.enums.PackageConsumptionStatus;
+import com.psicogest.psicogest.model.enums.SessionCreditDirection;
+import com.psicogest.psicogest.model.enums.SessionCreditEntryType;
 import com.psicogest.psicogest.repository.PackageConsumptionRepository;
 import com.psicogest.psicogest.repository.PatientPackageRepository;
+import com.psicogest.psicogest.repository.SessionCreditEntryRepository;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -35,6 +39,8 @@ public class PackageConsumptionDomainService {
     private final PackageConsumptionRepository
         consumptionRepository;
 
+    private final SessionCreditEntryRepository creditEntryRepository;
+
     private final PatientPackageRepository
         packageRepository;
 
@@ -46,6 +52,8 @@ public class PackageConsumptionDomainService {
             PackageConsumptionRepository
                     consumptionRepository,
 
+            SessionCreditEntryRepository creditEntryRepository,
+
             PatientPackageRepository packageRepository,
 
             PackageConsumptionPolicy policy,
@@ -54,6 +62,8 @@ public class PackageConsumptionDomainService {
     ) {
         this.consumptionRepository =
                 consumptionRepository;
+
+        this.creditEntryRepository = creditEntryRepository;
 
         this.packageRepository = packageRepository;
 
@@ -89,6 +99,12 @@ public class PackageConsumptionDomainService {
             UUID financialEntityId,
             UUID packageItemId
     ) {
+
+        if (appointment == null || appointment.getPatient() == null
+                || patientId == null || !patientId.equals(appointment.getPatient().getId())
+                || packageItemId == null) {
+            return false;
+        }
 
         Instant now = clock.instant();
 
@@ -130,9 +146,24 @@ public class PackageConsumptionDomainService {
             return false;
         }
 
-        // Passo 3: Seleciona primeiro (FEFO)
-        PatientPackage selectedPackage =
-                eligiblePackages.get(0);
+        // Seleciona o primeiro pacote FEFO que contém o item e ainda tem saldo.
+        PatientPackage selectedPackage = eligiblePackages.stream()
+                .filter(candidate -> candidate.getPackagePlanVersion().getItems().stream()
+                        .anyMatch(item -> item.getId().equals(packageItemId)))
+                .filter(candidate -> {
+                    var item = candidate.getPackagePlanVersion().getItems().stream()
+                            .filter(value -> value.getId().equals(packageItemId))
+                            .findFirst().orElseThrow();
+                    return consumptionRepository.countActiveByPackageAndItem(candidate.getId(), packageItemId)
+                            < item.getQuantity();
+                })
+                .findFirst()
+                .orElse(null);
+
+        if (selectedPackage == null) {
+            log.warn("Nenhum pacote com saldo elegível: patientId={}, itemId={}", patientId, packageItemId);
+            return false;
+        }
 
         log.info(
                 "Consumindo sessão FEFO: " +
@@ -143,7 +174,20 @@ public class PackageConsumptionDomainService {
                 selectedPackage.getExpirationDate()
         );
 
-        // Passo 4: Registra consumo
+        // O débito imutável é gravado antes do vínculo que o referencia.
+        SessionCreditEntry debit = creditEntryRepository.saveAndFlush(SessionCreditEntry.builder()
+                .id(UUID.randomUUID())
+                .patient(appointment.getPatient())
+                .patientPackage(selectedPackage)
+                .packageItemId(packageItemId)
+                .entryType(SessionCreditEntryType.APPOINTMENT_CONSUMPTION)
+                .direction(SessionCreditDirection.DEBIT)
+                .sessionCount(1L)
+                .appointmentId(appointment.getId())
+                .createdAt(now)
+                .build());
+
+        // Passo 4: Registra consumo associado ao débito do ledger.
         PackageConsumption consumption =
                 PackageConsumption
                         .builder()
@@ -158,6 +202,8 @@ public class PackageConsumptionDomainService {
 
                         .packageItemId(packageItemId)
 
+                        .debitEntry(debit)
+
                         .status(
                                 PackageConsumptionStatus
                                         .ACTIVE
@@ -171,18 +217,12 @@ public class PackageConsumptionDomainService {
 
         consumptionRepository.save(consumption);
 
-        // Atualiza saldo do pacote
-        selectedPackage.consumeSession();
-
-        packageRepository.save(selectedPackage);
-
         log.info(
                 "Sessão consumida com sucesso: " +
-                "appointmentId={}, packageId={}, " +
-                "novoSaldo={}",
+                "appointmentId={}, packageId={}, debitEntryId={}",
                 appointment.getId(),
                 selectedPackage.getId(),
-                selectedPackage.getAvailableSessions()
+                debit.getId()
         );
 
         return true;
@@ -203,7 +243,7 @@ public class PackageConsumptionDomainService {
 
         List<PackageConsumption> consumptions =
                 consumptionRepository
-                        .findByAppointment(appointmentId);
+                        .findActiveByAppointmentForUpdate(appointmentId);
 
         for (PackageConsumption consumption :
                 consumptions) {
@@ -215,18 +255,26 @@ public class PackageConsumptionDomainService {
                 continue;
             }
 
-            // Reverter consumo
-            consumption.reverse(reason, now);
+            SessionCreditEntry reversal = creditEntryRepository.saveAndFlush(SessionCreditEntry.builder()
+                    .id(UUID.randomUUID())
+                    .patient(consumption.getPatientPackage().getPatient())
+                    .patientPackage(consumption.getPatientPackage())
+                    .packageItemId(consumption.getPackageItemId())
+                    .entryType(SessionCreditEntryType.CONSUMPTION_REVERSAL)
+                    .direction(SessionCreditDirection.CREDIT)
+                    .sessionCount(1L)
+                    .appointmentId(appointmentId)
+                    .reversesEntryId(consumption.getDebitEntry().getId())
+                    .reason(reason)
+                    .createdAt(now)
+                    .build());
+
+            // Marca o consumo operacional como revertido; o saldo vem do ledger.
+            consumption.reverse(reason, now, reversal);
 
             consumptionRepository.save(consumption);
 
-            // Restaurar saldo do pacote
-            PatientPackage packageEntity =
-                    consumption.getPatientPackage();
-
-            packageEntity.reverseSession();
-
-            packageRepository.save(packageEntity);
+            PatientPackage packageEntity = consumption.getPatientPackage();
 
             log.info(
                     "Consumo revertido: " +

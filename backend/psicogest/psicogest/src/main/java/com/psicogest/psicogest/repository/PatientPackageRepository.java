@@ -71,10 +71,11 @@ public interface PatientPackageRepository
      * - Mesmo paciente
      * - Mesma entidade financeira
      * - Não expirado (expirationDate > now)
-     * - Saldo disponível (availableSessions > 0)
+     * - Item do plano com saldo apurado pelos consumos confirmados
      * 
      * Ordenado por FEFO: expiração primeiro, depois compra
      */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
         SELECT p
         FROM PatientPackage p

@@ -100,6 +100,9 @@ public class SessionCreditEntry {
     @Column(name = "appointment_id", updatable = false)
     private Long appointmentId;
 
+    @Column(name = "reverses_entry_id", updatable = false)
+    private UUID reversesEntryId;
+
     /**
      * Item do pacote (se aplicável)
      * Permite rastrear qual tipo de sessão foi consumida

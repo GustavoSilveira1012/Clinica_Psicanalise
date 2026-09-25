@@ -143,7 +143,7 @@ public class ReceivableService {
      * @param receivableId ID da cobrança
      * @return DTO com saldos e status temporal
      */
-    public ReceivableResponseDTO findById(UUID receivableId) {
+    public ReceivableResponseDTO findById(UUID receivableId, SecurityActor actor) {
 
         Receivable receivable =
                 receivableRepository
@@ -154,6 +154,11 @@ public class ReceivableService {
                                                 "Cobrança não encontrada"
                                         )
                         );
+
+        if (receivable.getClinic() == null) {
+            throw new ResourceNotFoundException("Cobrança não encontrada");
+        }
+        financeAuthorizationService.validateClinicAccess(receivable.getClinic().getId(), actor);
 
         // 37. Calcular saldos
         BigDecimal paidAmount =

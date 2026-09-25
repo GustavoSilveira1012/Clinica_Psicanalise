@@ -12,8 +12,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Collections;
-import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -59,7 +57,7 @@ public class PaymentWebhookController {
             @RequestBody
             byte[] rawBody,
 
-            HttpHeaders headers,
+            @org.springframework.web.bind.annotation.RequestHeader HttpHeaders headers,
 
             HttpServletRequest request
     ) throws com.psicogest.psicogest.infrastructure.payment.provider.webhook.PaymentWebhookAdapter.InvalidSignatureException {
@@ -127,26 +125,7 @@ public class PaymentWebhookController {
     private String getClientIp(
             HttpServletRequest request
     ) {
-
-        String xForwardedFor =
-                request.getHeader("X-Forwarded-For");
-
-        if (xForwardedFor != null &&
-                !xForwardedFor.isEmpty()) {
-
-            // Pode ter múltiplos IPs, pega o primeiro
-            return xForwardedFor.split(",")[0].trim();
-        }
-
-        String xRealIp =
-                request.getHeader("X-Real-IP");
-
-        if (xRealIp != null &&
-                !xRealIp.isEmpty()) {
-
-            return xRealIp;
-        }
-
+        // Forwarded headers só são confiáveis quando um proxy confiável os sobrescreve.
         return request.getRemoteAddr();
     }
 }

@@ -178,8 +178,13 @@ public class SecurityConfig {
                                 )
                                 .permitAll()
 
-                                 .requestMatchers(
-                                         "/auth/login",
+                                .requestMatchers(
+                                        "/webhooks/payments/**"
+                                )
+                                .permitAll()
+
+                                .requestMatchers(
+                                        "/auth/login",
                                          "/auth/refresh",
                                          "/auth/logout",
                                          "/auth/mfa/totp/setup",

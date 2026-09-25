@@ -54,6 +54,10 @@ privilégios mínimos. `MIGRATION_DATABASE_USERNAME` e `MIGRATION_DATABASE_PASSW
 são credenciais separadas, exclusivas da aplicação de migrations. O backend recusa
 iniciar em produção com runtime capaz de ignorar RLS.
 
+Os schedulers de ciclos de assinatura, inadimplência e retry de webhook ficam
+desativados por padrão. Só defina `SCHEDULING_ENABLED=true` depois de homologar
+os providers envolvidos, confirmar idempotência/retry e ativar alertas para filas.
+
 ## Compatibilidade do histórico pré-release
 
 A execução em banco vazio detectou SQL histórico inexequível (V11/V18/V25/V38/V76)
@@ -63,6 +67,12 @@ Exporte primeiro `flyway_schema_history`, compare checksums e valide uma cópia 
 banco existente. Migrations já aplicadas em produção devem permanecer imutáveis;
 uma instalação com outro histórico precisa de um plano de upgrade específico.
 `baseline-on-migrate` e `out-of-order` não são atalhos para essa validação.
+
+As migrations V85 e V86 alinham os tipos de moeda e os campos `Instant` do JPA.
+A V86 interpreta timestamps sem fuso já existentes como UTC. Antes de aplicá-la
+a uma base populada, faça backup e confirme que os valores legados foram gravados
+em UTC; se o ambiente anterior usou outro fuso, prepare e ensaie uma conversão
+específica antes do deploy. Não rode a migration em produção até essa validação.
 
 As V20/V26 agora recusam apagar prontuários/pagamentos legados. Havendo registros,
 é obrigatória uma migração dedicada, com preservação dos vínculos, criptografia,

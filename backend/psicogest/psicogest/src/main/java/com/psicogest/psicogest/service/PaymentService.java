@@ -17,6 +17,7 @@ import com.psicogest.psicogest.repository.PaymentAllocationRepository;
 import com.psicogest.psicogest.repository.PaymentRepository;
 import com.psicogest.psicogest.repository.ClinicUserMembershipRepository;
 import com.psicogest.psicogest.model.enums.ClinicUserMembershipStatus;
+import com.psicogest.psicogest.model.enums.ClinicAccessRole;
 import com.psicogest.psicogest.security.tenant.TenantContextHolder;
 import com.psicogest.psicogest.security.SecurityActor;
 import com.psicogest.psicogest.security.SecurityHashService;
@@ -121,6 +122,9 @@ public class PaymentService {
             SecurityActor actor
     ) {
 
+        Clinic clinic = resolveFinancialClinic(actor, dto);
+        financeAuthorizationService.validateClinicAccess(clinic.getId(), actor);
+
         // 9. Validar idempotency-key
         String validatedKey =
                 normalizeIdempotencyKey(idempotencyKey);
@@ -139,6 +143,12 @@ public class PaymentService {
         if (existing.isPresent()) {
 
             Payment payment = existing.get();
+
+            if (payment.getClinic() == null
+                    || !clinic.getId().equals(payment.getClinic().getId())) {
+                throw new IdempotencyConflictException(
+                        "A chave de idempotência já foi utilizada para outra operação");
+            }
 
             // 13. Validar que fingerprint bate
             if (
@@ -184,6 +194,11 @@ public class PaymentService {
                                         )
                         );
 
+        if (patient.getOrganizationId() == null
+                || !patient.getOrganizationId().equals(clinic.getOrganizationId())) {
+            throw new ResourceNotFoundException("Paciente não encontrado");
+        }
+
         // Normalizar amount
         BigDecimal amount =
                 MoneyRules.normalize(dto.amount());
@@ -191,12 +206,6 @@ public class PaymentService {
         Instant now = Instant.now();
 
         // 15. Resolver clínica financeira
-        Clinic clinic =
-                resolveFinancialClinic(
-                        actor,
-                        dto
-                );
-
         // 15. Criar payment
         Payment payment =
                 Payment.builder()
@@ -336,6 +345,11 @@ public class PaymentService {
                                         )
                         );
 
+        if (payment.getClinic() == null) {
+            throw new FinanceValidationException("Pagamento sem contexto financeiro");
+        }
+        financeAuthorizationService.validateClinicAccess(payment.getClinic().getId(), actor);
+
         // Validar transição de estado
         paymentStateMachine
                 .validateTransition(
@@ -467,9 +481,17 @@ public class PaymentService {
 
         var tenant = TenantContextHolder.get();
         if (tenant != null && tenant.organizationId() != null) {
-            return clinicRepository.findFirstByOrganizationIdAndActiveTrue(tenant.organizationId())
+            return membershipRepository.findByUserIdAndStatus(actor.userId(), ClinicUserMembershipStatus.ACTIVE)
+                    .stream()
+                    .filter(membership -> membership.getAccessRole() == ClinicAccessRole.ADMIN
+                            || membership.getAccessRole() == ClinicAccessRole.FINANCE)
+                    .map(membership -> membership.getClinic())
+                    .filter(clinic -> clinic != null
+                            && Boolean.TRUE.equals(clinic.getActive())
+                            && tenant.organizationId().equals(clinic.getOrganizationId()))
+                    .findFirst()
                     .orElseThrow(() -> new FinanceValidationException(
-                            "Nenhuma clínica ativa está vinculada à organização selecionada"));
+                            "Usuário não possui clínica com permissão financeira na organização selecionada"));
         }
 
         return membershipRepository.findByUserIdAndStatus(actor.userId(), ClinicUserMembershipStatus.ACTIVE)

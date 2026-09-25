@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -96,6 +97,17 @@ public interface PackageConsumptionRepository
 
         @Param("itemId")
         UUID itemId
+    );
+
+    @Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+        SELECT pc
+        FROM PackageConsumption pc
+        WHERE pc.appointment.id = :appointmentId
+          AND pc.status = 'ACTIVE'
+    """)
+    List<PackageConsumption> findActiveByAppointmentForUpdate(
+        @Param("appointmentId") Long appointmentId
     );
 
     /**
