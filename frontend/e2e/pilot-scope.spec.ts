@@ -70,7 +70,7 @@ test("keeps patient data and platform billing visibly unavailable in the pilot",
 
 test("redirects unauthenticated direct navigation to the protected billing route", async ({ page }) => {
   await mockAuthentication(page);
-  await page.goto("/billing", { waitUntil: "commit" });
+  await page.goto("/billing", { waitUntil: "domcontentloaded" });
   await expect(page).toHaveURL(/\/login$/);
   await expect(page.getByRole("heading", { name: "Acesse sua organização" })).toBeVisible();
 });
