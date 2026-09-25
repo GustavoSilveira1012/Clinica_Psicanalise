@@ -59,7 +59,7 @@ jobs:
       - run: bash ./mvnw --batch-mode verify
       - name: Preserve backend test evidence
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: backend-test-reports
           path: backend/psicogest/psicogest/target/surefire-reports/
