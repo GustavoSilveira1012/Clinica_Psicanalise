@@ -135,6 +135,18 @@ auditoria e reconciliação de contagens. Não desative essa proteção para lib
 - Para schema, prefira migration forward compatível; restaure backup somente com decisão formal e janela de manutenção.
 - Após qualquer rollback, execute `/health/ready`, `flyway validate` e os testes smoke do fluxo clínico e financeiro.
 
+## Health check do piloto sem fornecedor adicional
+
+O workflow `Synthetic Render availability check` fica inativo até a variable protegida
+`ENABLE_SYNTHETIC_SMOKE=true` no ambiente `synthetic-pilot`. Antes disso, configure
+`SYNTHETIC_API_URL` e `SYNTHETIC_WEB_URL` com os hosts HTTPS `.onrender.com` do projeto
+fictício. Ele consulta apenas `/health/live`, `/health/ready` e a página inicial, uma
+vez por dia, e falha o workflow quando algum endpoint não responde com HTTP 200. O
+GitHub deve estar configurado para notificar os responsáveis por falhas de Actions.
+Esse check não coleta métricas, não mede SLO nem substitui monitoramento contratado;
+em plano gratuito serve apenas como alarme básico de disponibilidade do ambiente de
+teste. O acesso a Prometheus permanece autenticado e não deve ser exposto publicamente.
+
 ## Incidente
 
 1. Preserve evidências e o correlation ID da requisição.

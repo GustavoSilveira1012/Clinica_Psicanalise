@@ -54,6 +54,8 @@ jobs:
           distribution: temurin
           java-version: '25'
           cache: maven
+      - name: Require Docker for database and Redis integration tests
+        run: docker info
       - run: bash ./mvnw --batch-mode verify
       - name: Preserve backend test evidence
         if: always()

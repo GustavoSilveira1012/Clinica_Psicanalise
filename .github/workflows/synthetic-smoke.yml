@@ -1,0 +1,58 @@
+name: Synthetic Render availability check
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 9 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: synthetic-render-smoke
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    if: vars.ENABLE_SYNTHETIC_SMOKE == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: synthetic-pilot
+    env:
+      API_URL: ${{ vars.SYNTHETIC_API_URL }}
+      WEB_URL: ${{ vars.SYNTHETIC_WEB_URL }}
+    steps:
+      - name: Validate public synthetic Render URLs
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$API_URL" =~ ^https://[A-Za-z0-9.-]+\.onrender\.com/?$ ]] || { echo "Set SYNTHETIC_API_URL to the HTTPS URL of the synthetic Render API."; exit 1; }
+          [[ "$WEB_URL" =~ ^https://[A-Za-z0-9.-]+\.onrender\.com/?$ ]] || { echo "Set SYNTHETIC_WEB_URL to the HTTPS URL of the synthetic Render frontend."; exit 1; }
+          API_URL="${API_URL%/}"
+          WEB_URL="${WEB_URL%/}"
+          echo "API_URL=$API_URL" >> "$GITHUB_ENV"
+          echo "WEB_URL=$WEB_URL" >> "$GITHUB_ENV"
+
+      - name: Check API liveness and readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          check_until_ready() {
+            local route="$1" status="000"
+            for attempt in {1..30}; do
+              status="$(curl --silent --show-error --max-time 10 --output /dev/null --write-out '%{http_code}' "$API_URL$route" || true)"
+              [[ "$status" == "200" ]] && return 0
+              sleep 10
+            done
+            echo "Synthetic API health route $route did not return HTTP 200 (last status: $status)." >&2
+            return 1
+          }
+          check_until_ready /health/live
+          check_until_ready /health/ready
+
+      - name: Check frontend response
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(curl --silent --show-error --max-time 20 --output /dev/null --write-out '%{http_code}' "$WEB_URL/" || true)"
+          [[ "$status" == "200" ]] || { echo "Synthetic frontend did not return HTTP 200 (status: $status)."; exit 1; }

@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.util.List;
 import java.util.UUID;
@@ -15,6 +16,7 @@ import java.util.function.Supplier;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** PostgreSQL-level tenant isolation checks using synthetic fixtures and a non-owner, non-BYPASSRLS role. */
+@Testcontainers(disabledWithoutDocker = true)
 class TenantRowLevelSecurityIntegrationTest extends PostgresIntegrationTest {
 
     private static final String RLS_ROLE = "psicogest_rls_test";

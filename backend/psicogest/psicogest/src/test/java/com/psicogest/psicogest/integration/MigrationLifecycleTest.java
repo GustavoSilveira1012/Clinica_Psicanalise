@@ -9,7 +9,7 @@ import java.sql.*;
 import static org.assertj.core.api.Assertions.*;
 
 /** Real SQL, including upgrade and isolation under a non-superuser role. */
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 class MigrationLifecycleTest {
     @Container static final PostgreSQLContainer<?> DB = new PostgreSQLContainer<>("postgres:16-alpine");
     private Flyway flyway(String target) {

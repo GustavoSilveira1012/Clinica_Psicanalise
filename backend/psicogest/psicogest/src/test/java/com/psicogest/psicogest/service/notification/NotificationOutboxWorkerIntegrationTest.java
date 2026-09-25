@@ -28,7 +28,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 class NotificationOutboxWorkerIntegrationTest {
 
     private static final AtomicLong USER_IDS = new AtomicLong(990001);

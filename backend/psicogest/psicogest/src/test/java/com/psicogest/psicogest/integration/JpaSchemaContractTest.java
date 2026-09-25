@@ -16,7 +16,7 @@ import java.sql.*;
 import java.util.*;
 
 /** Aggregates missing mappings rather than hiding all but the first startup failure. */
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 class JpaSchemaContractTest {
     @Container static final PostgreSQLContainer<?> DB = new PostgreSQLContainer<>("postgres:16-alpine");
 
