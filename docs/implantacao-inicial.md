@@ -19,9 +19,9 @@ Proposta para um ambiente de testes com dados inteiramente fictícios, condicion
 | --- | --- | --- |
 | Site React | Render Static Site gratuito | Publica a interface; sozinho não entrega login e operações do sistema. |
 | API Java | Render Web Service gratuito, usando Docker | Suspende por inatividade após 15 minutos; precisa testar memória, inicialização e resposta. |
-| PostgreSQL | Supabase Free, em projeto novo | 500 MB; pausa após uma semana inativo; sem backups automáticos ou PITR no plano gratuito. |
-| Arquivos de teste | Bucket privado do Supabase Storage | 1 GB incluído. A integração de storage no backend ainda precisa ser implementada e validada. |
-| Redis | Upstash Redis Free | 256 MB e 500 mil comandos/mês. Validar os comandos usados pelo sistema e o consumo dos testes. |
+| PostgreSQL | Supabase Free, em projeto novo | 500 MB; pode pausar após inatividade; sem backups automáticos ou PITR no plano gratuito. |
+| Arquivos de teste | Bucket privado do Supabase Storage | 1 GB incluído. Adapter S3 preparado para teste; não comprova retenção nem prontidão clínica. |
+| Redis | Upstash Redis Free | 256 MB, 500 mil comandos e 10 GB de tráfego/mês. Validar comandos/limites; cartão muda para cobrança por uso. |
 | Endereço e HTTPS | Subdomínio fornecido pela hospedagem | Evita comprar domínio durante os testes; exige validar a topologia de autenticação. |
 
 Fontes: [Render Free](https://render.com/docs/free), [Render Static Sites](https://render.com/docs/static-sites), [Supabase: planos](https://supabase.com/pricing), [Upstash: planos](https://upstash.com/pricing/redis).
@@ -43,7 +43,7 @@ Não usar o PostgreSQL gratuito do Render para preservar a base existente: ele e
 
 O objetivo de custo inicial é R$0 dentro das cotas gratuitas. Isso não cobre domínio próprio, certificado fiscal, taxas de pagamentos/mensagens, assessoria, pentest ou trabalho dos responsáveis.
 
-**Limite importante do storage candidato:** o S3 do Supabase não oferece versionamento, lifecycle de bucket nem object lock na compatibilidade atual; exclusões são permanentes. As credenciais S3 de servidor também têm acesso total e ignoram RLS. Por isso, esse bucket pode servir para ensaio com dados fictícios, mas não comprova retenção/recuperação e não deve liberar exports clínicos de produção. A prontidão do adapter permanece fechada até haver retenção/recuperação comprovadas e controles aprovados. [Compatibilidade S3](https://supabase.com/docs/guides/storage/s3/compatibility), [autenticação S3](https://supabase.com/docs/guides/storage/s3/authentication).
+**Limite importante do storage candidato:** o S3 do Supabase não oferece versionamento nem object lock; as APIs compatíveis não comprovam criptografia em repouso ou retenção, e exclusões podem ser permanentes. Credenciais S3 de servidor têm acesso amplo e ignoram RLS. O adapter preparado usa cifragem no backend, isolamento por prefixo do tenant e faz probe sintético de conectividade; ele reporta privacidade, criptografia observada e retenção como não verificadas. Serve somente para dados fictícios, e exports clínicos continuam fechados para produção. [Compatibilidade S3](https://supabase.com/docs/guides/storage/s3/compatibility), [autenticação S3](https://supabase.com/docs/guides/storage/s3/authentication).
 
 ## 2. O que o repositório ainda exige
 
@@ -51,9 +51,11 @@ A contratação dos serviços precisa ser acompanhada destes trabalhos técnicos
 
 | Constatação no código | Ação necessária |
 | --- | --- |
-| A camada `EncryptedClinicalExportStorage` cifra exportações no backend e vincula chave/contexto ao tenant; `UnavailableClinicalExportStorage` continua sendo o padrão. | Ainda falta o adapter concreto do fornecedor escolhido. Ele deve provar acesso privado, cifragem em repouso, política de retenção e recuperação em health check real; adapter e teste do provedor seguem pendentes. A camada atual não habilita exports em produção sozinha. |
+| `EncryptedClinicalExportStorage` cifra exportações antes do upload e vincula a chave/contexto ao tenant. Há adapter Supabase S3 restrito ao perfil production e habilitação explícita, com validação de chave, prefixo tenant e probe sintético cacheado por 5 minutos. | Testes unitários passaram, mas não houve conexão a bucket real. O probe valida alcance e round-trip, não comprova privacidade, criptografia em repouso ou retenção; `productionReady=false`. Use somente com dados fictícios. `UnavailableClinicalExportStorage` continua como padrão. |
+| `render.yaml` descreve frontend estático e API separados, sem criar banco ou Redis, com CI exigido e flags clínicas desligadas; nada foi provisionado ou publicado. | É um blueprint de teste que exige preenchimento manual de segredos e projeto vazio. Render Free suspende serviço após 15 minutos, usa filesystem efêmero e a própria documentação diz para não usar o plano em produção. Rollback cobre apenas as duas versões anteriores; logs/health checks não equivalem a observabilidade/SLO. [Render Free](https://render.com/docs/free), [Blueprint](https://render.com/docs/blueprint-spec). |
 | `FailClosedNationalNfseClient` recusa emissão real. | Implementar/configurar o emissor escolhido e homologar emissão, consulta e eventos fiscais. |
-| Existem registries de pagamento e notificações, sem adapters reais encontrados nos diretórios examinados. | Confirmar cobertura e implementar os fornecedores contratados, incluindo callbacks e tratamento de falhas. |
+| O worker de eventos de notificação agora usa cursor por consumidor/tenant, retry limitado e dead-letter (V87). O dispatcher aplica rate limit distribuído Redis (token bucket por entidade financeira/canal) antes de chamar o provider. Ainda não há handlers de produção, agendamento seguro por tenant nem adapters de envio contratados. | Não habilitar envio automático. Implementar handlers e agendamento tenant-safe; contratar/homologar canais antes de ligar o processamento em ambiente externo. |
+| As migrations V88/V89, endpoints e renderer web implementam tokens de uso único armazenados apenas como hash, confirmação de e-mail, recuperação de senha, revogação de sessões, resposta não enumerável e rate limit HMAC via Redis. Há adapter SMTP configurável, desligado por padrão; a prontidão de produção exige entrega real quando ativada. | Ainda é necessário contratar/configurar e-mail, TLS/SMTP, origem HTTPS e segredo HMAC; testar entrega, falhas e rate limiting em sandbox. O fluxo fica indisponível no piloto atual. Migrations e endpoints também precisam passar pela suíte PostgreSQL no CI. |
 | `REQUIRE_*` é consultado pelo serviço de readiness. | Esses parâmetros exigem integrações na verificação de saúde; não são, por si só, bloqueios de toda operação comercial. `false` não prova que mensagens ou cobranças não serão disparadas. |
 | `REQUIRE_NOTIFICATION_PROVIDERS` exige e-mail e WhatsApp juntos. | Homologar ambos antes de exigir essa prontidão, ou desenvolver uma separação explícita dos canais. |
 | Cookies de renovação usam `SameSite=Strict`. | Planejar site e API na mesma origem, ou outra topologia comprovadamente compatível. Não presumir que dois subdomínios gratuitos funcionem apenas liberando CORS. Validar também CSRF e renovação de sessão. |
@@ -66,13 +68,15 @@ O perfil de produção exige storage de exportação disponível por padrão. N�
 
 - PostgreSQL: conexão JDBC com TLS e verificação do certificado/hostname; credenciais separadas de runtime e migrations. Runtime deve ser `NOSUPERUSER NOBYPASSRLS`, sem privilégios administrativos indiretos. Validar políticas RLS com duas organizações.
 - Supabase: usar conexão adequada a um servidor persistente; conferir conectividade direta/IPv6 ou pooler em modo de sessão. Não escolher pooler transacional sem validar Flyway e o contexto de tenant. [Conexões PostgreSQL](https://supabase.com/docs/guides/database/connecting-to-postgres).
-- Redis: `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` e TLS. Testar as operações de autenticação/rate limit com o fornecedor.
+- Redis: `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` e TLS. Testar autenticação, rate limit de entrada e token bucket outbound por entidade financeira/canal com o fornecedor; o limite outbound falha fechado se Redis estiver indisponível.
 - Backend: `SPRING_PROFILES_ACTIVE=production`, origens HTTPS explícitas, cookie seguro, par de chaves JWT e três chaves independentes para MFA, conteúdo clínico e auditoria.
 - O perfil `production` mantém `CLINICAL_DATA_ENABLED=false` por padrão. Não habilitar essa variável nem sua equivalente `VITE_CLINICAL_DATA_ENABLED` enquanto a base, o isolamento, storage, backup/restore e demais controles não tiverem sido aprovados. Nunca apontar o ambiente gratuito para a base existente.
 - Guardar chaves e senhas em configuração protegida; nenhuma credencial deve ir para `VITE_*`, Git ou conversa. Guardar cópia recuperável das chaves, com acesso restrito.
 - Manter `SCHEDULING_ENABLED=false` até validar as rotinas automáticas e seus fornecedores. No clone, bloquear também saída de rede para serviços reais: esse parâmetro sozinho não impede chamadas diretas.
-- Site: build a partir de `frontend/`, publicando `dist/`, com a URL/rota de API definida. O projeto utiliza pnpm no Dockerfile; usar o lockfile existente.
-- API: Dockerfile em `backend/psicogest/psicogest/`. `/health/ready` precisa refletir as dependências exigidas; testar os fluxos além de verificar HTTP 200.
+- Site: blueprint publica `frontend/dist` e injeta a URL externa da API em build. O rewrite direciona refresh/deep links do SPA para `index.html`.
+- API: blueprint usa `backend/psicogest/psicogest/Dockerfile`. Preencher `SECURITY_ALLOWED_ORIGINS` com a origem exata do site; nunca usar `*` com cookies. Configurar `DATABASE_URL` como JDBC/TLS e contas distintas de runtime/migration. Confirmar versão do PostgreSQL, pool e consumo de memória antes de testar.
+- JWT: cadastrar os PEM como secret files no Render e informar os paths em `JWT_PUBLIC_KEY_LOCATION` e `JWT_PRIVATE_KEY_LOCATION`; as variáveis `sync:false` não criam os arquivos.
+- Deploy: `autoDeployTrigger: checksPass` requer que os checks do CI estejam visíveis ao Render. Flyway executa ao iniciar a API; apontar somente a um banco de teste vazio aprovado. Fazer ensaio manual de rollback, lembrando que reverter imagem não reverte migration.
 
 ## 3. Identificar e preservar a base existente
 

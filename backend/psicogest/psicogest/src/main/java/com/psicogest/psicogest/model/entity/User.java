@@ -59,6 +59,9 @@ public class User implements DeactivatableEntity {
     @Column(name = "password_changed_at")
     private LocalDateTime passwordChangedAt;
 
+    @Column(name = "email_verified_at")
+    private LocalDateTime emailVerifiedAt;
+
     @Builder.Default
     @Column(name = "require_password_change", nullable = false)
     private Boolean requirePasswordChange = false;

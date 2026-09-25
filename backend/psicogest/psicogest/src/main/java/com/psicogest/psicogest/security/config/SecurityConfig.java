@@ -185,6 +185,10 @@ public class SecurityConfig {
 
                                 .requestMatchers(
                                         "/auth/login",
+                                         "/auth/email/verify",
+                                         "/auth/email/verification-request",
+                                         "/auth/password/reset",
+                                         "/auth/password/reset-request",
                                          "/auth/refresh",
                                          "/auth/logout",
                                          "/auth/mfa/totp/setup",

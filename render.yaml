@@ -1,0 +1,112 @@
+# Synthetic-data pilot only. This Blueprint creates services, so review every
+# resource and fill secrets only after manually creating empty test projects.
+services:
+  - type: web
+    name: psicogest-synthetic-api
+    runtime: docker
+    plan: free
+    region: ohio
+    dockerfilePath: ./backend/psicogest/psicogest/Dockerfile
+    dockerContext: ./backend/psicogest/psicogest
+    autoDeployTrigger: checksPass
+    healthCheckPath: /actuator/health/liveness
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: production
+      - key: SERVER_PORT
+        value: "8080"
+      - key: CLINICAL_ONLY_PILOT
+        value: "true"
+      - key: CLINICAL_DATA_ENABLED
+        value: "false"
+      - key: SCHEDULING_ENABLED
+        value: "false"
+      - key: AUTH_ACTION_MAIL_ENABLED
+        value: "false"
+      - key: AUTH_ACTION_MAIL_REQUIRED_FOR_READINESS
+        value: "false"
+      - key: REQUIRE_REAL_PROVIDERS
+        value: "false"
+      - key: REQUIRE_PAYMENT_PROVIDERS
+        value: "false"
+      - key: REQUIRE_NOTIFICATION_PROVIDERS
+        value: "false"
+      - key: REQUIRE_NATIONAL_NFSE
+        value: "false"
+      - key: CLINICAL_EXPORT_STORAGE_TYPE
+        value: disabled
+      - key: CLINICAL_EXPORT_STORAGE_REQUIRED
+        value: "false"
+      - key: JWT_COOKIE_SECURE
+        value: "true"
+      - key: JPA_SHOW_SQL
+        value: "false"
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_USERNAME
+        sync: false
+      - key: DATABASE_PASSWORD
+        sync: false
+      - key: MIGRATION_DATABASE_USERNAME
+        sync: false
+      - key: MIGRATION_DATABASE_PASSWORD
+        sync: false
+      - key: SECURITY_ALLOWED_ORIGINS
+        sync: false
+      - key: JWT_PUBLIC_KEY_LOCATION
+        sync: false
+      - key: JWT_PRIVATE_KEY_LOCATION
+        sync: false
+      - key: JWT_KEY_ID
+        sync: false
+      - key: MFA_ENCRYPTION_KEY
+        sync: false
+      - key: CLINICAL_KEK
+        sync: false
+      - key: AUDIT_HMAC_KEY
+        sync: false
+      - key: REDIS_HOST
+        sync: false
+      - key: REDIS_PORT
+        sync: false
+      - key: REDIS_PASSWORD
+        sync: false
+      - key: REDIS_SSL_ENABLED
+        value: "true"
+
+  - type: web
+    name: psicogest-synthetic-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install --global pnpm@11.19.0 && pnpm install --frozen-lockfile && pnpm build
+    staticPublishPath: dist
+    buildFilter:
+      paths:
+        - frontend/**
+        - render.yaml
+    envVars:
+      - key: SKIP_INSTALL_DEPS
+        value: "true"
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: psicogest-synthetic-api
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: VITE_CLINICAL_ONLY_PILOT
+        value: "true"
+      - key: VITE_CLINICAL_DATA_ENABLED
+        value: "false"
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: no-referrer
+      - path: /*
+        name: X-Frame-Options
+        value: DENY

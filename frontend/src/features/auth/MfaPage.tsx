@@ -8,7 +8,7 @@ import { mfaSchema, type MfaValues } from "../../shared/lib/validators";
 import { useAuth } from "./AuthContext";
 
 export function MfaPage() {
-  const { pendingMfaEmail, pendingMfaEnrollment, pendingMfaChallenge, verifyMfa, setupMfa, confirmMfa } = useAuth();
+  const { session, pendingMfaEmail, pendingMfaEnrollment, pendingMfaChallenge, verifyMfa, setupMfa, confirmMfa } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [formError, setFormError] = useState("");
@@ -16,9 +16,12 @@ export function MfaPage() {
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<MfaValues>({ resolver: zodResolver(mfaSchema) });
 
   useEffect(() => {
-    if (!pendingMfaEmail || !pendingMfaChallenge) { navigate("/login", { replace: true }); return; }
+    if (!pendingMfaEmail || !pendingMfaChallenge) {
+      navigate(session ? location.state?.from ?? "/dashboard" : "/login", { replace: true });
+      return;
+    }
     if (pendingMfaEnrollment && !setup) void setupMfa().then(setSetup).catch((error: unknown) => setFormError(error instanceof Error ? error.message : "Não foi possível iniciar o cadastro do MFA."));
-  }, [navigate, pendingMfaChallenge, pendingMfaEmail, pendingMfaEnrollment, setup, setupMfa]);
+  }, [location.state?.from, navigate, pendingMfaChallenge, pendingMfaEmail, pendingMfaEnrollment, session, setup, setupMfa]);
 
   async function onSubmit(values: MfaValues) {
     try { setFormError(""); if (pendingMfaEnrollment) await confirmMfa(values.code); else await verifyMfa(values.code); navigate(location.state?.from ?? "/dashboard", { replace: true }); }

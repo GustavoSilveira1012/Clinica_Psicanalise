@@ -4,6 +4,7 @@ import { AppShell } from "../shared/components/AppShell";
 import { RequireAuth, RequirePermission } from "../shared/components/ProtectedRoute";
 import { LoginPage } from "../features/auth/LoginPage";
 import { MfaPage } from "../features/auth/MfaPage";
+import { AuthActionPage } from "../features/auth/AuthActionPage";
 import { DemoRequestPage } from "../features/public/DemoRequestPage";
 import { LandingPage } from "../features/public/LandingPage";
 import { InvitePage } from "../features/saas/InvitePage";
@@ -78,7 +79,7 @@ const workspaceRoutes = <>
     <Route element={<RequirePermission permission="notifications:read" />}><Route path="notifications" element={<PilotModule path="/notifications" title="Notificações"><NotificationsPage /></PilotModule>} /></Route>
     <Route element={<RequirePermission permission="privacy:read" />}><Route path="compliance" element={<ClinicalDataModule path="/compliance" title="LGPD & compliance"><CompliancePage /></ClinicalDataModule>} /></Route>
     <Route element={<RequirePermission permission="settings:manage" />}><Route path="settings" element={<SettingsPage />} /></Route>
-    <Route element={<RequirePermission permission="billing:read" />}><Route path="billing" element={<BillingPage />} /></Route>
+    <Route element={<RequirePermission permission="billing:read" />}><Route path="billing" element={<PilotModule path="/billing" title="Faturamento da plataforma"><BillingPage /></PilotModule>} /></Route>
     <Route path="onboarding" element={<OnboardingPage />} />
     <Route path="profile" element={<ProfilePage />} />
     <Route path="*" element={<NotFoundPage />} />
@@ -90,6 +91,8 @@ export function AppRouter() {
     <Route path="/demo" element={<DemoRequestPage />} />
     <Route path="/login" element={<LoginPage />} />
     <Route path="/mfa" element={<MfaPage />} />
+    <Route path="/reset-password" element={<AuthActionPage />} />
+    <Route path="/verify-email" element={<AuthActionPage />} />
     <Route path="/invite/:token" element={<InvitePage />} />
     <Route element={<RequireAuth />}>
       <Route element={<AppFrame />}>{workspaceRoutes}</Route>

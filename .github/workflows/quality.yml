@@ -1,5 +1,9 @@
 name: PsicoGest quality gate
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [main]
@@ -12,33 +16,40 @@ permissions:
 jobs:
   frontend:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
         with:
-          version: 10
-      - uses: actions/setup-node@v4
+          version: 11.19.0
+          cache: true
+          cache_dependency_path: frontend/pnpm-lock.yaml
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+      - name: Install Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
       - run: pnpm build
 
   backend:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: backend/psicogest/psicogest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '25'
@@ -46,15 +57,18 @@ jobs:
       - run: bash ./mvnw --batch-mode verify
       - name: Preserve backend test evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: backend-test-reports
           path: backend/psicogest/psicogest/target/surefire-reports/
+          if-no-files-found: warn
+          retention-days: 7
 
   migration-review:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check migration sequence
         shell: bash
         run: |
@@ -70,11 +84,12 @@ jobs:
 
   containers:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       # Only used to render the local dependency compose file in CI.
       POSTGRES_PASSWORD: ci-only-not-a-production-secret
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Validate dependency compose
         run: docker compose config --quiet
       - name: Build API image

@@ -19,7 +19,9 @@ public class ClinicalPilotScopeGuard implements HandlerInterceptor {
     private static final List<String> DISABLED_PATHS = List.of(
             "/webhooks/payments/**",
             "/service-invoices/**",
-            "/api/v1/notifications/deliveries/**",
+            "/api/v1/notifications/**",
+            "/organizations/*/billing",
+            "/organizations/*/entitlements",
             "/api/v1/package-plans/**",
             "/api/v1/subscription-plans/**",
             "/api/v1/subscriptions/**",

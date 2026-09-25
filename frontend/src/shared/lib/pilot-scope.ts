@@ -24,4 +24,5 @@ export const pilotUnavailableRoutes = new Set([
   "/subscriptions",
   "/fiscal",
   "/notifications",
+  "/billing",
 ]);

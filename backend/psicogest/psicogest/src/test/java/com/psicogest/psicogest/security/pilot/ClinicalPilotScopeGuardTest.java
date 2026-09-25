@@ -14,6 +14,10 @@ class ClinicalPilotScopeGuardTest {
 
         assertThat(guard.isUnavailable("GET", "/service-invoices")).isTrue();
         assertThat(guard.isUnavailable("GET", "/api/v1/notifications/deliveries")).isTrue();
+        assertThat(guard.isUnavailable("GET", "/api/v1/notifications/preferences")).isTrue();
+        assertThat(guard.isUnavailable("GET", "/organizations/8f386cc1-c0c1-4ceb-9a0a-30361caf5077/billing")).isTrue();
+        assertThat(guard.isUnavailable("GET", "/organizations/8f386cc1-c0c1-4ceb-9a0a-30361caf5077/entitlements")).isTrue();
+        assertThat(guard.isUnavailable("GET", "/organizations/8f386cc1-c0c1-4ceb-9a0a-30361caf5077/members")).isFalse();
         assertThat(guard.isUnavailable("POST", "/api/v1/subscription-plans")).isTrue();
         assertThat(guard.isUnavailable("POST", "/api/v1/payments")).isTrue();
         assertThat(guard.isUnavailable("POST", "/webhooks/payments/stripe")).isTrue();

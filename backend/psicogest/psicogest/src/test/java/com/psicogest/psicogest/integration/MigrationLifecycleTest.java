@@ -36,6 +36,7 @@ class MigrationLifecycleTest {
             assertThat(flyway("latest").migrate().migrationsExecuted).isPositive();
             flyway("latest").validate();
             assertThat(flyway("latest").migrate().migrationsExecuted).isZero();
+            seedNotificationOutbox(sql);
             assertThat(count(sql, "SELECT count(*) FROM clinics")).isEqualTo(2);
             assertThat(count(sql, "SELECT quantity FROM session_credit_entries WHERE patient_id=900001")).isEqualTo(5);
             assertThatThrownBy(() -> sql.execute("UPDATE session_credit_entries SET quantity=500"))
@@ -54,7 +55,8 @@ class MigrationLifecycleTest {
             sql.execute("GRANT USAGE ON SCHEMA public, app TO psicogest_rls_test");
             sql.execute("GRANT SELECT, INSERT, UPDATE ON clinics TO psicogest_rls_test");
             sql.execute("GRANT SELECT, INSERT ON session_credit_entries TO psicogest_rls_test");
-            sql.execute("GRANT SELECT ON patients, patient_packages, appointments, package_plan_items, receivables, payments, notifications TO psicogest_rls_test");
+            sql.execute("GRANT SELECT ON patients, patient_packages, appointments, package_plan_items, medical_records, medical_record_revisions, medical_record_addendums, receivables, payments, notifications TO psicogest_rls_test");
+            sql.execute("GRANT SELECT, INSERT ON notification_outbox_receipts TO psicogest_rls_test");
             sql.execute("GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO psicogest_rls_test");
             sql.execute("SET ROLE psicogest_rls_test");
             assertThat(count(sql, "SELECT count(*) FROM clinics")).isZero();
@@ -63,10 +65,14 @@ class MigrationLifecycleTest {
             sql.execute("SELECT set_config('app.organization_id','10000000-0000-0000-0000-000000000001',true)");
             assertThat(count(sql, "SELECT count(*) FROM clinics")).isEqualTo(1);
             assertThat(count(sql, "SELECT count(*) FROM patients WHERE id=900001")).isEqualTo(1);
+            assertThat(count(sql, "SELECT count(*) FROM medical_records WHERE id='95000000-0000-0000-0000-000000000001'")).isEqualTo(1);
+            assertThat(count(sql, "SELECT count(*) FROM medical_record_revisions WHERE medical_record_id='95000000-0000-0000-0000-000000000001'")).isEqualTo(1);
+            assertThat(count(sql, "SELECT count(*) FROM medical_record_addendums WHERE medical_record_id='95000000-0000-0000-0000-000000000001'")).isEqualTo(1);
             assertThat(count(sql, "SELECT count(*) FROM session_credit_entries")).isEqualTo(1);
             assertThat(count(sql, "SELECT count(*) FROM receivables")).isEqualTo(1);
             assertThat(count(sql, "SELECT count(*) FROM payments")).isEqualTo(1);
             assertThat(count(sql, "SELECT count(*) FROM notifications")).isEqualTo(1);
+            assertThat(count(sql, "SELECT count(*) FROM notification_outbox_receipts")).isEqualTo(1);
             sql.execute("""
                     INSERT INTO session_credit_entries(id,patient_id,direction,entry_type,quantity,created_at)
                     VALUES (gen_random_uuid(),900001,'CREDIT','MANUAL_ADJUSTMENT',1,now())
@@ -78,10 +84,22 @@ class MigrationLifecycleTest {
             db.rollback(beforeRejectedCrossTenantInsert);
             sql.execute("SELECT set_config('app.organization_id','20000000-0000-0000-0000-000000000002',true)");
             assertThat(count(sql, "SELECT count(*) FROM patients WHERE id=900001")).as("tenant B must not read tenant A patient").isZero();
+            assertThat(count(sql, "SELECT count(*) FROM medical_records WHERE id='95000000-0000-0000-0000-000000000001'")).as("tenant B must not read tenant A encrypted clinical record").isZero();
+            assertThat(count(sql, "SELECT count(*) FROM medical_record_revisions WHERE medical_record_id='95000000-0000-0000-0000-000000000001'")).as("tenant B must not read tenant A clinical revisions").isZero();
+            assertThat(count(sql, "SELECT count(*) FROM medical_record_addendums WHERE medical_record_id='95000000-0000-0000-0000-000000000001'")).as("tenant B must not read tenant A clinical addenda").isZero();
             assertThat(count(sql, "SELECT count(*) FROM receivables")).as("tenant B must not read tenant A receivables").isZero();
             assertThat(count(sql, "SELECT count(*) FROM payments")).as("tenant B must not read tenant A payments").isZero();
             assertThat(count(sql, "SELECT count(*) FROM notifications")).as("tenant B must not read tenant A notifications").isZero();
+            assertThat(count(sql, "SELECT count(*) FROM notification_outbox_receipts")).as("tenant B must not read tenant A notification cursor").isZero();
             assertThat(count(sql, "SELECT count(*) FROM clinics WHERE organization_id='10000000-0000-0000-0000-000000000001'")).isZero();
+            Savepoint beforeRejectedCrossTenantReceipt = db.setSavepoint();
+            assertThatThrownBy(() -> sql.execute("""
+                    INSERT INTO notification_outbox_receipts(event_id, status)
+                    VALUES ('94000000-0000-0000-0000-000000000001','PENDING')
+                    """))
+                    .isInstanceOf(SQLException.class)
+                    .extracting(error -> ((SQLException) error).getSQLState()).isEqualTo("42501");
+            db.rollback(beforeRejectedCrossTenantReceipt);
             assertCriticalTablesHaveForcedTenantPolicies(sql);
             db.rollback();
             assertThat(count(sql, "SELECT count(*) FROM clinics")).isZero();
@@ -94,6 +112,40 @@ class MigrationLifecycleTest {
 
     private void seedTenantSensitiveRows(Statement sql) throws SQLException {
         sql.execute("""
+                INSERT INTO users(id,name,email,password_hash,role) VALUES
+                    (900002,'Synthetic analyst','synthetic-analyst@example.invalid','not-a-usable-hash','PSYCHOANALYST');
+                INSERT INTO psychoanalysts(id,user_id,organization_id) VALUES
+                    (900002,900002,'10000000-0000-0000-0000-000000000001');
+                INSERT INTO therapeutic_relationships(
+                    id,patient_id,psychoanalyst_id,status,is_primary,started_at,created_at,updated_at,organization_id
+                ) VALUES (
+                    950002,900001,900002,'ACTIVE',true,now(),now(),now(),'10000000-0000-0000-0000-000000000001'
+                );
+                INSERT INTO medical_records(
+                    id,patient_id,author_psychoanalyst_id,therapeutic_relationship_id,status,
+                    encrypted_content,content_iv,encrypted_dek,crypto_version,crypto_algorithm,key_id,
+                    current_revision_number,version,created_at,updated_at,organization_id
+                ) VALUES (
+                    '95000000-0000-0000-0000-000000000001',900001,900002,950002,'DRAFT',
+                    decode('01','hex'),decode('02','hex'),decode('03','hex'),1,'AES_256_GCM','synthetic-test-key',
+                    1,0,now(),now(),'10000000-0000-0000-0000-000000000001'
+                );
+                INSERT INTO medical_record_revisions(
+                    id,medical_record_id,revision_number,author_psychoanalyst_id,encrypted_content,content_iv,
+                    encrypted_dek,crypto_version,crypto_algorithm,key_id,created_at,organization_id
+                ) VALUES (
+                    '95000000-0000-0000-0000-000000000002','95000000-0000-0000-0000-000000000001',
+                    1,900002,decode('04','hex'),decode('05','hex'),decode('06','hex'),1,'AES_256_GCM',
+                    'synthetic-test-key',now(),'10000000-0000-0000-0000-000000000001'
+                );
+                INSERT INTO medical_record_addendums(
+                    id,medical_record_id,author_psychoanalyst_id,encrypted_content,content_iv,encrypted_dek,
+                    crypto_version,crypto_algorithm,key_id,reason_code,version,created_at,updated_at,organization_id
+                ) VALUES (
+                    '95000000-0000-0000-0000-000000000003','95000000-0000-0000-0000-000000000001',
+                    900002,decode('07','hex'),decode('08','hex'),decode('09','hex'),1,'AES_256_GCM',
+                    'synthetic-test-key','CLARIFICATION',0,now(),now(),'10000000-0000-0000-0000-000000000001'
+                );
                 INSERT INTO receivables(id,patient_id,description,gross_amount,discount_amount,net_amount,due_date,status,created_at,updated_at,organization_id)
                 VALUES ('91000000-0000-0000-0000-000000000001',900001,'Synthetic receivable',100,0,100,CURRENT_DATE,'OPEN',now(),now(),'10000000-0000-0000-0000-000000000001');
                 INSERT INTO payments(id,patient_id,amount,payment_method,status,created_at,updated_at,organization_id)
@@ -101,6 +153,20 @@ class MigrationLifecycleTest {
                 INSERT INTO notifications(id,notification_type,aggregate_type,aggregate_id,deduplication_key,status,created_at,updated_at,organization_id)
                 VALUES ('93000000-0000-0000-0000-000000000001','APPOINTMENT_CREATED','APPOINTMENT','synthetic-appointment',
                         'synthetic-tenant-isolation-test','PENDING',now(),now(),'10000000-0000-0000-0000-000000000001');
+                """);
+    }
+
+    private void seedNotificationOutbox(Statement sql) throws SQLException {
+        sql.execute("""
+                INSERT INTO domain_event_outbox(
+                    id,aggregate_type,aggregate_id,event_type,deduplication_key,payload,status,occurred_at,created_at,organization_id
+                ) VALUES
+                    ('94000000-0000-0000-0000-000000000001','SYNTHETIC','tenant-a','APPOINTMENT_CREATED','synthetic-outbox-a','{}','PENDING',now(),now(),'10000000-0000-0000-0000-000000000001'),
+                    ('94000000-0000-0000-0000-000000000002','SYNTHETIC','tenant-b','APPOINTMENT_CREATED','synthetic-outbox-b','{}','PENDING',now(),now(),'20000000-0000-0000-0000-000000000002');
+                SELECT set_config('app.organization_id','10000000-0000-0000-0000-000000000001',false);
+                INSERT INTO notification_outbox_receipts(event_id,organization_id,status)
+                VALUES ('94000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','PENDING');
+                RESET app.organization_id;
                 """);
     }
 
@@ -153,7 +219,7 @@ class MigrationLifecycleTest {
                 "patient_package_cancellations", "package_consumptions", "session_credit_entries",
                 "receivable_cancellations", "receivable_adjustments", "subscription_payment_mandates",
                 "subscription_charge_attempts", "bank_statement_imports", "notification_templates",
-                "data_subject_request_decisions"
+                "data_subject_request_decisions", "notification_outbox_receipts"
         };
         for (String table : tables) {
             try (PreparedStatement query = sql.getConnection().prepareStatement("""
