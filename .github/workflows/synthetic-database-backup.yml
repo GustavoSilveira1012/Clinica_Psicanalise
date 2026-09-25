@@ -1,0 +1,94 @@
+name: Encrypted synthetic Supabase backup
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type BACKUP-SYNTHETIC to confirm this database contains only synthetic data
+        type: string
+        required: true
+  schedule:
+    - cron: '0 6 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: synthetic-supabase-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    if: github.event_name == 'workflow_dispatch' || vars.ENABLE_SYNTHETIC_BACKUPS == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: synthetic-pilot
+    env:
+      PROJECT_REF: ${{ vars.BACKUP_SUPABASE_PROJECT_REF }}
+      DATABASE_HOST: ${{ secrets.BACKUP_SUPABASE_DATABASE_HOST }}
+      DATABASE_NAME: ${{ vars.BACKUP_SUPABASE_DATABASE_NAME }}
+      DATABASE_USERNAME: ${{ secrets.BACKUP_SUPABASE_DATABASE_USERNAME }}
+      DATABASE_PASSWORD: ${{ secrets.BACKUP_SUPABASE_DATABASE_PASSWORD }}
+      AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
+      DATA_CLASSIFICATION: ${{ vars.BACKUP_DATA_CLASSIFICATION }}
+      CONFIRMATION: ${{ inputs.confirmation }}
+    steps:
+      - name: Validate synthetic-only target and encryption settings
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$DATA_CLASSIFICATION" == "SYNTHETIC_ONLY" ]] || { echo "Set BACKUP_DATA_CLASSIFICATION=SYNTHETIC_ONLY in the protected environment."; exit 1; }
+          [[ "$PROJECT_REF" =~ ^[a-z0-9]{20}$ ]] || { echo "Configure the exact Supabase project ref."; exit 1; }
+          [[ "$DATABASE_HOST" == "db.${PROJECT_REF}.supabase.co" || "$DATABASE_HOST" =~ ^[a-z0-9-]+\.pooler\.supabase\.com$ ]] || { echo "Database host is not an accepted Supabase host."; exit 1; }
+          [[ "$DATABASE_NAME" == "postgres" ]] || { echo "Only the explicitly configured Supabase postgres database is supported."; exit 1; }
+          if [[ "$DATABASE_HOST" == "db.${PROJECT_REF}.supabase.co" ]]; then
+            [[ "$DATABASE_USERNAME" == "postgres" ]] || { echo "Direct Supabase connections must use the postgres role."; exit 1; }
+          else
+            [[ "$DATABASE_USERNAME" == "postgres.${PROJECT_REF}" ]] || { echo "Pooler username must be bound to the configured Supabase project ref."; exit 1; }
+          fi
+          [[ -n "$DATABASE_USERNAME" && -n "$DATABASE_PASSWORD" ]] || { echo "Configure the protected database credentials."; exit 1; }
+          [[ "$AGE_RECIPIENT" =~ ^age1[023456789acdefghjklmnpqrstuvwxyz]{20,80}$ ]] || { echo "Configure a valid age public recipient."; exit 1; }
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            [[ "$CONFIRMATION" == "BACKUP-SYNTHETIC" ]] || { echo "Explicit synthetic-data confirmation did not match."; exit 1; }
+          fi
+
+      - name: Install PostgreSQL client and age
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends postgresql-client age
+
+      - name: Dump directly into age encryption
+        id: backup
+        shell: bash
+        env:
+          PGPASSWORD: ${{ secrets.BACKUP_SUPABASE_DATABASE_PASSWORD }}
+          PGSSLMODE: verify-full
+        run: |
+          set -euo pipefail
+          backup_name="psicogest-synthetic-$(date -u +%Y%m%dT%H%M%SZ)-${GITHUB_RUN_ID}.dump.age"
+          umask 077
+          pg_dump \
+            --host="$DATABASE_HOST" \
+            --port=5432 \
+            --username="$DATABASE_USERNAME" \
+            --dbname="$DATABASE_NAME" \
+            --format=custom \
+            --no-owner \
+            --no-privileges \
+            --no-password \
+          | age --recipient "$AGE_RECIPIENT" --output "$RUNNER_TEMP/$backup_name"
+          test -s "$RUNNER_TEMP/$backup_name"
+          (cd "$RUNNER_TEMP" && sha256sum "$backup_name" > "$backup_name.sha256")
+          echo "path=$RUNNER_TEMP/$backup_name" >> "$GITHUB_OUTPUT"
+          echo "name=$backup_name" >> "$GITHUB_OUTPUT"
+
+      - name: Store encrypted artifact for seven days
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ steps.backup.outputs.name }}
+          path: |
+            ${{ steps.backup.outputs.path }}
+            ${{ steps.backup.outputs.path }}.sha256
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0

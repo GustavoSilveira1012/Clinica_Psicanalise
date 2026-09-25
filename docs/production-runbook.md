@@ -41,6 +41,24 @@ Para ensaiar o expurgo sem apagar arquivos, acrescente `-PruneExpired -WhatIf`. 
 Copie o `.dump.age` e o `.dump.age.sha256` para armazenamento separado com retenção
 imutável/versionada. O backup local não é suficiente para RPO/RTO de produção.
 
+### Exportação automatizada do projeto Supabase sintético
+
+O workflow `Encrypted synthetic Supabase backup` é opcional e fica desligado até
+`ENABLE_SYNTHETIC_BACKUPS=true`. Ele usa o ambiente protegido `synthetic-pilot`, exige
+classificação `SYNTHETIC_ONLY`, valida o project ref/host, faz `pg_dump` com TLS
+verificado e transmite o dump diretamente para criptografia `age`. O artefato do
+GitHub contém somente ciphertext e checksum e expira em sete dias. Para disparo manual,
+digite `BACKUP-SYNTHETIC` como confirmação. Configure as credenciais como secrets e
+o project ref, nome do banco (`postgres`), classificação e destinatário público `age`
+como variables protegidas desse ambiente.
+
+Este workflow é apenas uma conveniência temporária para testes fictícios: artefatos do
+GitHub não são backup imutável nem estratégia de recuperação de produção. O plano
+Supabase Free não fornece backup gerenciado; mantenha exportações cifradas fora do
+GitHub para qualquer retenção necessária e não use este workflow com dados reais. A
+restauração permanece manual para um projeto Supabase de teste separado, após conferir
+o checksum e a identidade do destino; nunca automatize restore sobre a origem.
+
 ## Restore drill
 
 O restore deve ser ensaiado primeiro em uma base isolada, com o mesmo major version do PostgreSQL:
