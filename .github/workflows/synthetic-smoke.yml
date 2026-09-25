@@ -14,10 +14,11 @@ concurrency:
 
 jobs:
   smoke:
-    if: vars.ENABLE_SYNTHETIC_SMOKE == 'true'
+    # Keep the opt-in repository-scoped because environment vars are not available in job.if.
+    if: github.ref == 'refs/heads/main' && vars.ENABLE_SYNTHETIC_SMOKE == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    environment: synthetic-pilot
+    environment: synthetic-automation
     env:
       API_URL: ${{ vars.SYNTHETIC_API_URL }}
       WEB_URL: ${{ vars.SYNTHETIC_WEB_URL }}

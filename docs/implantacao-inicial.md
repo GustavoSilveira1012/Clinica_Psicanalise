@@ -66,7 +66,7 @@ O perfil de produção exige storage de exportação disponível por padrão. N�
 
 ### Configuração técnica a preparar após criar o ambiente vazio
 
-- PostgreSQL: conexão JDBC com TLS e verificação do certificado/hostname; credenciais separadas de runtime e migrations. Runtime deve ser `NOSUPERUSER NOBYPASSRLS`, sem privilégios administrativos indiretos. Validar políticas RLS com duas organizações.
+- PostgreSQL: `DATABASE_URL` deve ser JDBC sem usuário/senha embutidos e com `sslmode=verify-full`; o backend recusa iniciar em produção sem verificação do certificado/hostname. Configure credenciais separadas de runtime e migrations. Runtime deve ser `NOSUPERUSER NOBYPASSRLS`, sem privilégios administrativos indiretos. Validar políticas RLS com duas organizações.
 - Supabase: usar conexão adequada a um servidor persistente; conferir conectividade direta/IPv6 ou pooler em modo de sessão. Não escolher pooler transacional sem validar Flyway e o contexto de tenant. [Conexões PostgreSQL](https://supabase.com/docs/guides/database/connecting-to-postgres).
 - Redis: `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` e TLS. Testar autenticação, rate limit de entrada e token bucket outbound por entidade financeira/canal com o fornecedor; o limite outbound falha fechado se Redis estiver indisponível.
 - Backend: `SPRING_PROFILES_ACTIVE=production`, origens HTTPS explícitas, cookie seguro, par de chaves JWT e três chaves independentes para MFA, conteúdo clínico e auditoria.
@@ -74,7 +74,7 @@ O perfil de produção exige storage de exportação disponível por padrão. N�
 - Guardar chaves e senhas em configuração protegida; nenhuma credencial deve ir para `VITE_*`, Git ou conversa. Guardar cópia recuperável das chaves, com acesso restrito.
 - Manter `SCHEDULING_ENABLED=false` até validar as rotinas automáticas e seus fornecedores. No clone, bloquear também saída de rede para serviços reais: esse parâmetro sozinho não impede chamadas diretas.
 - Site: blueprint publica `frontend/dist` e injeta a URL externa da API em build. O rewrite direciona refresh/deep links do SPA para `index.html`.
-- API: blueprint usa `backend/psicogest/psicogest/Dockerfile`. Preencher `SECURITY_ALLOWED_ORIGINS` com a origem exata do site; nunca usar `*` com cookies. Configurar `DATABASE_URL` como JDBC/TLS e contas distintas de runtime/migration. Confirmar versão do PostgreSQL, pool e consumo de memória antes de testar.
+- API: blueprint usa `backend/psicogest/psicogest/Dockerfile`. Preencher `SECURITY_ALLOWED_ORIGINS` com a origem exata do site; nunca usar `*` com cookies. Configurar `DATABASE_URL` como JDBC com `sslmode=verify-full` e contas distintas de runtime/migration. Confirmar versão do PostgreSQL, pool e consumo de memória antes de testar.
 - JWT: cadastrar os PEM como secret files no Render e informar os paths em `JWT_PUBLIC_KEY_LOCATION` e `JWT_PRIVATE_KEY_LOCATION`; as variáveis `sync:false` não criam os arquivos.
 - Deploy: `autoDeployTrigger: checksPass` requer que os checks do CI estejam visíveis ao Render. Flyway executa ao iniciar a API; apontar somente a um banco de teste vazio aprovado. Fazer ensaio manual de rollback, lembrando que reverter imagem não reverte migration.
 

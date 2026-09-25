@@ -44,13 +44,16 @@ imutável/versionada. O backup local não é suficiente para RPO/RTO de produç�
 ### Exportação automatizada do projeto Supabase sintético
 
 O workflow `Encrypted synthetic Supabase backup` é opcional e fica desligado até
-`ENABLE_SYNTHETIC_BACKUPS=true`. Ele usa o ambiente protegido `synthetic-pilot`, exige
-classificação `SYNTHETIC_ONLY`, valida o project ref/host, faz `pg_dump` com TLS
+a variável **do repositório** `ENABLE_SYNTHETIC_BACKUPS=true` (o agendamento é limitado
+ao branch `main`). Ele usa o ambiente `synthetic-automation`, exige classificação
+`SYNTHETIC_ONLY`, valida o project ref/host, faz `pg_dump` com TLS
 verificado e transmite o dump diretamente para criptografia `age`. O artefato do
 GitHub contém somente ciphertext e checksum e expira em sete dias. Para disparo manual,
 digite `BACKUP-SYNTHETIC` como confirmação. Configure as credenciais como secrets e
 o project ref, nome do banco (`postgres`), classificação e destinatário público `age`
-como variables protegidas desse ambiente.
+como variables protegidas desse ambiente. Restrinja o ambiente ao branch `main`; não
+configure aprovação manual nele se desejar execução realmente agendada. O ambiente
+`synthetic-pilot` continua reservado ao rollback com aprovação.
 
 Este workflow é apenas uma conveniência temporária para testes fictícios: artefatos do
 GitHub não são backup imutável nem estratégia de recuperação de produção. O plano
@@ -137,12 +140,14 @@ auditoria e reconciliação de contagens. Não desative essa proteção para lib
 
 ## Health check do piloto sem fornecedor adicional
 
-O workflow `Synthetic Render availability check` fica inativo até a variable protegida
-`ENABLE_SYNTHETIC_SMOKE=true` no ambiente `synthetic-pilot`. Antes disso, configure
-`SYNTHETIC_API_URL` e `SYNTHETIC_WEB_URL` com os hosts HTTPS `.onrender.com` do projeto
-fictício. Ele consulta apenas `/health/live`, `/health/ready` e a página inicial, uma
-vez por dia, e falha o workflow quando algum endpoint não responde com HTTP 200. O
-GitHub deve estar configurado para notificar os responsáveis por falhas de Actions.
+O workflow `Synthetic Render availability check` fica inativo até a variável **do
+repositório** `ENABLE_SYNTHETIC_SMOKE=true` (execução somente no branch `main`). No
+ambiente `synthetic-automation`, configure `SYNTHETIC_API_URL` e `SYNTHETIC_WEB_URL` com
+os hosts HTTPS `.onrender.com` do projeto fictício. Ele consulta apenas `/health/live`,
+`/health/ready` e a página inicial, uma vez por dia, e falha o workflow quando algum
+endpoint não responde com HTTP 200. O GitHub deve estar configurado para notificar os
+responsáveis por falhas de Actions. Restrinja `synthetic-automation` ao branch `main` e
+não exija aprovação por execução agendada.
 Esse check não coleta métricas, não mede SLO nem substitui monitoramento contratado;
 em plano gratuito serve apenas como alarme básico de disponibilidade do ambiente de
 teste. O acesso a Prometheus permanece autenticado e não deve ser exposto publicamente.
