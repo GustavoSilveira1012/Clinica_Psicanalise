@@ -2,6 +2,7 @@ package com.psicogest.psicogest.infrastructure.storage;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import java.io.*;
@@ -17,6 +18,7 @@ import java.util.UUID;
  */
 @Slf4j
 @Component
+@Profile("!production")
 @ConditionalOnProperty(
         name = "app.export-storage.type",
         havingValue = "local",
@@ -42,14 +44,22 @@ public class LocalClinicalExportStorage implements SecureClinicalExportStorage {
     }
 
     @Override
-    public StoredExport store(UUID exportId, byte[] content, String contentType) {
+    public StoredExport store(UUID financialEntityId, UUID exportId, byte[] content, String contentType) {
         try {
             // Gera SHA-256 do conteúdo
             String sha256 = calculateSha256(content);
             
             // Storage key: exportId
             String storageKey = exportId.toString();
-            Path filePath = exportDir.resolve(storageKey);
+            Path tenantDir = exportDir.resolve(financialEntityId.toString()).normalize();
+            if (!tenantDir.startsWith(exportDir.normalize())) {
+                throw new IllegalArgumentException("Tenant inválido para armazenamento de exportação");
+            }
+            Files.createDirectories(tenantDir);
+            Path filePath = tenantDir.resolve(storageKey).normalize();
+            if (!filePath.startsWith(tenantDir)) {
+                throw new IllegalArgumentException("Chave inválida para armazenamento de exportação");
+            }
 
             // Escreve arquivo
             Files.write(filePath, content);
@@ -64,9 +74,9 @@ public class LocalClinicalExportStorage implements SecureClinicalExportStorage {
     }
 
     @Override
-    public InputStream open(String storageKey) {
+    public InputStream open(UUID financialEntityId, String storageKey) {
         try {
-            Path filePath = exportDir.resolve(storageKey);
+            Path filePath = tenantPath(financialEntityId, storageKey);
             
             if (!Files.exists(filePath)) {
                 throw new FileNotFoundException("Export não encontrado: " + storageKey);
@@ -80,9 +90,9 @@ public class LocalClinicalExportStorage implements SecureClinicalExportStorage {
     }
 
     @Override
-    public void delete(String storageKey) {
+    public void delete(UUID financialEntityId, String storageKey) {
         try {
-            Path filePath = exportDir.resolve(storageKey);
+            Path filePath = tenantPath(financialEntityId, storageKey);
             
             if (Files.exists(filePath)) {
                 Files.delete(filePath);
@@ -91,6 +101,21 @@ public class LocalClinicalExportStorage implements SecureClinicalExportStorage {
         } catch (IOException e) {
             log.warn("Falha ao deletar export: storageKey={}", storageKey, e);
         }
+    }
+
+    private Path tenantPath(UUID financialEntityId, String storageKey) {
+        final String safeKey;
+        try {
+            safeKey = UUID.fromString(storageKey).toString();
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("Chave inválida para armazenamento de exportação");
+        }
+        Path tenantDir = exportDir.resolve(financialEntityId.toString()).normalize();
+        Path filePath = tenantDir.resolve(safeKey).normalize();
+        if (!tenantDir.startsWith(exportDir.normalize()) || !filePath.startsWith(tenantDir)) {
+            throw new IllegalArgumentException("Caminho inválido para armazenamento de exportação");
+        }
+        return filePath;
     }
 
     /**

@@ -3,6 +3,7 @@ package com.psicogest.psicogest.infrastructure.health;
 import com.psicogest.psicogest.infrastructure.notification.provider.NotificationProvider;
 import com.psicogest.psicogest.infrastructure.payment.provider.PaymentProvider;
 import com.psicogest.psicogest.infrastructure.payment.provider.webhook.PaymentWebhookAdapter;
+import com.psicogest.psicogest.infrastructure.storage.SecureClinicalExportStorage;
 import com.psicogest.psicogest.model.enums.NotificationChannel;
 import com.psicogest.psicogest.service.fiscal.FailClosedNationalNfseClient;
 import com.psicogest.psicogest.service.fiscal.NationalNfseClient;
@@ -27,29 +28,41 @@ public class ProviderReadinessService {
     private static final Set<NotificationChannel> REQUIRED_NOTIFICATION_CHANNELS =
             EnumSet.of(NotificationChannel.EMAIL, NotificationChannel.WHATSAPP);
 
-    private final boolean requireRealProviders;
+    private final boolean requirePaymentProviders;
+    private final boolean requireNotificationProviders;
+    private final boolean requireNationalNfse;
+    private final boolean requireClinicalExportStorage;
     private final List<PaymentProvider> paymentProviders;
     private final List<NotificationProvider> notificationProviders;
     private final List<PaymentWebhookAdapter> webhookAdapters;
     private final NationalNfseClient nationalNfseClient;
+    private final List<SecureClinicalExportStorage> clinicalExportStorages;
 
     public ProviderReadinessService(
-            @Value("${app.integrations.require-real-providers:false}") boolean requireRealProviders,
+            @Value("${app.integrations.require-payment-providers:${app.integrations.require-real-providers:false}}") boolean requirePaymentProviders,
+            @Value("${app.integrations.require-notification-providers:${app.integrations.require-real-providers:false}}") boolean requireNotificationProviders,
+            @Value("${app.integrations.require-national-nfse:${app.integrations.require-real-providers:false}}") boolean requireNationalNfse,
             List<PaymentProvider> paymentProviders,
             List<NotificationProvider> notificationProviders,
             List<PaymentWebhookAdapter> webhookAdapters,
-            NationalNfseClient nationalNfseClient
+            NationalNfseClient nationalNfseClient,
+            List<SecureClinicalExportStorage> clinicalExportStorages,
+            @Value("${app.export-storage.required-for-readiness:false}") boolean requireClinicalExportStorage
     ) {
-        this.requireRealProviders = requireRealProviders;
+        this.requirePaymentProviders = requirePaymentProviders;
+        this.requireNotificationProviders = requireNotificationProviders;
+        this.requireNationalNfse = requireNationalNfse;
         this.paymentProviders = List.copyOf(paymentProviders);
         this.notificationProviders = List.copyOf(notificationProviders);
         this.webhookAdapters = List.copyOf(webhookAdapters);
         this.nationalNfseClient = nationalNfseClient;
+        this.clinicalExportStorages = List.copyOf(clinicalExportStorages);
+        this.requireClinicalExportStorage = requireClinicalExportStorage;
     }
 
     public boolean isReady() {
-        if (!requireRealProviders) {
-            return true;
+        if (requireClinicalExportStorage && !clinicalExportStorageReady()) {
+            return false;
         }
         Set<NotificationChannel> channels = notificationProviders.stream()
                 .map(NotificationProvider::channel)
@@ -61,11 +74,20 @@ public class ProviderReadinessService {
                 .map(PaymentWebhookAdapter::getType)
                 .collect(Collectors.toUnmodifiableSet());
 
-        return !paymentTypes.isEmpty()
-                && webhookTypes.containsAll(paymentTypes)
-                && channels.containsAll(REQUIRED_NOTIFICATION_CHANNELS)
-                && nationalNfseClient != null
-                && !(nationalNfseClient instanceof FailClosedNationalNfseClient);
+        boolean paymentsReady = !requirePaymentProviders
+                || (!paymentTypes.isEmpty() && webhookTypes.containsAll(paymentTypes));
+        boolean notificationsReady = !requireNotificationProviders
+                || channels.containsAll(REQUIRED_NOTIFICATION_CHANNELS);
+        boolean nfseReady = !requireNationalNfse
+                || (nationalNfseClient != null
+                && !(nationalNfseClient instanceof FailClosedNationalNfseClient));
+
+        return paymentsReady && notificationsReady && nfseReady;
+    }
+
+    private boolean clinicalExportStorageReady() {
+        return clinicalExportStorages.stream()
+                .anyMatch(SecureClinicalExportStorage::isAvailableForProduction);
     }
 
     public Map<String, Object> status() {
@@ -79,14 +101,20 @@ public class ProviderReadinessService {
                 .map(PaymentWebhookAdapter::getType)
                 .collect(Collectors.toUnmodifiableSet());
 
-        return Map.of(
-                "required", requireRealProviders,
-                "ready", isReady(),
-                "paymentProviders", paymentTypes.stream().map(Object::toString).sorted().toList(),
-                "paymentWebhookAdapters", webhookTypes.stream().map(Object::toString).sorted().toList(),
-                "notificationChannels", channels.stream().map(Enum::name).sorted().toList(),
-                "nationalNfse", nationalNfseClient != null
-                        && !(nationalNfseClient instanceof FailClosedNationalNfseClient)
+        return Map.ofEntries(
+                Map.entry("required", requirePaymentProviders || requireNotificationProviders
+                        || requireNationalNfse || requireClinicalExportStorage),
+                Map.entry("ready", isReady()),
+                Map.entry("paymentProvidersRequired", requirePaymentProviders),
+                Map.entry("notificationProvidersRequired", requireNotificationProviders),
+                Map.entry("nationalNfseRequired", requireNationalNfse),
+                Map.entry("clinicalExportStorageRequired", requireClinicalExportStorage),
+                Map.entry("clinicalExportStorageReady", clinicalExportStorageReady()),
+                Map.entry("paymentProviders", paymentTypes.stream().map(Object::toString).sorted().toList()),
+                Map.entry("paymentWebhookAdapters", webhookTypes.stream().map(Object::toString).sorted().toList()),
+                Map.entry("notificationChannels", channels.stream().map(Enum::name).sorted().toList()),
+                Map.entry("nationalNfse", nationalNfseClient != null
+                        && !(nationalNfseClient instanceof FailClosedNationalNfseClient))
         );
     }
 }

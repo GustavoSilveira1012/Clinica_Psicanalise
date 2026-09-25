@@ -45,6 +45,24 @@
 - `staging`: banco, Redis, secrets e topologia equivalentes à produção, com dados sintéticos.
 - `production`: ativar `SPRING_PROFILES_ACTIVE=production`; os placeholders sem valor fazem a aplicação falhar no startup em vez de iniciar insegura.
 
+## Piloto clínico-operacional (Sorocaba/SP)
+
+Como ainda não há contratos para pagamentos, e-mail ou WhatsApp, o primeiro piloto deve manter essas integrações e a emissão de NFS-e desabilitadas. No ambiente de produção, configurar explicitamente:
+
+```text
+REQUIRE_REAL_PROVIDERS=false
+REQUIRE_PAYMENT_PROVIDERS=false
+REQUIRE_NOTIFICATION_PROVIDERS=false
+REQUIRE_NATIONAL_NFSE=false
+SCHEDULING_ENABLED=false
+```
+
+Isso apenas remove os providers comerciais/fiscais do readiness gate; não cria providers nem autoriza cobrar, enviar notificações ou emitir documentos fiscais. A emissão fiscal para Sorocaba/SP segue bloqueada até seleção do emissor, certificado e homologação municipal.
+
+Exportações clínicas continuam indisponíveis e a prontidão de produção continua negativa enquanto não houver um adapter de armazenamento de objetos privado, durável e com criptografia/KMS verificada. `CLINICAL_EXPORT_STORAGE_TYPE=disabled` é o default fail-closed; não trocar para armazenamento local em produção. Cada chave de exportação é escopada também pelo UUID da `FinancialEntity`.
+
+O gate clínico-operacional não equivale a autorização para piloto externo: é necessário comprovar restore, TLS/WAF, segregação de tenants, suporte/incidentes e revisão jurídica/LGPD na infraestrutura escolhida.
+
 ## Verificação local
 
 Frontend:

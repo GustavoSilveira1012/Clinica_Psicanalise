@@ -21,14 +21,24 @@ import java.util.UUID;
 public interface SecureClinicalExportStorage {
 
     /**
+     * Reports whether this implementation has verified durable, private
+     * storage suitable for production clinical exports.
+     */
+    default boolean isAvailableForProduction() {
+        return false;
+    }
+
+    /**
      * Armazena export clínico
      * 
+     * @param financialEntityId tenant proprietário do export
      * @param exportId ID único do export (usado na URL segura)
      * @param content bytes do arquivo (PDF, JSON, etc)
      * @param contentType MIME type (application/pdf, application/json, etc)
      * @return metadados do arquivo armazenado
      */
     StoredExport store(
+            UUID financialEntityId,
             UUID exportId,
             byte[] content,
             String contentType
@@ -46,6 +56,7 @@ public interface SecureClinicalExportStorage {
      * @return InputStream para streaming do conteúdo
      */
     InputStream open(
+            UUID financialEntityId,
             String storageKey
     );
 
@@ -55,6 +66,7 @@ public interface SecureClinicalExportStorage {
      * @param storageKey chave retornada por store()
      */
     void delete(
+            UUID financialEntityId,
             String storageKey
     );
 }
