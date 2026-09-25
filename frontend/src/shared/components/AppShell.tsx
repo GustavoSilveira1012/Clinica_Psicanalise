@@ -9,6 +9,7 @@ import { cn } from "../lib/cn";
 import { CommandPalette, type CommandPaletteItem } from "./CommandPalette";
 import { IconButton } from "./ui";
 import { useTheme } from "../providers/ThemeProvider";
+import { clinicalDataEnabled, clinicalDataRoutes, clinicalOnlyPilot, pilotUnavailableRoutes } from "../lib/pilot-scope";
 
 interface NavItem {
   label: string;
@@ -58,7 +59,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const organizationSlug = organizationMatch?.[1] ?? session?.user.organizations?.find((organization) => organization.id === selectedOrganizationId)?.slug ?? "";
   const scopedTo = (to: string) => organizationMatch ? `/app/${organizationSlug}${to}` : to;
 
-  const visibleGroups = useMemo(() => groups.map((group) => ({ ...group, items: group.items.filter((item) => can(session?.user ?? null, item.permission)) })).filter((group) => group.items.length > 0), [session?.user]);
+  const visibleGroups = useMemo(() => groups.map((group) => ({ ...group, items: group.items.filter((item) => can(session?.user ?? null, item.permission) && (clinicalDataEnabled || !clinicalDataRoutes.has(item.to)) && !(clinicalOnlyPilot && pilotUnavailableRoutes.has(item.to))) })).filter((group) => group.items.length > 0), [session?.user]);
   const allItems = groups.flatMap((group) => group.items);
   const currentItem = allItems.find((item) => location.pathname.startsWith(scopedTo(item.to)));
   const currentGroup = groups.find((group) => group.items.some((item) => item.to === currentItem?.to))?.label ?? "Visão geral";
@@ -122,6 +123,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </header>
         {import.meta.env.DEV && import.meta.env.VITE_DEMO_MODE === "true" && <div className="border-b border-amber-200/70 bg-amber-50/70 px-4 py-2 text-center text-[11px] font-medium text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-200"><span className="font-bold">Ambiente de demonstração</span> · dados fictícios e fluxos locais, sem envio real para provedores.</div>}
+        {import.meta.env.PROD && !clinicalDataEnabled && <div role="status" className="border-b border-amber-300 bg-amber-100 px-4 py-2 text-center text-xs font-semibold text-amber-950 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-200">Ambiente de demonstração protegido · acesso a dados clínicos desabilitado até aprovação dos controles de produção.</div>}
         <main className="mx-auto w-full max-w-[1600px] overflow-x-hidden px-4 py-7 sm:px-8 lg:px-10">{children}</main>
       </div>
     </div>

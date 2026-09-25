@@ -2,6 +2,11 @@
 
 Este runbook complementa o código e não substitui a aprovação do responsável de infraestrutura, segurança e LGPD. Os comandos abaixo devem ser executados somente em um ambiente identificado, com janela de manutenção e backup verificado.
 
+Para organizar contas, fornecedores, responsáveis e homologações, use o
+[roteiro de implantação inicial](implantacao-inicial.md) e o
+[modelo de evidências](implantacao-evidencias-modelo.md). O roteiro distingue os
+testes gratuitos com dados fictícios dos requisitos para uso clínico real.
+
 ## Variáveis de ambiente
 
 Defina temporariamente, usando o secret manager do ambiente:
