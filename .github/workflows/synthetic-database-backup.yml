@@ -83,7 +83,7 @@ jobs:
           echo "name=$backup_name" >> "$GITHUB_OUTPUT"
 
       - name: Store encrypted artifact for seven days
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.backup.outputs.name }}
           path: |
