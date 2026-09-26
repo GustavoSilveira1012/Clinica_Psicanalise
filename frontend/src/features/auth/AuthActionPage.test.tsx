@@ -57,9 +57,9 @@ describe("AuthActionPage", () => {
 
   it("automatically consumes an email-verification token from the URL fragment", async () => {
     const token = "b".repeat(43);
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      if (url.endsWith("/auth/email/verify")) return new Response(null, { status: 204 });
+      if (url.endsWith("/auth/email/verify") && init?.method === "POST") return new Response(null, { status: 204 });
       return new Response(null, { status: 404 });
     });
     vi.stubGlobal("fetch", fetchMock);
