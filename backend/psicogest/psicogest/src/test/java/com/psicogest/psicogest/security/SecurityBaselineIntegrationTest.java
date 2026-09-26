@@ -100,7 +100,13 @@ class SecurityBaselineIntegrationTest extends PostgresIntegrationTest {
                 "/api/v1/payments",
                 "/api/v1/payments/95000000-0000-0000-0000-000000000004/refunds",
                 "/api/v1/notifications/deliveries",
+                "/api/v1/notifications/preferences",
                 "/api/v1/package-plans",
+                "/api/v1/subscriptions/95000000-0000-0000-0000-000000000009",
+                "/bank-transactions/95000000-0000-0000-0000-000000000007/suggestions",
+                "/service-invoices/95000000-0000-0000-0000-000000000008",
+                "/organizations/" + foreignOrganizationId + "/billing",
+                "/organizations/" + foreignOrganizationId + "/entitlements",
                 "/api/v1/compliance/privacy-requests",
                 "/api/v1/compliance/audit-events",
                 "/api/v1/compliance/security-signals"
@@ -126,8 +132,27 @@ class SecurityBaselineIntegrationTest extends PostgresIntegrationTest {
                 post("/api/v1/payments").contentType("application/json").content("{}"),
                 post("/api/v1/payments/95000000-0000-0000-0000-000000000004/refunds")
                         .contentType("application/json").content("{}"),
+                post("/api/v1/payments/95000000-0000-0000-0000-000000000004/allocations")
+                        .contentType("application/json").content("{}"),
+                post("/api/v1/payments/95000000-0000-0000-0000-000000000004/confirm"),
                 post("/patients/999999/subscriptions").contentType("application/json").content("{}"),
-                put("/api/v1/notifications/preferences/1").contentType("application/json").content("{}")
+                put("/api/v1/notifications/preferences/1").contentType("application/json").content("{}"),
+                post("/bank-accounts/95000000-0000-0000-0000-000000000006/statements"),
+                post("/bank-transactions/95000000-0000-0000-0000-000000000007/reconcile/payment")
+                        .contentType("application/json").content("{}"),
+                post("/bank-transactions/95000000-0000-0000-0000-000000000007/ignore")
+                        .contentType("application/json").content("{}"),
+                post("/bank-transactions/95000000-0000-0000-0000-000000000007/reconcile/provider-settlement")
+                        .contentType("application/json").content("{}"),
+                post("/service-invoices").contentType("application/json").content("{}"),
+                put("/service-invoices/95000000-0000-0000-0000-000000000008")
+                        .contentType("application/json").content("{}"),
+                post("/service-invoices/95000000-0000-0000-0000-000000000008/issue"),
+                post("/service-invoices/95000000-0000-0000-0000-000000000008/cancel"),
+                post("/service-invoices/95000000-0000-0000-0000-000000000008/substitute")
+                        .contentType("application/json").content("{}"),
+                post("/api/v1/subscriptions/95000000-0000-0000-0000-000000000009/payment-mandate")
+                        .contentType("application/json").content("{}")
         };
 
         for (MockHttpServletRequestBuilder request : crossTenantWrites) {
