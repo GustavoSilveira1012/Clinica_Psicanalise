@@ -5,10 +5,22 @@ export const clinicalOnlyPilot = import.meta.env.PROD
   : configuredClinicalOnly === "true";
 
 const configuredClinicalData = import.meta.env.VITE_CLINICAL_DATA_ENABLED;
+const configuredClinicalDataReleaseApproval = import.meta.env.VITE_CLINICAL_DATA_RELEASE_APPROVED;
 
-export const clinicalDataEnabled = import.meta.env.PROD
-  ? configuredClinicalData === "true"
-  : configuredClinicalData !== "false";
+export function clinicalDataAccessGranted(
+  isProduction: boolean,
+  dataEnabled: string | undefined,
+  releaseApproved: string | undefined,
+): boolean {
+  if (!isProduction) return dataEnabled !== "false";
+  return dataEnabled === "true" && releaseApproved === "true";
+}
+
+export const clinicalDataEnabled = clinicalDataAccessGranted(
+  import.meta.env.PROD,
+  configuredClinicalData,
+  configuredClinicalDataReleaseApproval,
+);
 
 export const clinicalDataRoutes = new Set([
   "/dashboard",

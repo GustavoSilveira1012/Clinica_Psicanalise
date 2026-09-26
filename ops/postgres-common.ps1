@@ -9,6 +9,9 @@ function Get-PostgresTarget {
         $target.Query -match '(?i)(password|user)=') {
         throw 'DATABASE_URL deve identificar explicitamente host e banco, sem credenciais na URL.'
     }
+    if ($target.Query -cnotmatch '^\?sslmode=verify-full$') {
+        throw 'DATABASE_URL deve usar somente sslmode=verify-full; parâmetros adicionais ou TLS mais fraco são proibidos.'
+    }
     $port = if ($target.Port -lt 1) { 5432 } else { $target.Port }
     [PSCustomObject]@{
         ConnectionString = $libpqUrl

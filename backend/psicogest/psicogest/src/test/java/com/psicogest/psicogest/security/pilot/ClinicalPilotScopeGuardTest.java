@@ -10,7 +10,7 @@ class ClinicalPilotScopeGuardTest {
 
     @Test
     void blocksExcludedModulesAndPaymentMutationsInClinicalPilot() {
-        ClinicalPilotScopeGuard guard = new ClinicalPilotScopeGuard(true, true);
+        ClinicalPilotScopeGuard guard = new ClinicalPilotScopeGuard(true, true, true);
 
         assertThat(guard.isUnavailable("GET", "/service-invoices")).isTrue();
         assertThat(guard.isUnavailable("GET", "/api/v1/notifications/deliveries")).isTrue();
@@ -26,7 +26,7 @@ class ClinicalPilotScopeGuardTest {
 
     @Test
     void returnsGenericNotFoundForDisabledModuleEvenBehindAContextPath() throws Exception {
-        ClinicalPilotScopeGuard guard = new ClinicalPilotScopeGuard(true, true);
+        ClinicalPilotScopeGuard guard = new ClinicalPilotScopeGuard(true, true, true);
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/api/v1/payments");
         request.setContextPath("/api");
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -38,7 +38,7 @@ class ClinicalPilotScopeGuardTest {
 
     @Test
     void keepsReadOnlyPaymentHistoryAndClinicalRoutesAvailable() {
-        ClinicalPilotScopeGuard guard = new ClinicalPilotScopeGuard(true, true);
+        ClinicalPilotScopeGuard guard = new ClinicalPilotScopeGuard(true, true, true);
 
         assertThat(guard.isUnavailable("GET", "/api/v1/payments")).isFalse();
         assertThat(guard.isUnavailable("GET", "/patients")).isFalse();
@@ -47,7 +47,7 @@ class ClinicalPilotScopeGuardTest {
 
     @Test
     void doesNotRestrictModulesOutsideTheClinicalPilot() throws Exception {
-        ClinicalPilotScopeGuard guard = new ClinicalPilotScopeGuard(false, true);
+        ClinicalPilotScopeGuard guard = new ClinicalPilotScopeGuard(false, true, true);
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/service-invoices");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -57,7 +57,7 @@ class ClinicalPilotScopeGuardTest {
 
     @Test
     void blocksSensitiveReadsAndWritesUntilClinicalDataIsExplicitlyEnabled() {
-        ClinicalPilotScopeGuard guard = new ClinicalPilotScopeGuard(true, false);
+        ClinicalPilotScopeGuard guard = new ClinicalPilotScopeGuard(true, false, true);
 
         assertThat(guard.isUnavailable("GET", "/patients")).isTrue();
         assertThat(guard.isUnavailable("GET", "/psychoanalysts/7/appointments")).isTrue();
@@ -72,7 +72,7 @@ class ClinicalPilotScopeGuardTest {
 
     @Test
     void returnsLockedWithGenericCodeWhenClinicalDataAccessIsDisabled() throws Exception {
-        ClinicalPilotScopeGuard guard = new ClinicalPilotScopeGuard(true, false);
+        ClinicalPilotScopeGuard guard = new ClinicalPilotScopeGuard(true, false, true);
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/patients");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -80,5 +80,13 @@ class ClinicalPilotScopeGuardTest {
         assertThat(response.getStatus()).isEqualTo(423);
         assertThat(response.getContentAsString()).contains("CLINICAL_DATA_DISABLED");
         assertThat(response.getContentAsString()).doesNotContain("patient", "tenant", "organization");
+    }
+
+    @Test
+    void requiresIndependentReleaseApprovalEvenWhenClinicalDataFlagIsEnabled() {
+        ClinicalPilotScopeGuard guard = new ClinicalPilotScopeGuard(true, true, false);
+
+        assertThat(guard.isUnavailable("GET", "/patients")).isTrue();
+        assertThat(guard.isUnavailable("GET", "/medical-records/3")).isTrue();
     }
 }

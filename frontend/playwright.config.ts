@@ -21,6 +21,7 @@ export default defineConfig({
       ...process.env,
       VITE_CLINICAL_ONLY_PILOT: "true",
       VITE_CLINICAL_DATA_ENABLED: "false",
+      VITE_CLINICAL_DATA_RELEASE_APPROVED: "false",
       VITE_DEMO_MODE: "false",
       VITE_API_URL: "",
     },

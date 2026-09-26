@@ -19,6 +19,8 @@ services:
         value: "true"
       - key: CLINICAL_DATA_ENABLED
         value: "false"
+      - key: CLINICAL_DATA_RELEASE_APPROVED
+        value: "false"
       - key: SCHEDULING_ENABLED
         value: "false"
       - key: AUTH_ACTION_MAIL_ENABLED
@@ -95,6 +97,8 @@ services:
       - key: VITE_CLINICAL_ONLY_PILOT
         value: "true"
       - key: VITE_CLINICAL_DATA_ENABLED
+        value: "false"
+      - key: VITE_CLINICAL_DATA_RELEASE_APPROVED
         value: "false"
     routes:
       - type: rewrite

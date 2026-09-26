@@ -8,7 +8,7 @@ function Assert-Throws {
     if (-not $thrown) { throw "Teste falhou: $Name deveria ser rejeitado." }
 }
 
-$validTarget = Get-PostgresTarget 'jdbc:postgresql://db-clone.example.invalid:5432/psicogest_restore_drill'
+$validTarget = Get-PostgresTarget 'jdbc:postgresql://db-clone.example.invalid:5432/psicogest_restore_drill?sslmode=verify-full'
 Assert-PostgresTargetMatches `
     -Target $validTarget `
     -ExpectedDatabaseName 'psicogest_restore_drill' `
@@ -30,6 +30,18 @@ Assert-Throws {
 Assert-Throws {
     Get-PostgresTarget 'jdbc:postgresql://user:secret@db.example.invalid/production'
 } 'credencial embutida na URL'
+Assert-Throws {
+    Get-PostgresTarget 'jdbc:postgresql://db-clone.example.invalid:5432/psicogest_restore_drill?sslmode=disable'
+} 'TLS sem validação do certificado'
+Assert-Throws {
+    Get-PostgresTarget 'jdbc:postgresql://db-clone.example.invalid:5432/psicogest_restore_drill?sslmode=verify-full&host=production.example.invalid'
+} 'host alternativo oculto na query'
+Assert-Throws {
+    Get-PostgresTarget 'jdbc:postgresql://db-clone.example.invalid:5432/psicogest_restore_drill?sslmode=verify-full&port=5433'
+} 'porta alternativa oculta na query'
+Assert-Throws {
+    Get-PostgresTarget 'jdbc:postgresql://db-clone.example.invalid:5432/psicogest_restore_drill?sslmode=verify-full&dbname=production'
+} 'banco alternativo oculto na query'
 
 $temporaryDirectory = Join-Path ([IO.Path]::GetTempPath()) ('psicogest-pipe-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $temporaryDirectory | Out-Null

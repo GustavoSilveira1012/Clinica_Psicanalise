@@ -51,14 +51,17 @@ public class ClinicalPilotScopeGuard implements HandlerInterceptor {
     private static final Set<String> MUTATING_METHODS = Set.of("POST", "PUT", "PATCH", "DELETE");
     private final boolean clinicalOnly;
     private final boolean clinicalDataEnabled;
+    private final boolean clinicalDataReleaseApproved;
     private final AntPathMatcher paths = new AntPathMatcher();
 
     public ClinicalPilotScopeGuard(
             @Value("${app.pilot.clinical-only:false}") boolean clinicalOnly,
-            @Value("${app.pilot.clinical-data-enabled:true}") boolean clinicalDataEnabled
+            @Value("${app.pilot.clinical-data-enabled:true}") boolean clinicalDataEnabled,
+            @Value("${app.pilot.clinical-data-release-approved:false}") boolean clinicalDataReleaseApproved
     ) {
         this.clinicalOnly = clinicalOnly;
         this.clinicalDataEnabled = clinicalDataEnabled;
+        this.clinicalDataReleaseApproved = clinicalDataReleaseApproved;
     }
 
     @Override
@@ -66,7 +69,7 @@ public class ClinicalPilotScopeGuard implements HandlerInterceptor {
             throws IOException {
         String contextPath = request.getContextPath();
         String requestPath = request.getRequestURI().substring(contextPath.length());
-        boolean clinicalDataBlocked = !clinicalDataEnabled && isClinicalDataPath(requestPath);
+        boolean clinicalDataBlocked = !clinicalDataAccessGranted() && isClinicalDataPath(requestPath);
         boolean pilotFeatureBlocked = clinicalOnly && isPilotFeatureUnavailable(request.getMethod(), requestPath);
         if (!clinicalDataBlocked && !pilotFeatureBlocked) {
             return true;
@@ -82,8 +85,12 @@ public class ClinicalPilotScopeGuard implements HandlerInterceptor {
     }
 
     boolean isUnavailable(String method, String requestPath) {
-        return isClinicalDataPath(requestPath) && !clinicalDataEnabled
+        return isClinicalDataPath(requestPath) && !clinicalDataAccessGranted()
                 || clinicalOnly && isPilotFeatureUnavailable(method, requestPath);
+    }
+
+    private boolean clinicalDataAccessGranted() {
+        return clinicalDataEnabled && clinicalDataReleaseApproved;
     }
 
     private boolean isClinicalDataPath(String requestPath) {

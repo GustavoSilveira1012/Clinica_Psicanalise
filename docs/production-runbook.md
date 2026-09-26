@@ -12,7 +12,7 @@ testes gratuitos com dados fictícios dos requisitos para uso clínico real.
 Defina temporariamente, usando o secret manager do ambiente:
 
 ```powershell
-$env:DATABASE_URL = "jdbc:postgresql://host:5432/psicogest"
+$env:DATABASE_URL = "jdbc:postgresql://host:5432/psicogest?sslmode=verify-full"
 $env:DATABASE_USERNAME = "psicogest_runtime"
 $env:DATABASE_PASSWORD = "<secret manager>"
 $env:BACKUP_AGE_RECIPIENT = "age1..." # chave pública X25519 para criptografia
