@@ -11,6 +11,8 @@ import com.psicogest.psicogest.exception.ScheduleConflictException;
 import com.psicogest.psicogest.model.entity.*;
 import com.psicogest.psicogest.model.enums.AppointmentStatus;
 import com.psicogest.psicogest.repository.*;
+import com.psicogest.psicogest.service.notification.AppointmentDomainEventPublisher;
+import com.psicogest.psicogest.service.notification.AppointmentDomainEventType;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,6 +44,8 @@ public class AppointmentService {
 
         private final AppointmentStateMachine stateMachine;
 
+        private final AppointmentDomainEventPublisher domainEventPublisher;
+
         public AppointmentService(
                         AppointmentRepository appointmentRepository,
                         PatientRepository patientRepository,
@@ -50,7 +54,8 @@ public class AppointmentService {
                         ClinicMembershipPeriodRepository membershipPeriodRepository,
                         ScheduleAvailabilityService scheduleAvailabilityService,
                         AppointmentStateMachine stateMachine,
-                        AppointmentPersistenceExceptionTranslator persistenceExceptionTranslator) {
+                        AppointmentPersistenceExceptionTranslator persistenceExceptionTranslator,
+                        AppointmentDomainEventPublisher domainEventPublisher) {
 
                 this.appointmentRepository = appointmentRepository;
 
@@ -67,6 +72,8 @@ public class AppointmentService {
                 this.stateMachine = stateMachine;
 
                 this.persistenceExceptionTranslator = persistenceExceptionTranslator;
+
+                this.domainEventPublisher = domainEventPublisher;
         }
 
         @Transactional
@@ -122,9 +129,9 @@ public class AppointmentService {
                                                 AppointmentStatus.SCHEDULED)
                                 .build();
 
-                return toResponseDTO(
-                                saveSafely(
-                                                appointment));
+                Appointment saved = saveSafely(appointment);
+                domainEventPublisher.publish(saved, AppointmentDomainEventType.APPOINTMENT_CREATED);
+                return toResponseDTO(saved);
         }
 
         @Transactional(readOnly = true)
@@ -179,9 +186,9 @@ public class AppointmentService {
                 appointment.setCancellationReason(
                                 dto.reason().trim());
 
-                return toResponseDTO(
-                                saveSafely(
-                                                appointment));
+                Appointment saved = saveSafely(appointment);
+                domainEventPublisher.publish(saved, AppointmentDomainEventType.APPOINTMENT_CANCELLED);
+                return toResponseDTO(saved);
         }
 
         @Transactional
@@ -206,8 +213,9 @@ public class AppointmentService {
 
                 appointment.setConfirmedAt(now);
 
-                return toResponseDTO(
-                                saveSafely(appointment));
+                Appointment saved = saveSafely(appointment);
+                domainEventPublisher.publish(saved, AppointmentDomainEventType.APPOINTMENT_CONFIRMED);
+                return toResponseDTO(saved);
         }
 
         @Transactional
@@ -327,6 +335,8 @@ public class AppointmentService {
 
                 Appointment saved = saveSafely(newAppointment);
 
+                domainEventPublisher.publish(original, AppointmentDomainEventType.APPOINTMENT_RESCHEDULED);
+
                 return toResponseDTO(saved);
         }
 
@@ -416,11 +426,11 @@ public class AppointmentService {
                                 })
                                 .toList();
 
-                return saveAllSafely(
-                                appointments)
-                                .stream()
-                                .map(this::toResponseDTO)
-                                .toList();
+                List<Appointment> savedAppointments = saveAllSafely(appointments);
+                savedAppointments.forEach(appointment -> domainEventPublisher.publish(
+                                appointment,
+                                AppointmentDomainEventType.APPOINTMENT_CREATED));
+                return savedAppointments.stream().map(this::toResponseDTO).toList();
         }
 
         private void validateSchedule(

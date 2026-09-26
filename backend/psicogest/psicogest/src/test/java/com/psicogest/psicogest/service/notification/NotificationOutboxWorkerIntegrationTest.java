@@ -1,6 +1,8 @@
 package com.psicogest.psicogest.service.notification;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.psicogest.psicogest.model.entity.Appointment;
+import com.psicogest.psicogest.model.entity.Patient;
 import com.psicogest.psicogest.security.tenant.TenantContext;
 import com.psicogest.psicogest.security.tenant.TenantContextHolder;
 import com.psicogest.psicogest.security.tenant.TenantDatabaseContext;
@@ -246,6 +248,35 @@ class NotificationOutboxWorkerIntegrationTest {
             executor.shutdownNow();
             assertThat(executor.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
         }
+    }
+
+    @Test
+    void appointmentPublisherPersistsIdempotentlyInsideTenantRlsContext() {
+        var tenantDatabaseContext = new TenantDatabaseContext(jdbcTemplate);
+        var publisher = new AppointmentDomainEventPublisher(jdbcTemplate, tenantDatabaseContext);
+        var transaction = new org.springframework.transaction.support.TransactionTemplate(
+                new DataSourceTransactionManager(jdbcTemplate.getDataSource()));
+        Appointment appointment = Appointment.builder()
+                .id(7001L)
+                .patient(Patient.builder().organizationId(organizationId).build())
+                .build();
+
+        Long insertedCount = transaction.execute(status -> {
+            tenantDatabaseContext.applyOrganization(organizationId);
+            publisher.publish(appointment, AppointmentDomainEventType.APPOINTMENT_CREATED);
+            publisher.publish(appointment, AppointmentDomainEventType.APPOINTMENT_CREATED);
+            return jdbcTemplate.queryForObject("""
+                    SELECT count(*)
+                      FROM domain_event_outbox
+                     WHERE aggregate_type = 'APPOINTMENT'
+                       AND aggregate_id = '7001'
+                       AND event_type = 'APPOINTMENT_CREATED'
+                       AND organization_id = app.current_organization_id()
+                       AND payload = '{}'::jsonb
+                    """, Long.class);
+        });
+
+        assertThat(insertedCount).isEqualTo(1L);
     }
 
     private void insertOutboxEvent(UUID id, String type, String payload, Instant occurredAt) {

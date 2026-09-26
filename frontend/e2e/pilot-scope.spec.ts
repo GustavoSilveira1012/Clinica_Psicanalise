@@ -74,3 +74,49 @@ test("redirects unauthenticated direct navigation to the protected billing route
   await expect(page).toHaveURL(/\/login$/);
   await expect(page.getByRole("heading", { name: "Acesse sua organização" })).toBeVisible();
 });
+
+test("blocks direct navigation to clinical and excluded modules before any sensitive API request", async ({ page }) => {
+  await mockAuthentication(page);
+  await signIn(page);
+
+  const sensitiveApiPaths = [
+    "/patients",
+    "/psychoanalysts/",
+    "/medical-records",
+    "/api/v1/receivables",
+    "/api/v1/payments",
+    "/api/v1/compliance",
+    "/api/v1/notifications",
+    "/api/v1/package-plans",
+    "/api/v1/patient-packages",
+    "/api/v1/subscriptions",
+    "/service-invoices",
+  ];
+  const sensitiveRequests: string[] = [];
+  page.on("request", (request) => {
+    if (!["fetch", "xhr"].includes(request.resourceType())) return;
+    const pathname = new URL(request.url()).pathname;
+    if (sensitiveApiPaths.some((path) => pathname.startsWith(path))) {
+      sensitiveRequests.push(`${request.method()} ${pathname}`);
+    }
+  });
+
+  const protectedRoutes = [
+    ["/agenda", "Agenda indisponível"],
+    ["/patients", "Pacientes indisponível"],
+    ["/clinical-records", "Prontuários indisponível"],
+    ["/finance", "Financeiro indisponível"],
+    ["/compliance", "LGPD & compliance indisponível"],
+    ["/fiscal", "Fiscal / NFS-e indisponível"],
+    ["/notifications", "Notificações indisponível"],
+  ] as const;
+
+  for (const [path, heading] of protectedRoutes) {
+    await test.step(`direct entry ${path} stays blocked`, async () => {
+      await page.goto(path, { waitUntil: "commit", timeout: 10_000 });
+      await expect(page.getByRole("heading", { name: heading })).toBeVisible({ timeout: 5_000 });
+    });
+  }
+
+  expect(sensitiveRequests).toEqual([]);
+});
