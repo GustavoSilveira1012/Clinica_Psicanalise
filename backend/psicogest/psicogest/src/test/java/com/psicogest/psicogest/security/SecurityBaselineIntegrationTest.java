@@ -8,13 +8,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @AutoConfigureMockMvc
@@ -104,6 +107,33 @@ class SecurityBaselineIntegrationTest extends PostgresIntegrationTest {
         }) {
             mockMvc.perform(get(path)
                             .with(principal)
+                            .header("X-Organization-Id", foreignOrganizationId))
+                    .andExpect(status().isForbidden());
+        }
+
+        var crossTenantWrites = new MockHttpServletRequestBuilder[]{
+                post("/patients").contentType("application/json").content("{}"),
+                patch("/patients/999999/deactivate"),
+                post("/patients/999999/medical-records").contentType("application/json").content("{}"),
+                put("/medical-records/95000000-0000-0000-0000-000000000001")
+                        .contentType("application/json").content("{}"),
+                patch("/medical-records/95000000-0000-0000-0000-000000000001/finalize"),
+                post("/api/v1/medical-records/95000000-0000-0000-0000-000000000001/addendums")
+                        .contentType("application/json").content("{}"),
+                post("/psychoanalysts/7/appointments").contentType("application/json").content("{}"),
+                patch("/psychoanalysts/7/appointments/999999/cancel"),
+                post("/api/v1/receivables").contentType("application/json").content("{}"),
+                post("/api/v1/payments").contentType("application/json").content("{}"),
+                post("/api/v1/payments/95000000-0000-0000-0000-000000000004/refunds")
+                        .contentType("application/json").content("{}"),
+                post("/patients/999999/subscriptions").contentType("application/json").content("{}"),
+                put("/api/v1/notifications/preferences/1").contentType("application/json").content("{}")
+        };
+
+        for (MockHttpServletRequestBuilder request : crossTenantWrites) {
+            mockMvc.perform(request
+                            .with(principal)
+                            .with(SecurityMockMvcRequestPostProcessors.csrf())
                             .header("X-Organization-Id", foreignOrganizationId))
                     .andExpect(status().isForbidden());
         }
