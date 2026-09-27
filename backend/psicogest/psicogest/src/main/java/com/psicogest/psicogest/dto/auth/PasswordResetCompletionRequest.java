@@ -1,0 +1,16 @@
+package com.psicogest.psicogest.dto.auth;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+
+public record PasswordResetCompletionRequest(
+        @NotBlank
+        @Pattern(regexp = "[A-Za-z0-9_-]{43}")
+        String token,
+
+        @NotBlank
+        @Size(min = 12, max = 72)
+        String newPassword
+) {
+}

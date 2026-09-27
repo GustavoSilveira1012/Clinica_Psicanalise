@@ -45,7 +45,7 @@ public class RedisNotificationOutboundRateLimiter implements NotificationOutboun
             throw new IllegalStateException("Rate limit outbound não configurado para " + channel);
         }
         String key = "notification:outbound:" + channel.name() + ":" + financialEntityId;
-        if (!rateLimiter.tryConsume(key, bucket.capacity(), bucket.refillPeriod())) {
+        if (!rateLimiter.tryConsumeTokenBucket(key, bucket.capacity(), bucket.refillPeriod())) {
             securityEventService.record(SecurityEvent.builder()
                     .id(UUID.randomUUID())
                     .eventType(SecurityEventType.NOTIFICATION_MASS_SEND_DETECTED)

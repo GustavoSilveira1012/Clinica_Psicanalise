@@ -31,6 +31,34 @@ public class RedisSecurityRateLimiter {
             end
             """;
 
+    private static final String LUA_TOKEN_BUCKET_SCRIPT = """
+            local key = KEYS[1]
+            local capacity = tonumber(ARGV[1])
+            local refill_period_ms = tonumber(ARGV[2])
+            local clock = redis.call('TIME')
+            local now_ms = tonumber(clock[1]) * 1000 + math.floor(tonumber(clock[2]) / 1000)
+            local state = redis.call('HMGET', key, 'tokens', 'updated_at_ms')
+            local tokens = tonumber(state[1])
+            local updated_at_ms = tonumber(state[2])
+
+            if tokens == nil or updated_at_ms == nil then
+                tokens = capacity
+                updated_at_ms = now_ms
+            end
+
+            local elapsed_ms = math.max(0, now_ms - updated_at_ms)
+            tokens = math.min(capacity, tokens + elapsed_ms * capacity / refill_period_ms)
+            local allowed = 0
+            if tokens >= 1 then
+                tokens = tokens - 1
+                allowed = 1
+            end
+
+            redis.call('HSET', key, 'tokens', tokens, 'updated_at_ms', now_ms)
+            redis.call('PEXPIRE', key, refill_period_ms * 2)
+            return allowed
+            """;
+
     public RedisSecurityRateLimiter(
             RedisTemplate<String, String> redisTemplate
     ) {
@@ -61,6 +89,26 @@ public class RedisSecurityRateLimiter {
                     "Falha ao verificar rate limit",
                     e
             );
+        }
+    }
+
+    /** Replenishes tokens continuously over the duration needed to refill capacity. */
+    public boolean tryConsumeTokenBucket(String key, int capacity, Duration refillPeriod) {
+        if (key == null || key.isBlank() || capacity < 1 || refillPeriod == null
+                || refillPeriod.isNegative() || refillPeriod.isZero()
+                || refillPeriod.toMillis() < 1) {
+            throw new IllegalArgumentException("Parâmetros do token bucket inválidos");
+        }
+        try {
+            Long result = redisTemplate.execute(
+                    RedisScript.of(LUA_TOKEN_BUCKET_SCRIPT, Long.class),
+                    Collections.singletonList(key),
+                    String.valueOf(capacity),
+                    String.valueOf(refillPeriod.toMillis())
+            );
+            return result != null && result == 1L;
+        } catch (Exception e) {
+            throw new SecurityInfrastructureException("Falha ao verificar rate limit outbound", e);
         }
     }
 

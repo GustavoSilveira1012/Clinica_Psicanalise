@@ -1,0 +1,103 @@
+name: Roll back synthetic Render pilot
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Render service to roll back
+        type: choice
+        options:
+          - api
+          - web
+        required: true
+      deploy_id:
+        description: Successful Render deploy ID to restore (dep-...)
+        type: string
+        required: true
+      confirmation:
+        description: Type ROLLBACK-SYNTHETIC to confirm
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: render-synthetic-rollback
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: synthetic-pilot
+    steps:
+      - name: Validate explicit rollback target
+        shell: bash
+        env:
+          TARGET: ${{ inputs.target }}
+          DEPLOY_ID: ${{ inputs.deploy_id }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          API_SERVICE_ID: ${{ secrets.RENDER_API_SERVICE_ID }}
+          WEB_SERVICE_ID: ${{ secrets.RENDER_WEB_SERVICE_ID }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: |
+          set -euo pipefail
+          [[ "$CONFIRMATION" == "ROLLBACK-SYNTHETIC" ]] || { echo "Explicit confirmation did not match."; exit 1; }
+          [[ "$DEPLOY_ID" =~ ^dep-[A-Za-z0-9]+$ ]] || { echo "Deploy ID has an invalid format."; exit 1; }
+          [[ -n "$RENDER_API_KEY" ]] || { echo "Configure RENDER_API_KEY in the protected synthetic-pilot environment."; exit 1; }
+          case "$TARGET" in
+            api) service_id="$API_SERVICE_ID" ;;
+            web) service_id="$WEB_SERVICE_ID" ;;
+            *) echo "Unsupported service target."; exit 1 ;;
+          esac
+          [[ "$service_id" =~ ^srv-[A-Za-z0-9]+$ ]] || { echo "Configure the matching Render service ID secret."; exit 1; }
+
+          # Render's API rollback endpoint does not disable auto-deploys itself.
+          # Disable them first so a new commit cannot immediately undo the recovery.
+          curl --silent --show-error --fail-with-body \
+            --request PATCH \
+            --url "https://api.render.com/v1/services/${service_id}" \
+            --header "Authorization: Bearer ${RENDER_API_KEY}" \
+            --header "Content-Type: application/json" \
+            --data '{"autoDeploy":"no"}' \
+            --output /dev/null
+
+          payload="$(jq -cn --arg deployId "$DEPLOY_ID" '{deployId: $deployId}')"
+          rollback_response="$(curl --silent --show-error --fail-with-body \
+            --request POST \
+            --url "https://api.render.com/v1/services/${service_id}/rollback" \
+            --header "Authorization: Bearer ${RENDER_API_KEY}" \
+            --header "Content-Type: application/json" \
+            --data "$payload")"
+          rollback_deploy_id="$(jq -er '.id' <<<"$rollback_response")"
+          [[ "$rollback_deploy_id" =~ ^dep-[A-Za-z0-9]+$ ]] || { echo "Render returned an invalid rollback deploy ID."; exit 1; }
+
+          completed=false
+          for attempt in {1..60}; do
+            deploy_response="$(curl --silent --show-error --fail-with-body \
+              --url "https://api.render.com/v1/services/${service_id}/deploys/${rollback_deploy_id}" \
+              --header "Authorization: Bearer ${RENDER_API_KEY}")"
+            deploy_status="$(jq -er '.status' <<<"$deploy_response")"
+            case "$deploy_status" in
+              live)
+                completed=true
+                break
+                ;;
+              build_failed|update_failed|pre_deploy_failed|canceled|deactivated)
+                echo "Rollback deploy ended in terminal failure state: ${deploy_status}."
+                exit 1
+                ;;
+              created|queued|build_in_progress|update_in_progress|pre_deploy_in_progress)
+                sleep 15
+                ;;
+              *)
+                echo "Render returned an unexpected deploy state: ${deploy_status}."
+                exit 1
+                ;;
+            esac
+          done
+
+          [[ "$completed" == true ]] || { echo "Timed out waiting for the rollback deploy to become live."; exit 1; }
+          echo "Rollback deploy ${rollback_deploy_id} for ${TARGET} is live. Auto-deploy remains disabled; complete the runbook health checks and re-enable only after the incident is resolved."

@@ -4,13 +4,16 @@ param(
     [string]$BackupPath,
     [Parameter(Mandatory = $true)]
     [string]$ExpectedDatabaseName,
+    [Parameter(Mandatory = $true)]
+    [string]$ExpectedHost,
+    [int]$ExpectedPort = 5432,
     [switch]$Force
 )
 
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot 'postgres-common.ps1')
 
-foreach ($name in @("DATABASE_URL", "DATABASE_USERNAME", "DATABASE_PASSWORD")) {
+foreach ($name in @("DATABASE_URL", "DATABASE_USERNAME", "DATABASE_PASSWORD", "BACKUP_AGE_IDENTITY_FILE")) {
     if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
         throw "Variável obrigatória ausente: $name"
     }
@@ -22,15 +25,29 @@ if (-not $Force) {
 
 $resolvedBackup = [System.IO.Path]::GetFullPath($BackupPath)
 $databaseTarget = Get-PostgresTarget -DatabaseUrl $env:DATABASE_URL
-if ($databaseTarget.DatabaseName -cne $ExpectedDatabaseName) {
-    throw 'Nome do banco de destino não corresponde a ExpectedDatabaseName. Restore cancelado.'
+Assert-PostgresTargetMatches `
+    -Target $databaseTarget `
+    -ExpectedDatabaseName $ExpectedDatabaseName `
+    -ExpectedHost $ExpectedHost `
+    -ExpectedPort $ExpectedPort
+if ([System.IO.Path]::GetExtension($resolvedBackup) -ne '.age' -or $resolvedBackup -notmatch '\.dump\.age$') {
+    throw 'O restore aceita somente arquivos .dump.age criptografados.'
 }
 if (-not (Test-Path -LiteralPath $resolvedBackup -PathType Leaf)) {
     throw "Backup não encontrado: $resolvedBackup"
 }
 
-if (-not (Get-Command pg_restore -ErrorAction SilentlyContinue)) {
+if (-not (Test-Path -LiteralPath $env:BACKUP_AGE_IDENTITY_FILE -PathType Leaf)) {
+    throw 'BACKUP_AGE_IDENTITY_FILE deve apontar para uma chave privada age legível.'
+}
+
+$pgRestore = Get-Command pg_restore -CommandType Application -ErrorAction SilentlyContinue
+if (-not $pgRestore) {
     throw "pg_restore não encontrado no PATH. Instale o cliente PostgreSQL antes de executar o restore."
+}
+$age = Get-Command age -CommandType Application -ErrorAction SilentlyContinue
+if (-not $age) {
+    throw 'age não encontrado no PATH. A descriptografia em fluxo está desabilitada.'
 }
 
 $checksumPath = "$resolvedBackup.sha256"
@@ -45,30 +62,26 @@ if (Test-Path -LiteralPath $checksumPath -PathType Leaf) {
     }
 }
 
-$originalPassword = $env:PGPASSWORD
-try {
-    $env:PGPASSWORD = $env:DATABASE_PASSWORD
-    if ($PSCmdlet.ShouldProcess($databaseTarget.SafeDescription, "Substituir dados pelo backup $resolvedBackup")) {
-        & pg_restore `
-            --exit-on-error `
-            --clean `
-            --if-exists `
-            --single-transaction `
-            --no-owner `
-            --no-privileges `
-            --dbname=$databaseTarget.ConnectionString `
-            --username=$env:DATABASE_USERNAME `
+if ($PSCmdlet.ShouldProcess($databaseTarget.SafeDescription, "Descriptografar e substituir dados pelo backup $resolvedBackup")) {
+    Invoke-BinaryPipe `
+        -SourceExecutable $age.Source `
+        -SourceArguments @(
+            '--decrypt',
+            '--identity',
+            $env:BACKUP_AGE_IDENTITY_FILE,
             $resolvedBackup
-
-        if ($LASTEXITCODE -ne 0) {
-            throw "pg_restore falhou. Consulte a saída do cliente PostgreSQL e execute o smoke test de readiness."
-        }
-    }
-}
-finally {
-    if ($null -eq $originalPassword) {
-        Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
-    } else {
-        $env:PGPASSWORD = $originalPassword
-    }
+        ) `
+        -DestinationExecutable $pgRestore.Source `
+        -DestinationArguments @(
+            '--exit-on-error',
+            '--clean',
+            '--if-exists',
+            '--single-transaction',
+            '--no-owner',
+            '--no-privileges',
+            "--dbname=$($databaseTarget.ConnectionString)",
+            "--username=$env:DATABASE_USERNAME",
+            '-'
+        ) `
+        -DestinationEnvironment @{ PGPASSWORD = $env:DATABASE_PASSWORD }
 }
