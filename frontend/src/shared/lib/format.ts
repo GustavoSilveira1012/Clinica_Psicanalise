@@ -10,17 +10,17 @@ export function formatCurrency(value: number) {
 export function formatDate(value: string, options?: Intl.DateTimeFormatOptions) {
   if (!value) return "—";
   const date = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T12:00:00`) : new Date(value);
-  return new Intl.DateTimeFormat("pt-BR", options ?? { day: "2-digit", month: "short" }).format(date);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("pt-BR", options ?? { day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
 }
 
 export function formatDateTime(value: string) {
   if (!value) return "—";
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  const day = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
+  const time = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(date);
+  return `${day} ${time}`;
 }
 
 export function formatLongDate(value: Date | string = new Date()) {

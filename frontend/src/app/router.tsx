@@ -41,7 +41,7 @@ function PageLoading() {
 function PilotModuleGate({ path, title }: { path: string; title: string }) {
   if (clinicalOnlyPilot && pilotUnavailableRoutes.has(path)) {
     return <section className="rounded-2xl border border-amber-200 bg-amber-50 p-6 dark:border-amber-900 dark:bg-amber-950/30" role="status">
-      <p className="text-xs font-bold uppercase tracking-[0.16em] text-amber-800 dark:text-amber-300">Escopo do piloto</p>
+      <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Escopo do piloto</p>
       <h1 className="mt-2 font-display text-2xl font-extrabold text-ink dark:text-white">{title} indisponível</h1>
       <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">Este módulo está desativado neste piloto clínico-operacional. Nenhuma cobrança, nota fiscal ou notificação automática será executada.</p>
     </section>;
@@ -56,7 +56,7 @@ function PilotModule({ path, title, children }: { path: string; title: string; c
 function ClinicalDataModule({ path, title, children }: { path: string; title: string; children: ReactNode }) {
   if (!clinicalDataEnabled && clinicalDataRoutes.has(path)) {
     return <section className="rounded-2xl border border-amber-200 bg-amber-50 p-6 dark:border-amber-900 dark:bg-amber-950/30" role="status">
-      <p className="text-xs font-bold uppercase tracking-[0.16em] text-amber-800 dark:text-amber-300">Ambiente protegido</p>
+      <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Ambiente protegido</p>
       <h1 className="mt-2 font-display text-2xl font-extrabold text-ink dark:text-white">{title} indisponível</h1>
       <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">O acesso a dados clínicos e financeiros está desabilitado neste ambiente. Não conecte bases com dados reais; habilite o acesso somente após a validação formal dos controles de produção.</p>
     </section>;
