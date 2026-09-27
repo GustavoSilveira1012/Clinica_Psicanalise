@@ -10,6 +10,7 @@ public record NotificationDeliveryResponse(
         String channel,
         String eventType,
         String status,
-        String providerMessageId
+        String providerMessageId,
+        String suppressionReasonCode
 ) {
 }

@@ -14,7 +14,7 @@ type ApiRecord = ApiRecordSummary & { patientId: number; content: string; update
 type ApiReceivable = { id: string; patientId?: number; description: string; netAmount: number; outstandingAmount: number; overdue: boolean; status: string; dueDate: string };
 type ApiPayment = { id: string; patientId: number; amount: number; paymentMethod: string; status: string; receivedAt?: string; createdAt: string };
 type ApiServiceInvoice = { id: string; status: string; invoiceNumber?: string; nfseId?: string; netAmount: number; createdAt: string };
-type ApiNotificationDelivery = { id: string; createdAt: string; recipientLabel: string; channel: "EMAIL" | "WHATSAPP" | "SMS"; eventType: string; status: string; providerMessageId?: string };
+type ApiNotificationDelivery = { id: string; createdAt: string; recipientLabel: string; channel: "EMAIL" | "WHATSAPP" | "SMS" | "NONE"; eventType: string; status: string; providerMessageId?: string; suppressionReasonCode?: string };
 type ApiNotificationPreference = { id: string; notificationType: string; channel: "EMAIL" | "WHATSAPP" | "SMS"; label: string; description: string; enabled: boolean; required: boolean };
 
 const unsupported = (capability: string): never => {
@@ -216,7 +216,7 @@ export const realApi: DataSource = {
   async createSubscription(): Promise<Subscription> { return unsupported("Criação de assinaturas clínicas"); },
   async getDeliveries(): Promise<NotificationDelivery[]> {
     const items = await apiClient.request<ApiNotificationDelivery[]>("/api/v1/notifications/deliveries");
-    return items.map((item) => ({ id: item.id, createdAt: item.createdAt, recipientLabel: item.recipientLabel, channel: item.channel, eventType: item.eventType, status: toNotificationStatus(item.status), providerMessageId: item.providerMessageId }));
+    return items.map((item) => ({ id: item.id, createdAt: item.createdAt, recipientLabel: item.recipientLabel, channel: item.channel, eventType: item.eventType, status: toNotificationStatus(item.status), providerMessageId: item.providerMessageId, suppressionReasonCode: item.suppressionReasonCode }));
   },
   async retryDelivery(): Promise<NotificationDelivery> { return unsupported("Reprocessamento de notificações"); },
   async getPreferences(): Promise<NotificationPreference[]> {

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -25,7 +25,9 @@ describe("LoginPage", () => {
     render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={["/login"]}><AppProviders><AppRouter /></AppProviders></MemoryRouter>);
     await user.type(screen.getByLabelText("E-mail profissional"), "clinica@example.com");
     await user.type(screen.getByLabelText("Senha"), "senha-segura");
-    await user.click(screen.getByRole("button", { name: /continuar/i }));
+    const continueButton = screen.getByRole("button", { name: /continuar/i });
+    await waitFor(() => expect(continueButton).toBeEnabled());
+    await user.click(continueButton);
     expect(await screen.findByText("Segundo fator")).toBeInTheDocument();
     expect(screen.getByLabelText("Código MFA")).toBeInTheDocument();
   });

@@ -194,10 +194,11 @@ export interface NotificationDelivery {
   id: string;
   createdAt: string;
   recipientLabel: string;
-  channel: "EMAIL" | "WHATSAPP" | "SMS" | "IN_APP";
+  channel: "EMAIL" | "WHATSAPP" | "SMS" | "IN_APP" | "NONE";
   eventType: string;
   status: NotificationStatus;
   providerMessageId?: string;
+  suppressionReasonCode?: string;
 }
 
 export interface NotificationPreference {

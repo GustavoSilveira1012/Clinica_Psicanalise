@@ -48,27 +48,46 @@ public class NotificationQueryService {
     public List<NotificationDeliveryResponse> listDeliveries() {
         requireTenantContext();
         return jdbcTemplate.query("""
-                SELECT d.id, d.created_at, d.channel, n.notification_type, d.status,
-                       d.provider_message_id,
-                       COALESCE(patient_user.name, direct_user.name) AS recipient_name
-                  FROM notification_deliveries d
-                  JOIN notifications n ON n.id = d.notification_id
-                  JOIN notification_recipients r ON r.id = d.recipient_id
-                  LEFT JOIN patients p ON p.id = r.patient_id
-                  LEFT JOIN users patient_user ON patient_user.id = p.user_id
-                  LEFT JOIN users direct_user ON direct_user.id = r.user_id
-                 WHERE d.organization_id = app.current_organization_id()
-                   AND n.organization_id = app.current_organization_id()
-                 ORDER BY d.created_at DESC
+                SELECT id, created_at, channel, notification_type, status,
+                       provider_message_id, recipient_name, suppression_reason_code
+                  FROM (
+                    SELECT d.id, d.created_at, d.channel, n.notification_type, d.status,
+                           d.provider_message_id,
+                           COALESCE(patient_user.name, direct_user.name) AS recipient_name,
+                           NULL::varchar AS suppression_reason_code
+                      FROM notification_deliveries d
+                      JOIN notifications n ON n.id = d.notification_id
+                      JOIN notification_recipients r ON r.id = d.recipient_id
+                      LEFT JOIN patients p ON p.id = r.patient_id
+                      LEFT JOIN users patient_user ON patient_user.id = p.user_id
+                      LEFT JOIN users direct_user ON direct_user.id = r.user_id
+                     WHERE d.organization_id = app.current_organization_id()
+                       AND n.organization_id = app.current_organization_id()
+                    UNION ALL
+                    SELECT n.id, n.created_at, 'NONE', n.notification_type, n.status,
+                           NULL::varchar, 'Envio não realizado', n.suppression_reason_code
+                      FROM notifications n
+                     WHERE n.organization_id = app.current_organization_id()
+                       AND n.status = 'SUPPRESSED'
+                       AND NOT EXISTS (
+                            SELECT 1 FROM notification_deliveries d
+                             WHERE d.notification_id = n.id
+                               AND d.organization_id = n.organization_id
+                       )
+                  ) recent
+                 ORDER BY created_at DESC
                  LIMIT 100
                 """, (rs, rowNum) -> new NotificationDeliveryResponse(
                 rs.getObject("id", UUID.class),
                 instant(rs, "created_at"),
-                maskName(rs.getString("recipient_name")),
+                "NONE".equals(rs.getString("channel"))
+                        ? "Envio não realizado — canais não configurados no piloto"
+                        : maskName(rs.getString("recipient_name")),
                 rs.getString("channel"),
                 rs.getString("notification_type"),
                 rs.getString("status"),
-                rs.getString("provider_message_id")));
+                rs.getString("provider_message_id"),
+                rs.getString("suppression_reason_code")));
     }
 
     @Transactional(readOnly = true)

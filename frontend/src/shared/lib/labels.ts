@@ -7,6 +7,7 @@ const codeLabels: Record<string, string> = {
   NOTIFICATION_PROVIDER_CONFIGURATION_CHANGED: "Configuração de provedor alterada",
   NOTIFICATION_DELIVERY_FAILED: "Notificação com falha",
   NOTIFICATION_DELIVERY_SUPPRESSED: "Notificação suprimida",
+  PILOT_CHANNELS_NOT_CONFIGURED: "Canais não configurados no piloto",
   NOTIFICATION_CREATED: "Notificação criada",
   NOTIFICATION_EVENT_COLLISION: "Colisão de evento de notificação",
   NOTIFICATION_PROVIDER_AUTH_FAILURE: "Falha de autenticação do provedor",
@@ -25,5 +26,5 @@ export function privacyRequestTypeLabel(value: string) {
 }
 
 export function channelLabel(value: string) {
-  return { WHATSAPP: "WhatsApp", EMAIL: "E-mail", SMS: "SMS", IN_APP: "No aplicativo" }[value] ?? value;
+  return { WHATSAPP: "WhatsApp", EMAIL: "E-mail", SMS: "SMS", IN_APP: "No aplicativo", NONE: "Não enviado" }[value] ?? value;
 }

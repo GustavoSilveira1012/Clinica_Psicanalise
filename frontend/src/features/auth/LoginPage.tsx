@@ -8,7 +8,7 @@ import { loginSchema, type LoginValues } from "../../shared/lib/validators";
 import { useAuth } from "./AuthContext";
 
 export function LoginPage() {
-  const { login } = useAuth();
+  const { login, isInitializing } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [showPassword, setShowPassword] = useState(false);
@@ -71,7 +71,7 @@ export function LoginPage() {
             </button>
           </div>
           {formError && <p className="rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700" role="alert">{formError}</p>}
-          <Button className="w-full" type="submit" disabled={isSubmitting}>{isSubmitting ? "Validando…" : "Continuar"}<ArrowRight size={17} /></Button>
+          <Button className="w-full" type="submit" disabled={isSubmitting || isInitializing}>{isInitializing ? "Verificando sessão…" : isSubmitting ? "Validando…" : "Continuar"}<ArrowRight size={17} /></Button>
         </form>
         <div className="mt-3 text-right">
           <Link to="/reset-password" className="text-sm font-semibold text-sage-700 hover:underline dark:text-sage-300">Esqueci minha senha</Link>
