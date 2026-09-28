@@ -97,7 +97,7 @@ iniciar em produção com runtime capaz de ignorar RLS.
 Os schedulers de ciclos de assinatura, inadimplência e retry de webhook ficam
 desativados por padrão; só defina `SCHEDULING_ENABLED=true` depois de homologar
 os providers envolvidos, confirmar idempotência/retry e ativar alertas para filas.
-O scheduler de retenção de exports é independente e continua desligado até
+O scheduler de retenção de exports é independente dessas rotinas e continua desligado até
 `CLINICAL_EXPORT_RETENTION_ENABLED=true` e uma allowlist explícita de IDs
 sintéticos em `CLINICAL_EXPORT_RETENTION_ORGANIZATION_IDS`. A allowlist tem limite
 de 100 organizações; não habilite retenção contra uma clínica com dados reais sem
