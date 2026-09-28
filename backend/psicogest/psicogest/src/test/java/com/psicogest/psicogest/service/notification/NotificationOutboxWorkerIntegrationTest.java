@@ -6,6 +6,10 @@ import com.psicogest.psicogest.model.entity.Patient;
 import com.psicogest.psicogest.security.tenant.TenantContext;
 import com.psicogest.psicogest.security.tenant.TenantContextHolder;
 import com.psicogest.psicogest.security.tenant.TenantDatabaseContext;
+import com.psicogest.psicogest.infrastructure.storage.ClinicalExportRetentionWorker;
+import com.psicogest.psicogest.infrastructure.storage.JdbcClinicalExportRetentionStore;
+import com.psicogest.psicogest.infrastructure.storage.SecureClinicalExportStorage;
+import com.psicogest.psicogest.infrastructure.storage.StoredExport;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -20,6 +24,7 @@ import org.postgresql.ds.PGSimpleDataSource;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.io.InputStream;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -46,6 +51,7 @@ class NotificationOutboxWorkerIntegrationTest {
     private NotificationOutboxWorker worker;
     private final AtomicInteger successCalls = new AtomicInteger();
     private final AtomicInteger failingCalls = new AtomicInteger();
+    private static final AtomicLong STORAGE_USER_IDS = new AtomicLong(991001);
 
     @BeforeAll
     static void migrateSchema() {
@@ -279,8 +285,117 @@ class NotificationOutboxWorkerIntegrationTest {
         assertThat(insertedCount).isEqualTo(1L);
     }
 
+    @Test
+    void expiresOnlyCurrentTenantExportsAndRetriesThroughDurableClaimState() {
+        UUID foreignOrganizationId = UUID.randomUUID();
+        long foreignOwnerId = USER_IDS.getAndIncrement();
+        jdbcTemplate.update("""
+                INSERT INTO users(id, name, email, password_hash, role)
+                VALUES (?, 'Synthetic foreign owner', ?, 'not-a-usable-hash', 'CLINIC_ADMIN')
+                """, foreignOwnerId, "retention-owner-" + foreignOwnerId + "@example.invalid");
+        jdbcTemplate.update("""
+                INSERT INTO organizations(id, name, slug, type, owner_user_id, created_at, updated_at)
+                VALUES (?, 'Synthetic foreign organization', ?, 'CLINIC', ?, now(), now())
+                """, foreignOrganizationId, "retention-" + foreignOrganizationId, foreignOwnerId);
+
+        var currentExport = insertExpiredClinicalExport(organizationId);
+        var foreignExport = insertExpiredClinicalExport(foreignOrganizationId);
+        RecordingExportStorage storage = new RecordingExportStorage();
+        var retentionStore = new JdbcClinicalExportRetentionStore(
+                jdbcTemplate,
+                new TenantDatabaseContext(jdbcTemplate),
+                new DataSourceTransactionManager(jdbcTemplate.getDataSource()));
+        var worker = new ClinicalExportRetentionWorker(retentionStore, storage, 10);
+
+        TenantContextHolder.set(new TenantContext(organizationId, userId, null));
+        assertThat(worker.processCurrentTenantBatch()).isEqualTo(
+                new ClinicalExportRetentionWorker.RetentionBatchResult(1, 1, 0));
+
+        assertThat(storage.deleted).containsExactly(organizationId + "/" + currentExport);
+        assertThat(exportStatus(organizationId, currentExport)).isEqualTo("EXPIRED");
+        assertThat(exportStorageKey(organizationId, currentExport)).isNull();
+        assertThat(exportStatus(foreignOrganizationId, foreignExport)).isEqualTo("READY");
+        assertThat(worker.processCurrentTenantBatch()).isEqualTo(
+                new ClinicalExportRetentionWorker.RetentionBatchResult(0, 0, 0));
+    }
+
     private void insertOutboxEvent(UUID id, String type, String payload, Instant occurredAt) {
         insertOutboxEvent(id, type, payload, occurredAt, organizationId);
+    }
+
+    private UUID insertExpiredClinicalExport(UUID exportOrganizationId) {
+        long patientUserId = STORAGE_USER_IDS.getAndIncrement();
+        long clinicianUserId = STORAGE_USER_IDS.getAndIncrement();
+        jdbcTemplate.update("""
+                INSERT INTO users(id, name, email, password_hash, role)
+                VALUES (?, 'Synthetic export patient', ?, 'not-a-usable-hash', 'PATIENT'),
+                       (?, 'Synthetic export clinician', ?, 'not-a-usable-hash', 'PSYCHOANALYST')
+                """, patientUserId, "retention-patient-" + patientUserId + "@example.invalid",
+                clinicianUserId, "retention-clinician-" + clinicianUserId + "@example.invalid");
+        var tx = new org.springframework.transaction.support.TransactionTemplate(
+                new DataSourceTransactionManager(jdbcTemplate.getDataSource()));
+        UUID exportId = UUID.randomUUID();
+        tx.executeWithoutResult(status -> {
+            new TenantDatabaseContext(jdbcTemplate).applyOrganization(exportOrganizationId);
+            Long patientId = jdbcTemplate.queryForObject(
+                    "INSERT INTO patients(user_id) VALUES (?) RETURNING id", Long.class, patientUserId);
+            Long psychoanalystId = jdbcTemplate.queryForObject(
+                    "INSERT INTO psychoanalysts(user_id) VALUES (?) RETURNING id", Long.class, clinicianUserId);
+            jdbcTemplate.update("""
+                    INSERT INTO clinical_exports(
+                        id, requester_psychoanalyst_id, patient_id, status, format,
+                        include_medical_records, include_addendums, include_appointments,
+                        requested_at, completed_at, expires_at, storage_key, file_sha256, file_size
+                    ) VALUES (?, ?, ?, 'READY', 'PDF', false, false, true,
+                              now() - interval '91 days', now() - interval '91 days',
+                              now() - interval '1 day', ?, repeat('a', 64), 12)
+                    """, exportId, psychoanalystId, patientId,
+                    exportOrganizationId + "/" + exportId);
+        });
+        return exportId;
+    }
+
+    private String exportStatus(UUID exportOrganizationId, UUID exportId) {
+        var tx = new org.springframework.transaction.support.TransactionTemplate(
+                new DataSourceTransactionManager(jdbcTemplate.getDataSource()));
+        return tx.execute(status -> {
+            new TenantDatabaseContext(jdbcTemplate).applyOrganization(exportOrganizationId);
+            return jdbcTemplate.queryForObject(
+                    "SELECT status FROM clinical_exports WHERE id = ? AND organization_id = app.current_organization_id()",
+                    String.class,
+                    exportId);
+        });
+    }
+
+    private String exportStorageKey(UUID exportOrganizationId, UUID exportId) {
+        var tx = new org.springframework.transaction.support.TransactionTemplate(
+                new DataSourceTransactionManager(jdbcTemplate.getDataSource()));
+        return tx.execute(status -> {
+            new TenantDatabaseContext(jdbcTemplate).applyOrganization(exportOrganizationId);
+            return jdbcTemplate.queryForObject(
+                    "SELECT storage_key FROM clinical_exports WHERE id = ? AND organization_id = app.current_organization_id()",
+                    String.class,
+                    exportId);
+        });
+    }
+
+    private static final class RecordingExportStorage implements SecureClinicalExportStorage {
+        private final List<String> deleted = new java.util.ArrayList<>();
+
+        @Override
+        public StoredExport store(UUID financialEntityId, UUID exportId, byte[] content, String contentType) {
+            throw new UnsupportedOperationException("synthetic retention test does not store exports");
+        }
+
+        @Override
+        public InputStream open(UUID financialEntityId, String storageKey) {
+            throw new UnsupportedOperationException("synthetic retention test does not open exports");
+        }
+
+        @Override
+        public void delete(UUID financialEntityId, String storageKey) {
+            deleted.add(financialEntityId + "/" + storageKey.substring(storageKey.lastIndexOf('/') + 1));
+        }
     }
 
     private void insertOutboxEvent(UUID id, String type, String payload, Instant occurredAt, UUID eventOrganizationId) {

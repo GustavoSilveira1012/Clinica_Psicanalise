@@ -54,7 +54,7 @@ class SupabaseS3PrivateObjectStorageTest {
         @SuppressWarnings("unchecked")
         ResponseInputStream<GetObjectResponse> response = mock(ResponseInputStream.class);
         when(client.getObject(any(GetObjectRequest.class))).thenReturn(response);
-        when(response.readAllBytes()).thenReturn("psicogest-storage-probe-v1".getBytes(StandardCharsets.US_ASCII));
+        when(response.readNBytes(27)).thenReturn("psicogest-storage-probe-v1".getBytes(StandardCharsets.US_ASCII));
         SupabaseS3PrivateObjectStorage storage = new SupabaseS3PrivateObjectStorage(client, BUCKET);
 
         PrivateObjectStorageHealth result = storage.healthCheck();
@@ -75,7 +75,7 @@ class SupabaseS3PrivateObjectStorageTest {
         @SuppressWarnings("unchecked")
         ResponseInputStream<GetObjectResponse> response = mock(ResponseInputStream.class);
         when(client.getObject(any(GetObjectRequest.class))).thenReturn(response);
-        when(response.readAllBytes()).thenReturn("psicogest-storage-probe-v1".getBytes(StandardCharsets.US_ASCII));
+        when(response.readNBytes(27)).thenReturn("psicogest-storage-probe-v1".getBytes(StandardCharsets.US_ASCII));
         SupabaseS3PrivateObjectStorage storage = new SupabaseS3PrivateObjectStorage(client, BUCKET);
 
         storage.healthCheck();

@@ -3,6 +3,7 @@ package com.psicogest.psicogest.service;
 import java.time.Clock;
 import java.time.LocalDate;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -12,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Component
+@ConditionalOnProperty(name = "app.scheduling.enabled", havingValue = "true")
 public class SubscriptionCycleScheduler {
 
     private final PatientSubscriptionRepository subscriptionRepository;

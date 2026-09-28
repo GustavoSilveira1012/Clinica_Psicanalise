@@ -35,7 +35,7 @@ interface LoginResponse {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 const SESSION_KEY = "psicogest-demo-session";
-const DEMO_MODE = import.meta.env.DEV && import.meta.env.VITE_DEMO_MODE === "true";
+const DEMO_MODE = import.meta.env.DEV && import.meta.env.MODE !== "test" && import.meta.env.VITE_DEMO_MODE === "true";
 const DEMO_EMAIL = "demo@psicogest.com";
 const DEMO_PASSWORD = "demo123";
 const allPermissions: Permission[] = ["dashboard:read", "clinical:read", "clinical:write", "patients:read", "patients:write", "finance:read", "finance:write", "fiscal:read", "packages:read", "notifications:read", "notifications:manage", "privacy:read", "settings:manage", "billing:read"];

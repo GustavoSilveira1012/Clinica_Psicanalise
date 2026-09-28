@@ -127,7 +127,7 @@ public class SupabaseS3PrivateObjectStorage implements PrivateObjectStorage {
                     .bucket(bucket)
                     .key(key)
                     .build())) {
-                reachable = java.util.Arrays.equals(input.readAllBytes(), HEALTH_MARKER);
+                reachable = java.util.Arrays.equals(input.readNBytes(HEALTH_MARKER.length + 1), HEALTH_MARKER);
             }
         } catch (RuntimeException | java.io.IOException ignored) {
             reachable = false;
@@ -149,8 +149,8 @@ public class SupabaseS3PrivateObjectStorage implements PrivateObjectStorage {
     private void requireSafeKey(String key) {
         if (key == null || key.isBlank() || key.startsWith("/") || key.contains("..")
                 || key.indexOf('\\') >= 0 || key.length() > 200
-                || !(key.matches("[0-9a-fA-F-]{36}/[0-9a-fA-F-]{36}")
-                || key.matches("__health/[0-9a-fA-F-]{36}"))) {
+                || !(key.matches("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
+                || key.matches("__health/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"))) {
             throw new IllegalArgumentException("Chave de objeto inválida");
         }
     }

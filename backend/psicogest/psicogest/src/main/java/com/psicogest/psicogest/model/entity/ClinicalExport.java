@@ -129,6 +129,7 @@ public class ClinicalExport {
         REQUESTED,    // Solicitação recebida
         PROCESSING,   // Sendo processado
         READY,        // Pronto para download
+        EXPIRING,     // Exclusão de storage iniciada; pode ser repetida com segurança
         FAILED,       // Falhou no processamento
         EXPIRED       // Expirou (90 dias)
     }

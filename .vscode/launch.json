@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "PsicoGest API (local)",
+      "request": "launch",
+      "mainClass": "com.psicogest.psicogest.PsicogestApplication",
+      "projectName": "psicogest",
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "vmArgs": "-Dspring.profiles.active=dev"
+    }
+  ]
+}

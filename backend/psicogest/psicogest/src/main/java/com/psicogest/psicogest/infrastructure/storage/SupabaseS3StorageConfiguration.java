@@ -29,10 +29,15 @@ public class SupabaseS3StorageConfiguration {
             @Value("${app.export-storage.supabase.secret-key}") String secretKey
     ) {
         URI endpointUri = URI.create(endpoint);
+        String host = endpointUri.getHost() == null ? "" : endpointUri.getHost().toLowerCase(java.util.Locale.ROOT);
         if (!"https".equalsIgnoreCase(endpointUri.getScheme())
-                || endpointUri.getHost() == null
-                || endpointUri.getUserInfo() != null) {
-            throw new IllegalStateException("O endpoint S3 deve usar HTTPS e não pode conter credenciais");
+                || !host.matches("[a-z0-9-]+\\.storage\\.supabase\\.co")
+                || !"/storage/v1/s3".equals(endpointUri.getPath())
+                || endpointUri.getUserInfo() != null
+                || endpointUri.getQuery() != null
+                || endpointUri.getFragment() != null
+                || (endpointUri.getPort() != -1 && endpointUri.getPort() != 443)) {
+            throw new IllegalStateException("O endpoint S3 deve ser o endpoint oficial Supabase Storage via HTTPS");
         }
         if (accessKey.isBlank() || secretKey.isBlank() || region.isBlank()) {
             throw new IllegalStateException("Credenciais e região do storage S3 são obrigatórias");

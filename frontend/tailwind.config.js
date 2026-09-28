@@ -40,8 +40,6 @@ export default {
       fontFamily: {
         sans: ["IBM Plex Sans", "ui-sans-serif", "system-ui", "sans-serif"],
         display: ["Newsreader", "ui-serif", "Georgia", "Cambria", "serif"],
-        sans: ["ui-sans-serif", "system-ui", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
-        display: ["ui-sans-serif", "system-ui", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
       },
     },
   },

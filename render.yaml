@@ -39,6 +39,10 @@ services:
         value: disabled
       - key: CLINICAL_EXPORT_STORAGE_REQUIRED
         value: "false"
+      - key: CLINICAL_EXPORT_RETENTION_ENABLED
+        value: "false"
+      - key: CLINICAL_EXPORT_RETENTION_ORGANIZATION_IDS
+        value: ""
       - key: JWT_COOKIE_SECURE
         value: "true"
       - key: JPA_SHOW_SQL

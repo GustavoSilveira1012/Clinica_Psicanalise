@@ -95,8 +95,13 @@ são credenciais separadas, exclusivas da aplicação de migrations. O backend r
 iniciar em produção com runtime capaz de ignorar RLS.
 
 Os schedulers de ciclos de assinatura, inadimplência e retry de webhook ficam
-desativados por padrão. Só defina `SCHEDULING_ENABLED=true` depois de homologar
+desativados por padrão; só defina `SCHEDULING_ENABLED=true` depois de homologar
 os providers envolvidos, confirmar idempotência/retry e ativar alertas para filas.
+O scheduler de retenção de exports é independente e continua desligado até
+`CLINICAL_EXPORT_RETENTION_ENABLED=true` e uma allowlist explícita de IDs
+sintéticos em `CLINICAL_EXPORT_RETENTION_ORGANIZATION_IDS`. A allowlist tem limite
+de 100 organizações; não habilite retenção contra uma clínica com dados reais sem
+validar a política de retenção, exclusão e restauração dos objetos no fornecedor.
 
 Recuperação de senha e confirmação de e-mail usam SMTP somente quando
 `AUTH_ACTION_MAIL_ENABLED=true`; em produção, `AUTH_ACTION_MAIL_REQUIRED_FOR_READINESS`
