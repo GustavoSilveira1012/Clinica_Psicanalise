@@ -10,6 +10,7 @@ import com.psicogest.psicogest.exception.ResourceNotFoundException;
 import com.psicogest.psicogest.exception.ScheduleConflictException;
 import com.psicogest.psicogest.model.entity.*;
 import com.psicogest.psicogest.model.enums.AppointmentStatus;
+import com.psicogest.psicogest.model.enums.RecurrenceFrequency;
 import com.psicogest.psicogest.repository.*;
 import com.psicogest.psicogest.service.notification.AppointmentDomainEventPublisher;
 import com.psicogest.psicogest.service.notification.AppointmentDomainEventType;
@@ -46,6 +47,8 @@ public class AppointmentService {
 
         private final AppointmentDomainEventPublisher domainEventPublisher;
 
+        private final AppointmentSeriesService appointmentSeriesService;
+
         public AppointmentService(
                         AppointmentRepository appointmentRepository,
                         PatientRepository patientRepository,
@@ -55,7 +58,8 @@ public class AppointmentService {
                         ScheduleAvailabilityService scheduleAvailabilityService,
                         AppointmentStateMachine stateMachine,
                         AppointmentPersistenceExceptionTranslator persistenceExceptionTranslator,
-                        AppointmentDomainEventPublisher domainEventPublisher) {
+                        AppointmentDomainEventPublisher domainEventPublisher,
+                        AppointmentSeriesService appointmentSeriesService) {
 
                 this.appointmentRepository = appointmentRepository;
 
@@ -74,6 +78,8 @@ public class AppointmentService {
                 this.persistenceExceptionTranslator = persistenceExceptionTranslator;
 
                 this.domainEventPublisher = domainEventPublisher;
+
+                this.appointmentSeriesService = appointmentSeriesService;
         }
 
         @Transactional
@@ -344,94 +350,28 @@ public class AppointmentService {
         public List<AppointmentResponseDTO> createWeeklyRecurring(
                         Long psychoanalystId,
                         RecurringAppointmentCreateDTO dto) {
-
-                validateDateTime(
-                                dto.firstScheduledStart(),
-                                dto.firstScheduledEnd());
-
-                Psychoanalyst psychoanalyst = findPsychoanalyst(
-                                psychoanalystId);
-
-                if (Boolean.FALSE.equals(psychoanalyst.getActive())) {
-                        throw new EntityLifecycleException(
-                                        "Não é possível agendar com um psicanalista desativado");
-                }
-
-                Patient patient = findPatient(
-                                dto.patientId());
-
-                if (Boolean.FALSE.equals(patient.getActive())) {
-                        throw new EntityLifecycleException(
-                                        "Não é possível criar uma consulta para um paciente desativado");
-                }
-
-                ClinicMembership membership = resolveMembership(
-                                psychoanalystId,
+                validateDateTime(dto.firstScheduledStart(), dto.firstScheduledEnd());
+                AppointmentSeriesCreateDTO series = new AppointmentSeriesCreateDTO(
+                                dto.patientId(),
                                 dto.clinicMembershipId(),
-                                dto.firstScheduledStart());
-
-                /*
-                 * Primeiro validamos TODAS as ocorrências.
-                 *
-                 * Só depois gravamos.
-                 */
-                for (int i = 0; i < dto.occurrences(); i++) {
-
-                        LocalDateTime start = dto.firstScheduledStart()
-                                        .plusWeeks(i);
-
-                        LocalDateTime end = dto.firstScheduledEnd()
-                                        .plusWeeks(i);
-
-                        validateSchedule(
-                                        psychoanalystId,
-                                        start,
-                                        end);
-
-                        validateAppointmentConflict(
-                                        psychoanalystId,
-                                        start,
-                                        end,
-                                        null);
-                }
-
-                List<Appointment> appointments = java.util.stream.IntStream
-                                .range(
-                                                0,
-                                                dto.occurrences())
-                                .mapToObj(i -> {
-
-                                        LocalDateTime start = dto.firstScheduledStart()
-                                                        .plusWeeks(i);
-
-                                        LocalDateTime end = dto.firstScheduledEnd()
-                                                        .plusWeeks(i);
-
-                                        return Appointment.builder()
-                                                        .patient(patient)
-                                                        .psychoanalyst(
-                                                                        psychoanalyst)
-                                                        .clinicMembership(
-                                                                        membership)
-                                                        .scheduledStart(
-                                                                        start)
-                                                        .scheduledEnd(
-                                                                        end)
-                                                        .appointmentType(
-                                                                        dto.appointmentType())
-                                                        .status(
-                                                                        AppointmentStatus.SCHEDULED)
-                                                        .build();
-
-                                })
+                                RecurrenceFrequency.WEEKLY,
+                                1,
+                                dto.firstScheduledStart().toLocalDate(),
+                                null,
+                                dto.occurrences(),
+                                dto.firstScheduledStart().toLocalTime(),
+                                Math.toIntExact(java.time.Duration.between(
+                                                dto.firstScheduledStart(), dto.firstScheduledEnd()).toMinutes()),
+                                dto.appointmentType());
+                AppointmentSeriesResponseDTO created = appointmentSeriesService.create(psychoanalystId, series);
+                return appointmentRepository
+                                .findByAppointmentSeriesIdOrderByOccurrenceNumberAsc(
+                                                created.id())
+                                .stream()
+                                .map(this::toResponseDTO)
                                 .toList();
-
-                List<Appointment> savedAppointments = saveAllSafely(appointments);
-                savedAppointments.forEach(appointment -> domainEventPublisher.publish(
-                                appointment,
-                                AppointmentDomainEventType.APPOINTMENT_CREATED));
-                return savedAppointments.stream().map(this::toResponseDTO).toList();
         }
+
 
         private void validateSchedule(
                         Long psychoanalystId,

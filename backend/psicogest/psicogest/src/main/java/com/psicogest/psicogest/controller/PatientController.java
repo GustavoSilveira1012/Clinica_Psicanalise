@@ -1,6 +1,7 @@
 package com.psicogest.psicogest.controller;
 
 import com.psicogest.psicogest.dto.patient.PatientCreateDTO;
+import com.psicogest.psicogest.dto.patient.PatientUpdateDTO;
 import com.psicogest.psicogest.dto.patient.PatientResponseDTO;
 import com.psicogest.psicogest.dto.common.DeactivateDTO;
 import com.psicogest.psicogest.service.PatientService;
@@ -14,6 +15,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 
 @RestController
 @RequestMapping("/patients")
@@ -50,16 +54,27 @@ public class PatientController {
         return patientAccessQueryService.findAccessible(authentication);
     }
 
+    @GetMapping("/search")
+    @PreAuthorize("hasAnyRole('PATIENT', 'PSYCHOANALYST', 'CLINIC_ADMIN')")
+    public Page<PatientResponseDTO> search(
+            Authentication authentication,
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) Boolean active,
+            @PageableDefault(size = 25, sort = "id") Pageable pageable
+    ) {
+        return patientAccessQueryService.search(authentication, query, active, pageable);
+    }
+
     @GetMapping("/{id}")
 @PreAuthorize("""
-        @clinicalAuthorization.canReadPatientProfile(
+        @clinicalAuthorizationService.canReadPatientProfile(
             authentication,
             #id
         )
         """)
 public PatientResponseDTO findById(
         @PathVariable Long id
-) {
+    ) {
 
     return patientService.findById(id);
 }
@@ -70,6 +85,15 @@ public PatientResponseDTO findById(
             @PathVariable Long id,
             @Valid @RequestBody DeactivateDTO dto) {
         return patientService.deactivate(id, dto);
+    }
+
+    @PatchMapping("/{id}")
+    @PreAuthorize("@clinicalAuthorizationService.canWritePatientProfile(authentication, #id)")
+    public PatientResponseDTO update(
+            @PathVariable Long id,
+            @Valid @RequestBody PatientUpdateDTO dto
+    ) {
+        return patientService.update(id, dto);
     }
 
     @PatchMapping("/{id}/reactivate")

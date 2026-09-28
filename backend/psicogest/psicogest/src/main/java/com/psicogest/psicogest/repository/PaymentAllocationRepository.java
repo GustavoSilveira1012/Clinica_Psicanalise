@@ -52,13 +52,6 @@ public interface PaymentAllocationRepository
             UUID receivableId
     );
 
-    /**
-     * Legacy: alias para sumGrossForReceivable
-     */
-    default BigDecimal sumEffectiveAllocation(UUID receivableId) {
-        return sumGrossForReceivable(receivableId);
-    }
-
     List<PaymentAllocation> findByPaymentId(UUID paymentId);
 
     List<PaymentAllocation> findByReceivableId(UUID receivableId);

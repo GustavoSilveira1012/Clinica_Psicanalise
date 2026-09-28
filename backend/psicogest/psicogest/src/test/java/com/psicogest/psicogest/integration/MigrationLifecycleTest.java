@@ -6,6 +6,16 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import java.sql.*;
+import java.util.Base64;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import com.psicogest.psicogest.security.crypto.ApplicationEncryptionService;
+import com.psicogest.psicogest.security.crypto.CryptoProperties;
+import com.psicogest.psicogest.security.crypto.EncryptionContext;
+import com.psicogest.psicogest.security.crypto.LocalDevelopmentDataKeyProvider;
+import com.psicogest.psicogest.security.crypto.EncryptedEnvelope;
 import static org.assertj.core.api.Assertions.*;
 
 /** Real SQL, including upgrade and isolation under a non-superuser role. */
@@ -50,6 +60,9 @@ class MigrationLifecycleTest {
                     .isInstanceOf(SQLException.class).hasMessageContaining("outside organization");
 
             seedTenantSensitiveRows(sql);
+            assertThat(text(sql, "SELECT encrypted_content::text FROM medical_records WHERE id='95000000-0000-0000-0000-000000000001'"))
+                    .doesNotContain("SENSITIVE_PATIENT_NOTE");
+            assertAppointmentOverlapRejectsConcurrentInsert();
 
             sql.execute("CREATE ROLE psicogest_rls_test NOSUPERUSER NOBYPASSRLS NOLOGIN");
             sql.execute("GRANT USAGE ON SCHEMA public, app TO psicogest_rls_test");
@@ -111,6 +124,17 @@ class MigrationLifecycleTest {
     }
 
     private void seedTenantSensitiveRows(Statement sql) throws SQLException {
+        String encodedKey = Base64.getEncoder().encodeToString(new byte[] {
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+                17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32
+        });
+        ApplicationEncryptionService encryption = new ApplicationEncryptionService(
+                new LocalDevelopmentDataKeyProvider(
+                        new CryptoProperties("local", "test", Map.of("test", encodedKey))));
+        EncryptedEnvelope envelope = encryption.encrypt(
+                "SENSITIVE_PATIENT_NOTE",
+                new EncryptionContext("MEDICAL_RECORD", "95000000-0000-0000-0000-000000000001",
+                        "content", Map.of("patientId", "900001")));
         sql.execute("""
                 INSERT INTO users(id,name,email,password_hash,role) VALUES
                     (900002,'Synthetic analyst','synthetic-analyst@example.invalid','not-a-usable-hash','PSYCHOANALYST');
@@ -127,7 +151,7 @@ class MigrationLifecycleTest {
                     current_revision_number,version,created_at,updated_at,organization_id
                 ) VALUES (
                     '95000000-0000-0000-0000-000000000001',900001,900002,950002,'DRAFT',
-                    decode('01','hex'),decode('02','hex'),decode('03','hex'),1,'AES_256_GCM','synthetic-test-key',
+                    decode('%s','hex'),decode('%s','hex'),decode('%s','hex'),1,'AES-256-GCM','test',
                     1,0,now(),now(),'10000000-0000-0000-0000-000000000001'
                 );
                 INSERT INTO medical_record_revisions(
@@ -153,7 +177,7 @@ class MigrationLifecycleTest {
                 INSERT INTO notifications(id,notification_type,aggregate_type,aggregate_id,deduplication_key,status,created_at,updated_at,organization_id)
                 VALUES ('93000000-0000-0000-0000-000000000001','APPOINTMENT_CREATED','APPOINTMENT','synthetic-appointment',
                         'synthetic-tenant-isolation-test','PENDING',now(),now(),'10000000-0000-0000-0000-000000000001');
-                """);
+                """.formatted(hex(envelope.ciphertext()), hex(envelope.iv()), hex(envelope.wrappedDataKey())));
     }
 
     private void seedNotificationOutbox(Statement sql) throws SQLException {
@@ -198,6 +222,55 @@ class MigrationLifecycleTest {
 
     private long count(Statement sql, String query) throws SQLException {
         try (ResultSet result = sql.executeQuery(query)) { result.next(); return result.getLong(1); }
+    }
+
+    private String text(Statement sql, String query) throws SQLException {
+        try (ResultSet result = sql.executeQuery(query)) {
+            result.next();
+            return result.getString(1);
+        }
+    }
+
+    private void assertAppointmentOverlapRejectsConcurrentInsert() throws Exception {
+        String insert = """
+                INSERT INTO appointments(
+                    patient_id, psychoanalyst_id, scheduled_start, scheduled_end,
+                    status, appointment_type, organization_id
+                ) VALUES (
+                    900001, 900002, TIMESTAMP '2099-01-05 14:00:00',
+                    TIMESTAMP '2099-01-05 15:00:00', 'SCHEDULED', 'ONLINE',
+                    '10000000-0000-0000-0000-000000000001'
+                )
+                """;
+        try (Connection first = DriverManager.getConnection(DB.getJdbcUrl(), DB.getUsername(), DB.getPassword());
+             Connection second = DriverManager.getConnection(DB.getJdbcUrl(), DB.getUsername(), DB.getPassword());
+             ExecutorService executor = Executors.newSingleThreadExecutor()) {
+            first.setAutoCommit(false);
+            second.setAutoCommit(false);
+            try (Statement statement = first.createStatement()) {
+                statement.executeUpdate(insert);
+            }
+
+            Future<SQLException> competingRequest = executor.submit(() -> {
+                try (Statement statement = second.createStatement()) {
+                    statement.executeUpdate(insert);
+                    return null;
+                } catch (SQLException exception) {
+                    return exception;
+                }
+            });
+
+            Thread.sleep(250);
+            first.commit();
+            SQLException rejection = competingRequest.get(10, java.util.concurrent.TimeUnit.SECONDS);
+            assertThat((Object) rejection).as("one concurrent request must lose the overlap race").isNotNull();
+            assertThat(rejection.getSQLState()).isEqualTo("23P01");
+            second.rollback();
+        }
+    }
+
+    private String hex(byte[] value) {
+        return java.util.HexFormat.of().formatHex(value);
     }
 
     private void assertCriticalTablesHaveForcedTenantPolicies(Statement sql) throws SQLException {

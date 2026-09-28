@@ -6,6 +6,7 @@ import com.psicogest.psicogest.model.enums.*;
 import com.psicogest.psicogest.repository.*;
 import com.psicogest.psicogest.security.auth.mfa.*;
 import com.psicogest.psicogest.security.auth.refresh.SecurityTokenGenerator;
+import com.psicogest.psicogest.security.request.SecurityRequestContext;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -30,13 +31,15 @@ public class MfaService {
     private final UserSessionService sessions;
     private final PasswordEncoder passwords;
     private final Clock clock;
+    private final BruteForceProtectionService bruteForceProtectionService;
     public MfaService(ChallengeService challenges, MfaMethodRepository methods, MfaRecoveryCodeRepository recovery,
             UserRepository users, TotpService totp, MfaSecretCipher cipher, MfaProperties properties,
             SecurityTokenGenerator generator, AuthTokenService tokens, UserSessionService sessions,
-            PasswordEncoder passwords, Clock clock) {
+            PasswordEncoder passwords, Clock clock, BruteForceProtectionService bruteForceProtectionService) {
         this.challenges = challenges; this.methods = methods; this.recovery = recovery; this.users = users;
         this.totp = totp; this.cipher = cipher; this.properties = properties; this.generator = generator;
         this.tokens = tokens; this.sessions = sessions; this.passwords = passwords; this.clock = clock;
+        this.bruteForceProtectionService = bruteForceProtectionService;
     }
 
     // Optional enrollment for patients also requires the password again, not only a bearer token.
@@ -102,15 +105,15 @@ public class MfaService {
                 userAgent == null ? null : generator.hash(userAgent)), List.copyOf(codes));
     }
 
-    public AuthService.AuthTokens verify(String raw, String code, String ip, String userAgent) {
+    public AuthService.AuthTokens verify(String raw, String code, SecurityRequestContext context) {
         var challenge = challenges.require(raw, AuthenticationChallengeType.MFA_REQUIRED);
         acceptTotp(challenge, activeMethod(challenge.getUser()), code);
         challenges.consume(challenge);
-        return tokens.authenticate(challenge.getUser(), ip,
-                userAgent == null ? null : generator.hash(userAgent));
+        bruteForceProtectionService.registerSuccess(challenge.getUser(), context);
+        return tokens.authenticate(challenge.getUser(), context.sourceIp(), context.userAgentHash());
     }
 
-    public AuthService.AuthTokens recover(String raw, String code, String ip, String userAgent) {
+    public AuthService.AuthTokens recover(String raw, String code, SecurityRequestContext context) {
         var challenge = challenges.require(raw, AuthenticationChallengeType.MFA_REQUIRED);
         activeMethod(challenge.getUser());
         var recoveryCode = code == null ? Optional.<MfaRecoveryCode>empty()
@@ -118,8 +121,8 @@ public class MfaService {
         if (recoveryCode.isEmpty()) challenges.reject(challenge);
         recoveryCode.orElseThrow().setUsedAt(now());
         challenges.consume(challenge);
-        return tokens.authenticate(challenge.getUser(), ip,
-                userAgent == null ? null : generator.hash(userAgent));
+        bruteForceProtectionService.registerSuccess(challenge.getUser(), context);
+        return tokens.authenticate(challenge.getUser(), context.sourceIp(), context.userAgentHash());
     }
 
     // A fresh login challenge proves password re-entry; the current TOTP proves the existing factor.

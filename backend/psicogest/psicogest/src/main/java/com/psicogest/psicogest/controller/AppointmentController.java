@@ -50,6 +50,7 @@ public class AppointmentController {
     }
 
     @PostMapping("/recurring")
+    @PreAuthorize("@identityAuthorization.isPsychoanalystSelf(authentication, #psychoanalystId)")
     @ResponseStatus(HttpStatus.CREATED)
     public List<AppointmentResponseDTO>
     createRecurring(
@@ -66,6 +67,7 @@ public class AppointmentController {
     }
 
     @GetMapping
+    @PreAuthorize("@identityAuthorization.isPsychoanalystSelf(authentication, #psychoanalystId)")
     public List<AppointmentResponseDTO> findAll(
             @PathVariable Long psychoanalystId
     ) {
@@ -78,7 +80,7 @@ public class AppointmentController {
 
     @GetMapping("/{appointmentId}")
     @PreAuthorize("""
-            @clinicalAuthorization.canReadAppointment(
+            @clinicalAuthorizationService.canReadAppointment(
                 authentication,
                 #appointmentId
             )
@@ -95,6 +97,7 @@ public class AppointmentController {
     }
 
     @PatchMapping("/{appointmentId}/cancel")
+    @PreAuthorize("@identityAuthorization.isPsychoanalystSelf(authentication, #psychoanalystId)")
     public AppointmentResponseDTO cancel(
             @PathVariable Long psychoanalystId,
             @PathVariable Long appointmentId,
@@ -109,7 +112,8 @@ public class AppointmentController {
         );
     }
 
-    @PatchMapping("/{appointmentId}/confirm")
+@PatchMapping("/{appointmentId}/confirm")
+@PreAuthorize("@identityAuthorization.isPsychoanalystSelf(authentication, #psychoanalystId)")
 public AppointmentResponseDTO confirm(
         @PathVariable Long psychoanalystId,
         @PathVariable Long appointmentId
@@ -122,6 +126,7 @@ public AppointmentResponseDTO confirm(
 }
 
 @PatchMapping("/{appointmentId}/complete")
+@PreAuthorize("@identityAuthorization.isPsychoanalystSelf(authentication, #psychoanalystId)")
 public AppointmentResponseDTO complete(
         @PathVariable Long psychoanalystId,
         @PathVariable Long appointmentId
@@ -134,6 +139,7 @@ public AppointmentResponseDTO complete(
 }
 
 @PatchMapping("/{appointmentId}/no-show")
+@PreAuthorize("@identityAuthorization.isPsychoanalystSelf(authentication, #psychoanalystId)")
 public AppointmentResponseDTO noShow(
         @PathVariable Long psychoanalystId,
         @PathVariable Long appointmentId
@@ -148,6 +154,7 @@ public AppointmentResponseDTO noShow(
 @PatchMapping(
         "/{appointmentId}/series/cancel"
 )
+@PreAuthorize("@identityAuthorization.isPsychoanalystSelf(authentication, #psychoanalystId)")
 public List<AppointmentResponseDTO>
 cancelSeriesScope(
         @PathVariable Long psychoanalystId,
@@ -166,6 +173,7 @@ cancelSeriesScope(
 @PostMapping(
         "/{appointmentId}/series/reschedule"
 )
+@PreAuthorize("@identityAuthorization.isPsychoanalystSelf(authentication, #psychoanalystId)")
 public List<AppointmentResponseDTO>
 rescheduleSeriesScope(
         @PathVariable Long psychoanalystId,
@@ -182,6 +190,7 @@ rescheduleSeriesScope(
 }
 
     @PostMapping("/{appointmentId}/reschedule")
+    @PreAuthorize("@identityAuthorization.isPsychoanalystSelf(authentication, #psychoanalystId)")
     @ResponseStatus(HttpStatus.CREATED)
     public AppointmentResponseDTO reschedule(
             @PathVariable Long psychoanalystId,

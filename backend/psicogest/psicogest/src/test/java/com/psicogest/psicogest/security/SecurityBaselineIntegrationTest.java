@@ -119,6 +119,7 @@ class SecurityBaselineIntegrationTest extends PostgresIntegrationTest {
 
         var crossTenantWrites = new MockHttpServletRequestBuilder[]{
                 post("/patients").contentType("application/json").content("{}"),
+                patch("/patients/999999").contentType("application/json").content("{}"),
                 patch("/patients/999999/deactivate"),
                 post("/patients/999999/medical-records").contentType("application/json").content("{}"),
                 put("/medical-records/95000000-0000-0000-0000-000000000001")

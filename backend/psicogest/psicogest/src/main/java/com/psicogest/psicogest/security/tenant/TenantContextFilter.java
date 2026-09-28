@@ -2,6 +2,7 @@ package com.psicogest.psicogest.security.tenant;
 
 import com.psicogest.psicogest.exception.AccessDeniedException;
 import com.psicogest.psicogest.exception.ResourceNotFoundException;
+import com.psicogest.psicogest.security.pilot.ClinicalPilotScopeGuard;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -26,11 +27,14 @@ public class TenantContextFilter extends OncePerRequestFilter {
 
     private final TenantContextResolver resolver;
     private final TransactionTemplate transactionTemplate;
+    private final ClinicalPilotScopeGuard pilotScopeGuard;
 
     public TenantContextFilter(TenantContextResolver resolver,
-                               PlatformTransactionManager transactionManager) {
+                               PlatformTransactionManager transactionManager,
+                               ClinicalPilotScopeGuard pilotScopeGuard) {
         this.resolver = resolver;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
+        this.pilotScopeGuard = pilotScopeGuard;
     }
 
     @Override
@@ -50,6 +54,12 @@ public class TenantContextFilter extends OncePerRequestFilter {
             HttpServletResponse response,
             FilterChain filterChain
     ) throws ServletException, IOException {
+        String path = request.getRequestURI().substring(request.getContextPath().length());
+        if (pilotScopeGuard.isUnavailable(request.getMethod(), path)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String requested = request.getHeader("X-Organization-Id");
         UUID organizationId;

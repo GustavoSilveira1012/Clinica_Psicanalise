@@ -6,6 +6,8 @@ import com.psicogest.psicogest.repository.AddendumRepository;
 import com.psicogest.psicogest.repository.MedicalRecordRepository;
 import com.psicogest.psicogest.repository.MedicalRecordRevisionRepository;
 import com.psicogest.psicogest.repository.PsychoanalystRepository;
+import com.psicogest.psicogest.repository.PatientRepository;
+import com.psicogest.psicogest.repository.AppointmentRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
@@ -24,6 +26,10 @@ public class ClinicalAuthorizationService {
 
     private final MedicalRecordRevisionRepository revisionRepository;
 
+    private final PatientRepository patientRepository;
+
+    private final AppointmentRepository appointmentRepository;
+
     private final SecurityContextService contextService;
 
     public ClinicalAuthorizationService(
@@ -31,7 +37,9 @@ public class ClinicalAuthorizationService {
             PsychoanalystRepository psychoanalystRepository,
             AddendumRepository addendumRepository,
             MedicalRecordRevisionRepository revisionRepository,
-            SecurityContextService contextService
+            SecurityContextService contextService,
+            PatientRepository patientRepository,
+            AppointmentRepository appointmentRepository
     ) {
 
         this.medicalRecordRepository = medicalRecordRepository;
@@ -39,6 +47,56 @@ public class ClinicalAuthorizationService {
         this.addendumRepository = addendumRepository;
         this.revisionRepository = revisionRepository;
         this.contextService = contextService;
+        this.patientRepository = patientRepository;
+        this.appointmentRepository = appointmentRepository;
+    }
+
+    public boolean canReadPatientProfile(Authentication authentication, Long patientId) {
+        Long userId = contextService.userId(authentication).orElse(null);
+        if (userId == null || patientId == null) return false;
+
+        if (contextService.hasRole(authentication, "PATIENT")) {
+            return patientRepository.existsByIdAndUserId(patientId, userId);
+        }
+        if (contextService.hasRole(authentication, "CLINIC_ADMIN")) {
+            return patientRepository.existsById(patientId);
+        }
+        if (!contextService.hasRole(authentication, "PSYCHOANALYST")) return false;
+        return psychoanalystRepository.findByUserId(userId)
+                .map(psychoanalyst -> psychoanalystRepository.existsTherapeuticRelationship(
+                        psychoanalyst.getId(), patientId))
+                .orElse(false);
+    }
+
+    public boolean canWritePatientProfile(Authentication authentication, Long patientId) {
+        Long userId = contextService.userId(authentication).orElse(null);
+        if (userId == null || patientId == null) return false;
+        if (contextService.hasRole(authentication, "PATIENT")) {
+            return patientRepository.existsByIdAndUserId(patientId, userId);
+        }
+        if (contextService.hasRole(authentication, "CLINIC_ADMIN")) {
+            return patientRepository.existsById(patientId);
+        }
+        if (!contextService.hasRole(authentication, "PSYCHOANALYST")) return false;
+        return psychoanalystRepository.findByUserId(userId)
+                .map(psychoanalyst -> psychoanalystRepository.existsActiveTherapeuticRelationship(
+                        psychoanalyst.getId(), patientId))
+                .orElse(false);
+    }
+
+    public boolean canReadAppointment(Authentication authentication, Long appointmentId) {
+        Long userId = contextService.userId(authentication).orElse(null);
+        if (userId == null || appointmentId == null) return false;
+        if (contextService.hasRole(authentication, "PSYCHOANALYST")) {
+            return appointmentRepository.existsByIdAndPsychoanalystUserId(appointmentId, userId);
+        }
+        if (contextService.hasRole(authentication, "PATIENT")) {
+            return appointmentRepository.existsByIdAndPatientUserId(appointmentId, userId);
+        }
+        if (contextService.hasRole(authentication, "CLINIC_ADMIN")) {
+            return appointmentRepository.existsByIdAndClinicAdminUserId(appointmentId, userId);
+        }
+        return false;
     }
 
     /**

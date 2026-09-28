@@ -48,6 +48,17 @@ public interface RefundRepository extends JpaRepository<Refund, UUID> {
             UUID refundId
     );
 
+    @Query("""
+            SELECT r.payment.id
+            FROM Refund r
+            WHERE r.provider = :provider
+            AND r.providerRefundId = :providerRefundId
+            """)
+    Optional<UUID> findPaymentIdByProviderRefund(
+            @Param("provider") String provider,
+            @Param("providerRefundId") String providerRefundId
+    );
+
     /**
      * 8. Busca refund com lock pessimista
      */

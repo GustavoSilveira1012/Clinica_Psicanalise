@@ -48,7 +48,7 @@ public class AddendumController {
     @PostMapping("/medical-records/{recordId}/addendums")
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("""
-            @clinicalAuthorization.canAddAddendum(
+            @clinicalAuthorizationService.canAddAddendum(
                 authentication,
                 #recordId
             )
@@ -82,7 +82,7 @@ public class AddendumController {
      */
     @GetMapping("/medical-record-addendums/{addendumId}")
     @PreAuthorize("""
-            @clinicalAuthorization.canReadMedicalRecordAddendum(
+            @clinicalAuthorizationService.canReadMedicalRecordAddendum(
                 authentication,
                 #addendumId
             )
@@ -123,6 +123,7 @@ public class AddendumController {
      * 3. Retorna List<AddendumSummaryDTO>
      */
     @GetMapping("/medical-records/{recordId}/addendums")
+    @PreAuthorize("@clinicalAuthorizationService.canReadMedicalRecord(authentication, #recordId)")
     public List<AddendumSummaryDTO> findByMedicalRecord(
             @PathVariable UUID recordId,
             Authentication authentication,

@@ -45,12 +45,11 @@ class ClinicalExportRetentionSchedulerTest {
     }
 
     @Test
-    void emptyAllowlistDoesNotRunAnyTenant() {
+    void rejectsAnEmptyAllowlistWhenRetentionSchedulingIsEnabled() {
         ClinicalExportRetentionWorker worker = mock(ClinicalExportRetentionWorker.class);
-        var scheduler = new ClinicalExportRetentionScheduler(worker, " , ");
 
-        assertThat(scheduler.runConfiguredOrganizations()).isEqualTo(
-                new ClinicalExportRetentionScheduler.RetentionRunResult(0, 0, 0, 0, 0));
+        assertThatThrownBy(() -> new ClinicalExportRetentionScheduler(worker, " , "))
+                .isInstanceOf(IllegalArgumentException.class);
         verify(worker, never()).processCurrentTenantBatch();
     }
 

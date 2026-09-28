@@ -859,6 +859,12 @@ public class RefundService {
             Instant occurredAt
     ) {
 
+        // Preserve the same Payment → Refund lock order used by manual confirmation.
+        UUID paymentId = refundRepository
+                .findPaymentIdByProviderRefund(provider.name(), providerRefundId)
+                .orElseThrow(() -> new ResourceNotFoundException("Reembolso externo não encontrado"));
+        Payment payment = paymentRepository.findByIdForUpdate(paymentId).orElseThrow();
+
         // Buscar refund com lock pessimista
         Refund refund =
                 refundRepository
@@ -898,11 +904,46 @@ public class RefundService {
 
         refundRepository.saveAndFlush(refund);
 
-        // Buscar Payment para logging
-        Payment payment =
-                paymentRepository
-                        .findById(refund.getPayment().getId())
-                        .orElseThrow();
+        BigDecimal totalRefunded = refundRepository.sumConfirmedRefunds(paymentId);
+        if (totalRefunded.compareTo(payment.getAmount()) >= 0) {
+            payment.markRefunded(occurredAt);
+        } else {
+            payment.markPartiallyRefunded(occurredAt);
+        }
+        paymentRepository.saveAndFlush(payment);
+
+        List<UUID> receivableIds = refundAllocationRepository.findByRefundId(refund.getId()).stream()
+                .map(reversal -> reversal.getPaymentAllocation().getReceivable().getId())
+                .distinct()
+                .sorted()
+                .toList();
+        for (UUID receivableId : receivableIds) {
+            Receivable receivable = receivableRepository.findByIdForUpdate(receivableId).orElseThrow();
+            synchronizeReceivableStatus(receivable, balanceService.allocatedAmount(receivableId));
+            receivableRepository.save(receivable);
+        }
+
+        auditService.recordCriticalWrite(new AuditCommand(
+                null,
+                null,
+                AuditAction.REFUND_CONFIRMED,
+                "REFUND",
+                refund.getId().toString(),
+                payment.getPatient().getId(),
+                payment.getClinic() == null ? null : payment.getClinic().getId(),
+                AuditOutcome.SUCCESS,
+                null,
+                null,
+                null,
+                Map.of(
+                        "paymentId", payment.getId().toString(),
+                        "amount", refund.getAmount().toPlainString(),
+                        "paymentStatus", payment.getStatus().name(),
+                        "source", "PAYMENT_PROVIDER",
+                        "provider", provider.name(),
+                        "providerRefundId", providerRefundId
+                )
+        ));
 
         log.info(
                 "Reembolso confirmado do provider: " +

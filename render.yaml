@@ -33,6 +33,10 @@ services:
         value: "false"
       - key: REQUIRE_NOTIFICATION_PROVIDERS
         value: "false"
+      - key: NOTIFICATION_OUTBOX_SCHEDULER_ENABLED
+        value: "false"
+      - key: NOTIFICATION_OUTBOX_ORGANIZATION_IDS
+        value: ""
       - key: REQUIRE_NATIONAL_NFSE
         value: "false"
       - key: CLINICAL_EXPORT_STORAGE_TYPE

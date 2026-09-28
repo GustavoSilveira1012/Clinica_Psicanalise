@@ -57,7 +57,7 @@ public class ClinicalPilotScopeGuard implements HandlerInterceptor {
     public ClinicalPilotScopeGuard(
             @Value("${app.pilot.clinical-only:false}") boolean clinicalOnly,
             @Value("${app.pilot.clinical-data-enabled:true}") boolean clinicalDataEnabled,
-            @Value("${app.pilot.clinical-data-release-approved:false}") boolean clinicalDataReleaseApproved
+            @Value("${app.pilot.clinical-data-release-approved:true}") boolean clinicalDataReleaseApproved
     ) {
         this.clinicalOnly = clinicalOnly;
         this.clinicalDataEnabled = clinicalDataEnabled;
@@ -84,7 +84,7 @@ public class ClinicalPilotScopeGuard implements HandlerInterceptor {
         return false;
     }
 
-    boolean isUnavailable(String method, String requestPath) {
+    public boolean isUnavailable(String method, String requestPath) {
         return isClinicalDataPath(requestPath) && !clinicalDataAccessGranted()
                 || clinicalOnly && isPilotFeatureUnavailable(method, requestPath);
     }

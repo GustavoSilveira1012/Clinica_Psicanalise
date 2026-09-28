@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface TherapeuticRelationshipRepository
                 extends JpaRepository<TherapeuticRelationship, Long> {
@@ -49,5 +50,25 @@ public interface TherapeuticRelationshipRepository
         List<Patient> findAccessiblePatients(
                         @Param("psychoanalystId") Long psychoanalystId,
                         @Param("statuses") Collection<TherapeuticRelationshipStatus> statuses
+        );
+
+        @Query("""
+                SELECT DISTINCT tr.patient
+                FROM TherapeuticRelationship tr
+                WHERE tr.psychoanalyst.id = :psychoanalystId
+                  AND tr.patient.organizationId = :organizationId
+                  AND tr.status IN :statuses
+                  AND (:active IS NULL OR tr.patient.active = :active)
+                  AND (:query IS NULL OR :query = ''
+                       OR lower(tr.patient.user.name) LIKE lower(concat('%', :query, '%'))
+                       OR lower(tr.patient.user.email) LIKE lower(concat('%', :query, '%')))
+                ORDER BY tr.patient.id
+                """)
+        List<Patient> searchAccessiblePatients(
+                        @Param("psychoanalystId") Long psychoanalystId,
+                        @Param("organizationId") UUID organizationId,
+                        @Param("statuses") Collection<TherapeuticRelationshipStatus> statuses,
+                        @Param("query") String query,
+                        @Param("active") Boolean active
         );
 }

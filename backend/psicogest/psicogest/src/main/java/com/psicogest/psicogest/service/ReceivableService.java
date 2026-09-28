@@ -13,7 +13,6 @@ import com.psicogest.psicogest.model.entity.Receivable.ReceivableStatus;
 import com.psicogest.psicogest.model.enums.ClinicUserMembershipStatus;
 import com.psicogest.psicogest.model.enums.ReceivableOriginType;
 import com.psicogest.psicogest.repository.AppointmentRepository;
-import com.psicogest.psicogest.repository.PaymentAllocationRepository;
 import com.psicogest.psicogest.repository.ClinicRepository;
 import com.psicogest.psicogest.repository.ClinicUserMembershipRepository;
 import com.psicogest.psicogest.repository.PatientRepository;
@@ -44,32 +43,32 @@ import java.util.UUID;
 public class ReceivableService {
 
     private final ReceivableRepository receivableRepository;
-    private final PaymentAllocationRepository allocationRepository;
     private final Clock clock;
     private final PatientRepository patientRepository;
     private final AppointmentRepository appointmentRepository;
     private final ClinicRepository clinicRepository;
     private final ClinicUserMembershipRepository membershipRepository;
     private final FinanceAuthorizationService financeAuthorizationService;
+    private final FinanceBalanceService balanceService;
 
     public ReceivableService(
             ReceivableRepository receivableRepository,
-            PaymentAllocationRepository allocationRepository,
             Clock clock,
             PatientRepository patientRepository,
             AppointmentRepository appointmentRepository,
             ClinicRepository clinicRepository,
             ClinicUserMembershipRepository membershipRepository,
-            FinanceAuthorizationService financeAuthorizationService
+            FinanceAuthorizationService financeAuthorizationService,
+            FinanceBalanceService balanceService
     ) {
         this.receivableRepository = receivableRepository;
-        this.allocationRepository = allocationRepository;
         this.clock = clock;
         this.patientRepository = patientRepository;
         this.appointmentRepository = appointmentRepository;
         this.clinicRepository = clinicRepository;
         this.membershipRepository = membershipRepository;
         this.financeAuthorizationService = financeAuthorizationService;
+        this.balanceService = balanceService;
     }
 
     public List<ReceivableResponseDTO> findAll(SecurityActor actor) {
@@ -161,14 +160,7 @@ public class ReceivableService {
         financeAuthorizationService.validateClinicAccess(receivable.getClinic().getId(), actor);
 
         // 37. Calcular saldos
-        BigDecimal paidAmount =
-                allocationRepository
-                        .sumEffectiveAllocation(
-                                receivableId
-                        );
-
-        paidAmount =
-                MoneyRules.normalize(paidAmount);
+        BigDecimal paidAmount = balanceService.allocatedAmount(receivableId);
 
         BigDecimal outstandingAmount =
                 receivable.getNetAmount()
@@ -241,8 +233,7 @@ public class ReceivableService {
     }
 
     private ReceivableResponseDTO toResponse(Receivable receivable) {
-        BigDecimal paidAmount = MoneyRules.normalize(
-                allocationRepository.sumEffectiveAllocation(receivable.getId()));
+        BigDecimal paidAmount = balanceService.allocatedAmount(receivable.getId());
         BigDecimal outstandingAmount = MoneyRules.normalize(
                 receivable.getNetAmount().subtract(paidAmount));
         boolean overdue = receivable.getDueDate().isBefore(LocalDate.now(clock))

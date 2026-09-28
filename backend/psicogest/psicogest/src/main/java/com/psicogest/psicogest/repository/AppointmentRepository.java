@@ -86,6 +86,20 @@ boolean existsByIdAndPsychoanalystUserId(
 );
 
 @Query("""
+        SELECT COUNT(a) > 0
+        FROM Appointment a, ClinicUserMembership access
+        WHERE a.id = :appointmentId
+          AND access.clinic.id = a.clinicMembership.clinic.id
+          AND access.user.id = :userId
+          AND access.accessRole = com.psicogest.psicogest.model.enums.ClinicAccessRole.ADMIN
+          AND access.status = com.psicogest.psicogest.model.enums.ClinicUserMembershipStatus.ACTIVE
+        """)
+boolean existsByIdAndClinicAdminUserId(
+        @Param("appointmentId") Long appointmentId,
+        @Param("userId") Long userId
+);
+
+@Query("""
         SELECT a.clinicMembership.clinic.id
 
         FROM Appointment a

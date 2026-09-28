@@ -1205,30 +1205,29 @@ no backup privileges
 
 # 36. CI/CD
 
-Pipeline desejado:
+Pipeline desejado para cada commit:
 
 ```text
-compile
-unit
-integration
-tenant isolation
-security integration
+commit
+↓
+backend compile
+↓
+backend tests
+↓
+frontend lint
+↓
+frontend typecheck
+↓
 frontend tests
-lint
-typecheck
-SAST
-SCA
-secret scan
-SBOM
-container scan
-build
-sign
+↓
+frontend build
+↓
+security scan
+↓
 staging
-E2E
-DAST
-manual approval
-production
 ```
+
+Estado da configuração no repositório em 2026-09-28: `.github/workflows/quality.yml` contém compilação/testes do backend, lint, typecheck, testes, E2E e build do frontend, além de revisão estática de migrations e build de containers. Backend e frontend rodam em jobs paralelos; revisão de migrations e containers também são jobs separados. `render.yaml` configura deploy sintético após os checks, com smoke workflow separado e opt-in; isso ainda precisa ser confirmado como staging operacional. Ainda falta scanner de segurança dedicado. O log local registra `BUILD SUCCESS`, 172 testes aprovados, zero falhas e zero ignorados, incluindo PostgreSQL/Testcontainers ([log](backend/psicogest/psicogest/target/audit-20260928-tests.log:341)); isso não confirma o último run do GitHub nem as proteções de branch, que precisam ser verificadas na própria conta.
 
 ---
 
@@ -1442,6 +1441,8 @@ scale
 
 Ambiente demo separado de produção, somente com dados fictícios e resetáveis.
 
+Um piloto gratuito e controlado com a clínica da família vem antes da venda self-service. A progressão deve ser `Paciente Teste` → 1 paciente real → 3–5 pacientes → uma semana de uso, condicionada aos gates clínicos e operacionais da seção 49.
+
 ---
 
 # 43. Planos SaaS
@@ -1457,6 +1458,8 @@ Enterprise
 
 Preços definitivos são decisão comercial e devem evoluir por `SaasPlanVersion`, nunca hardcoded no domínio.
 
+Antes da venda self-service, confirmar `SaasPlan`, `SaasPlanVersion`, entitlements, limites, trial, checkout, `SaasSubscription`, provedor de billing, webhook SaaS, upgrade, downgrade, inadimplência (`past due`) e modo restrito. Isso não bloqueia o piloto gratuito; bloqueia a venda self-service.
+
 ---
 
 # 44. Trial e onboarding
@@ -1470,16 +1473,18 @@ email verification
 ↓
 Organization
 ↓
-trial
+Clinic
 ↓
-onboarding
+Professional
 ↓
-dashboard
+Availability
 ↓
-checkout
+Patient
 ↓
-paid subscription
+Appointment
 ```
+
+O fluxo comercial deve funcionar sem acesso manual ao banco.
 
 ---
 
@@ -1567,3 +1572,42 @@ clientes reais
 ```
 
 Depois disso, novas features devem ser guiadas principalmente por feedback de uso real.
+
+---
+
+# 49. Piloto clínico familiar
+
+O piloto com a mãe do responsável pelo projeto é uma fase real do roadmap, gratuita e controlada. Antes de qualquer uso com paciente real, comprovar todos os itens abaixo; nenhum está presumido como concluído por estar listado:
+
+- [ ] Frontend utilizável, login, paciente, agendamento e `MedicalRecord`.
+- [ ] HTTPS, autenticação e autorização clínica.
+- [ ] Criptografia, auditoria, backup e restore comprovados.
+- [ ] Nenhum mock clínico no ambiente ou nos fluxos do piloto.
+
+Progressão planejada:
+
+```text
+Paciente Teste (dados fictícios)
+↓
+1 paciente real
+↓
+3–5 pacientes
+↓
+uma semana real de uso
+```
+
+Não avançar de etapa enquanto houver bloqueador de segurança, autorização, integridade ou recuperação de dados.
+
+---
+
+# 50. Feedback do piloto
+
+Registrar problemas em [`PILOT_FEEDBACK.md`](./PILOT_FEEDBACK.md). Feedback observado no piloto tem prioridade sobre ideias aleatórias de funcionalidades. Classificação: `P0` segurança ou perda de dados; `P1` impede atendimento; `P2` atrapalha; `P3` melhoria. Não registrar dados pessoais ou clínicos de pacientes no arquivo.
+
+---
+
+# 51. Demo e pentest
+
+A demo deve ficar em ambiente separado, com dados apenas fictícios e resetáveis; nunca usar pacientes da clínica da família em demonstrações.
+
+Pentest/revisão independente pode ocorrer durante o hardening do piloto controlado, mas é requisito antes de escalar vendas. Priorizar autenticação, isolamento por tenant, IDOR, `MedicalRecord`, exportação clínica, financeiro e webhooks.

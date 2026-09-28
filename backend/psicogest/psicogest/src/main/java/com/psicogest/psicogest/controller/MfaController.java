@@ -2,6 +2,7 @@ package com.psicogest.psicogest.controller;
 
 import com.psicogest.psicogest.dto.auth.*;
 import com.psicogest.psicogest.model.enums.LoginStatus;
+import com.psicogest.psicogest.security.request.SecurityRequestContextFactory;
 import com.psicogest.psicogest.security.auth.refresh.RefreshCookieService;
 import com.psicogest.psicogest.service.*;
 import jakarta.servlet.http.*;
@@ -18,7 +19,13 @@ import java.util.List;
 public class MfaController {
     private final MfaService mfa;
     private final RefreshCookieService cookies;
-    public MfaController(MfaService mfa, RefreshCookieService cookies) { this.mfa = mfa; this.cookies = cookies; }
+    private final SecurityRequestContextFactory requestContextFactory;
+    public MfaController(MfaService mfa, RefreshCookieService cookies,
+            SecurityRequestContextFactory requestContextFactory) {
+        this.mfa = mfa;
+        this.cookies = cookies;
+        this.requestContextFactory = requestContextFactory;
+    }
 
     @PostMapping("/enrollment")
     public LoginResponse enrollment(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody PasswordRequest dto,
@@ -44,7 +51,7 @@ public class MfaController {
     @PostMapping("/totp/verify")
     public AuthResponse verify(@Valid @RequestBody CodeRequest dto,
             HttpServletRequest request, HttpServletResponse response) {
-        var result = mfa.verify(dto.challenge(), dto.code(), request.getRemoteAddr(), request.getHeader("User-Agent"));
+        var result = mfa.verify(dto.challenge(), dto.code(), requestContextFactory.from(request));
         cookies.write(response, result.refreshToken());
         return result.response();
     }
@@ -52,7 +59,7 @@ public class MfaController {
     @PostMapping("/recovery")
     public AuthResponse recover(@Valid @RequestBody CodeRequest dto,
             HttpServletRequest request, HttpServletResponse response) {
-        var result = mfa.recover(dto.challenge(), dto.code(), request.getRemoteAddr(), request.getHeader("User-Agent"));
+        var result = mfa.recover(dto.challenge(), dto.code(), requestContextFactory.from(request));
         cookies.write(response, result.refreshToken());
         return result.response();
     }

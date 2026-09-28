@@ -257,23 +257,7 @@ public class PaymentAllocationService {
         }
 
         // 26. Validar saldo disponível da cobrança
-        BigDecimal receivableAllocated =
-                allocationRepository
-                        .sumEffectiveAllocation(
-                                receivable.getId()
-                        );
-
-        BigDecimal outstanding =
-                receivable
-                        .getNetAmount()
-                        .subtract(
-                                receivableAllocated
-                        );
-
-        outstanding =
-                MoneyRules.normalize(
-                        outstanding
-                );
+        BigDecimal outstanding = balanceService.outstandingAmount(receivable);
 
         if (
                 requested.compareTo(
@@ -285,6 +269,8 @@ public class PaymentAllocationService {
                     "O valor excede o saldo da cobrança"
             );
         }
+
+        BigDecimal receivableAllocated = balanceService.allocatedAmount(receivable.getId());
 
         // 27. Criar allocation
         Instant now = Instant.now();

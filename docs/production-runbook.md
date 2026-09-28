@@ -102,6 +102,11 @@ O scheduler de retenção de exports é independente dessas rotinas e continua d
 sintéticos em `CLINICAL_EXPORT_RETENTION_ORGANIZATION_IDS`. A allowlist tem limite
 de 100 organizações; não habilite retenção contra uma clínica com dados reais sem
 validar a política de retenção, exclusão e restauração dos objetos no fornecedor.
+O polling do outbox também é independente e exige `NOTIFICATION_OUTBOX_SCHEDULER_ENABLED=true`
+mais `NOTIFICATION_OUTBOX_ORGANIZATION_IDS`, somente com tenants sintéticos. O limite
+é 100 eventos por tenant por ciclo e o intervalo configurável é limitado a 1 segundo–30
+minutos. O worker pode executar handlers registrados; mantenha-o desligado até revisar
+quais handlers estão ativos. Nenhum provider de e-mail, WhatsApp ou SMS está homologado.
 
 Recuperação de senha e confirmação de e-mail usam SMTP somente quando
 `AUTH_ACTION_MAIL_ENABLED=true`; em produção, `AUTH_ACTION_MAIL_REQUIRED_FOR_READINESS`
