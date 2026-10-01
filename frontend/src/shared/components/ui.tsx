@@ -50,7 +50,7 @@ export function StatusBadge({ value, className }: { value: string | null | undef
 
 export function Input({ label, error, hint, leadingIcon, className, id, ...props }: InputHTMLAttributes<HTMLInputElement> & { label?: string; error?: string; hint?: string; leadingIcon?: ReactNode }) {
   const generatedId = useId().replaceAll(":", "");
-  const inputId = id ?? props.name ?? `field-${generatedId}`;
+  const inputId = id ?? `${props.name ?? "field"}-${generatedId}`;
   const errorId = `${inputId}-error`;
   const hintId = `${inputId}-hint`;
   const describedBy = [props["aria-describedby"], error ? errorId : hint ? hintId : undefined].filter(Boolean).join(" ") || undefined;
@@ -63,7 +63,7 @@ export function Input({ label, error, hint, leadingIcon, className, id, ...props
 
 export function Select({ label, error, className, id, children, ...props }: SelectHTMLAttributes<HTMLSelectElement> & { label?: string; error?: string }) {
   const generatedId = useId().replaceAll(":", "");
-  const selectId = id ?? props.name ?? `field-${generatedId}`;
+  const selectId = id ?? `${props.name ?? "field"}-${generatedId}`;
   const errorId = `${selectId}-error`;
   const describedBy = [props["aria-describedby"], error ? errorId : undefined].filter(Boolean).join(" ") || undefined;
   return <label className="block space-y-1.5" htmlFor={selectId}>
@@ -75,7 +75,7 @@ export function Select({ label, error, className, id, children, ...props }: Sele
 
 export function Textarea({ label, error, className, id, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement> & { label?: string; error?: string }) {
   const generatedId = useId().replaceAll(":", "");
-  const textareaId = id ?? props.name ?? `field-${generatedId}`;
+  const textareaId = id ?? `${props.name ?? "field"}-${generatedId}`;
   const errorId = `${textareaId}-error`;
   const describedBy = [props["aria-describedby"], error ? errorId : undefined].filter(Boolean).join(" ") || undefined;
   return <label className="block space-y-1.5" htmlFor={textareaId}>

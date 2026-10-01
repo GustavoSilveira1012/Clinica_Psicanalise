@@ -87,10 +87,7 @@ public class ReceivableController {
             HttpServletRequest request
     ) {
 
-        log.info(
-                "GET /receivables/{}: consultando cobrança",
-                receivableId
-        );
+        log.info("GET /receivables: solicitação de consulta recebida");
 
         return receivableService.findById(receivableId,
                 securityActorFactory.from(authentication, request));

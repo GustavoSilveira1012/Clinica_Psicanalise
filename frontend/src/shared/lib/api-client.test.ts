@@ -85,4 +85,20 @@ describe("API session and tenant boundary", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 204 })));
     await expect(new ApiClient("").request("/sessions/current", { method: "DELETE" })).resolves.toBeUndefined();
   });
+
+  it("shares one CSRF bootstrap across concurrent authentication requests", async () => {
+    let resolveCsrf!: (response: Response) => void;
+    const csrfResponse = new Promise<Response>(resolve => { resolveCsrf = resolve; });
+    const fetch = vi.fn((path: string, _init?: RequestInit): Promise<Response> =>
+      path === "/auth/csrf" ? csrfResponse : Promise.resolve(json({ ok: true })));
+    vi.stubGlobal("fetch", fetch);
+    const client = new ApiClient("");
+    const first = client.request("/auth/mfa/totp/setup", { method: "POST", body: "{}" });
+    const second = client.request("/auth/mfa/totp/confirm", { method: "POST", body: "{}" });
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    resolveCsrf(json({ token: "one-csrf-token" }));
+    await expect(Promise.all([first, second])).resolves.toEqual([{ ok: true }, { ok: true }]);
+    expect(fetch).toHaveBeenCalledTimes(3);
+    expect(fetch.mock.calls.slice(1).every(([, init]) => new Headers(init?.headers).get("X-CSRF-TOKEN") === "one-csrf-token")).toBe(true);
+  });
 });

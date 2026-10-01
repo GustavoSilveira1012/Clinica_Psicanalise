@@ -29,6 +29,7 @@ export const patientSchema = z.object({
   name: z.string().min(3, "Informe o nome completo."),
   email: z.string().email("Informe um e-mail válido."),
   phone: z.string().min(10, "Informe um telefone válido."),
+  linkToCurrentProfessional: z.boolean().optional(),
 });
 
 export const mfaSchema = z.object({
@@ -58,6 +59,11 @@ export const receivableSchema = z.object({
   dueDate: z.string().min(1, "Informe o vencimento."),
   amount: z.coerce.number().positive("Informe um valor válido."),
   origin: z.enum(["APPOINTMENT", "PACKAGE", "SUBSCRIPTION"]),
+});
+
+export const paymentCollectionSchema = z.object({
+  amount: z.coerce.number().positive("Informe um valor válido."),
+  method: z.enum(["PIX", "CARD", "CASH", "TRANSFER"]),
 });
 
 export const addendumSchema = z.object({
@@ -98,6 +104,8 @@ export type PackagePlanFormValues = z.input<typeof packagePlanSchema>;
 export type SubscriptionValues = z.infer<typeof subscriptionSchema>;
 export type ReceivableValues = z.infer<typeof receivableSchema>;
 export type ReceivableFormValues = z.input<typeof receivableSchema>;
+export type PaymentCollectionValues = z.infer<typeof paymentCollectionSchema>;
+export type PaymentCollectionFormValues = z.input<typeof paymentCollectionSchema>;
 export type AddendumValues = z.infer<typeof addendumSchema>;
 export type FiscalDocumentValues = z.infer<typeof fiscalDocumentSchema>;
 export type FiscalDocumentFormValues = z.input<typeof fiscalDocumentSchema>;

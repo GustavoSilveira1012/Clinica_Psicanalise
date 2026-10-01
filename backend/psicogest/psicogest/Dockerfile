@@ -11,7 +11,15 @@ FROM eclipse-temurin:25-jre
 WORKDIR /app
 COPY --from=build /workspace/target/psicogest-*.jar /app/psicogest.jar
 
-ENV JAVA_OPTS="-XX:MaxRAMPercentage=75 -Djava.security.egd=file:/dev/urandom"
+# pgJDBC verify-full reads ${user.home}/.postgresql/root.crt by default.
+# Ship the OS CA bundle for the unprivileged runtime user; a deployment with
+# a private CA can replace this file through a read-only secret mount.
+RUN mkdir -p /home/psicogest/.postgresql \
+    && cp /etc/ssl/certs/ca-certificates.crt /home/psicogest/.postgresql/root.crt \
+    && chown -R 10001:10001 /home/psicogest
+
+ENV HOME=/home/psicogest
+ENV JAVA_OPTS="-XX:MaxRAMPercentage=75 -Djava.security.egd=file:/dev/urandom -Duser.home=/home/psicogest"
 EXPOSE 8080
 USER 10001
 ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/psicogest.jar"]

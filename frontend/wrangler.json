@@ -1,0 +1,16 @@
+{
+  "name": "psicogest-synthetic-web",
+  "main": "cloudflare/worker.mjs",
+  "compatibility_date": "2026-09-29",
+  "workers_dev": true,
+  "preview_urls": false,
+  "build": { "command": "node cloudflare/build.mjs" },
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/backend", "/backend/*"]
+  },
+  "vars": { "API_ORIGIN": "" },
+  "observability": { "enabled": false }
+}

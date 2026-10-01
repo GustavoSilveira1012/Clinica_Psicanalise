@@ -7,9 +7,18 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 public interface SaasPlanVersionRepository extends JpaRepository<SaasPlanVersion, UUID> {
+
+    @Query("""
+            select v from SaasPlanVersion v
+            join fetch v.plan p
+            where p.active = true and v.status = :status and v.publicVisible = true
+            order by p.code asc, v.version desc
+            """)
+    List<SaasPlanVersion> findActiveCatalogVersions(@Param("status") SaasPlanVersionStatus status);
 
     @Query("""
             select v from SaasPlanVersion v

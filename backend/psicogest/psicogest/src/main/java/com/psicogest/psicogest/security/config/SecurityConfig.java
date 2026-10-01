@@ -178,6 +178,9 @@ public class SecurityConfig {
                                 )
                                 .permitAll()
 
+                                .requestMatchers(HttpMethod.GET, "/public/plans")
+                                .permitAll()
+
                                 .requestMatchers(
                                         "/webhooks/payments/**"
                                 )

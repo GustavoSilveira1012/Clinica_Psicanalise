@@ -5,9 +5,13 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", "coverage"] },
+  { ignores: ["dist", "coverage", ".wrangler"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
+  {
+    files: ["cloudflare/*.mjs"],
+    languageOptions: { globals: { ...globals.node, ...globals.serviceworker } },
+  },
   {
     files: ["**/*.{ts,tsx}"],
     languageOptions: {

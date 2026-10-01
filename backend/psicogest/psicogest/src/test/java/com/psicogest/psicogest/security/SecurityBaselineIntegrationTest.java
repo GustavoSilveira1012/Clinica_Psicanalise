@@ -31,6 +31,16 @@ class SecurityBaselineIntegrationTest extends PostgresIntegrationTest {
     private JdbcTemplate jdbc;
 
     @Test
+    void anonymousCatalogDoesNotExposeUnapprovedSeedPricesOrOpenCheckout() throws Exception {
+        mockMvc.perform(get("/public/plans"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.available").value(false))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.plans.length()").value(0));
+        mockMvc.perform(post("/public/plans")).andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/saas/checkout")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void shouldRejectAnonymousPatientAccess() throws Exception {
 
         mockMvc.perform(
@@ -133,7 +143,12 @@ class SecurityBaselineIntegrationTest extends PostgresIntegrationTest {
                 post("/api/v1/payments").contentType("application/json").content("{}"),
                 post("/api/v1/payments/95000000-0000-0000-0000-000000000004/refunds")
                         .contentType("application/json").content("{}"),
+                post("/api/v1/payments/95000000-0000-0000-0000-000000000004/refunds/95000000-0000-0000-0000-000000000010/confirm"),
+                post("/api/v1/payments/95000000-0000-0000-0000-000000000004/refunds/95000000-0000-0000-0000-000000000010/fail"),
+                post("/api/v1/payments/95000000-0000-0000-0000-000000000004/refunds/95000000-0000-0000-0000-000000000010/cancel"),
                 post("/api/v1/payments/95000000-0000-0000-0000-000000000004/allocations")
+                        .contentType("application/json").content("{}"),
+                post("/api/v1/payments/collect")
                         .contentType("application/json").content("{}"),
                 post("/api/v1/payments/95000000-0000-0000-0000-000000000004/confirm"),
                 post("/patients/999999/subscriptions").contentType("application/json").content("{}"),

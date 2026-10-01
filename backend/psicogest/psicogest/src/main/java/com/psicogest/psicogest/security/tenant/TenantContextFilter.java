@@ -76,6 +76,11 @@ public class TenantContextFilter extends OncePerRequestFilter {
                     TenantContextHolder.set(resolver.resolve(authentication, organizationId));
                     try {
                         filterChain.doFilter(request, response);
+                        // MVC may handle a service exception and return normally. The
+                        // request must still roll back, preserving that error response.
+                        if (response.getStatus() >= HttpServletResponse.SC_BAD_REQUEST) {
+                            status.setRollbackOnly();
+                        }
                     } catch (IOException | ServletException exception) {
                         throw new FilterInvocationException(exception);
                     }
