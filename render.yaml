@@ -78,8 +78,10 @@ services:
         sync: false
       - key: REDIS_PASSWORD
         sync: false
+      # Render's same-region private Key Value URL uses redis://, not rediss://.
+      # This is synthetic-only; external traffic stays blocked.
       - key: REDIS_SSL_ENABLED
-        value: "true"
+        value: "false"
       - key: PUBLIC_PLANS_ENABLED
         value: "false"
       - key: PUBLIC_PRICING_APPROVED

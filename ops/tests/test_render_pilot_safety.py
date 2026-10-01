@@ -44,7 +44,7 @@ class RenderSyntheticPilotSafetyTest(unittest.TestCase):
         self.assert_env_value("CLINICAL_EXPORT_STORAGE_TYPE", "disabled")
         self.assert_env_value("JWT_COOKIE_SECURE", '"true"')
         self.assert_env_value("JPA_SHOW_SQL", '"false"')
-        self.assert_env_value("REDIS_SSL_ENABLED", '"true"')
+        self.assert_env_value("REDIS_SSL_ENABLED", '"false"')
         self.assert_env_value("PUBLIC_PLANS_ENABLED", '"false"')
         self.assert_env_value("PUBLIC_PRICING_APPROVED", '"false"')
         self.assert_env_value("PUBLIC_TRIAL_ENABLED", '"false"')
