@@ -1,0 +1,55 @@
+name: Apply PsicoGest schema to approved Supabase project
+
+on:
+  push:
+    branches:
+      - codex/render-homologacao
+    paths:
+      - .github/workflows/supabase-apply-migrations.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: psicogest-supabase-migration
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      DATABASE_URL: jdbc:postgresql://aws-0-us-east-1.pooler.supabase.com:5432/postgres?sslmode=verify-full
+      MIGRATION_DATABASE_USERNAME: postgres.gdorfdcvajeczzaesjjq
+      MIGRATION_DATABASE_PASSWORD: ${{ secrets.PSICOGEST_SUPABASE_DB_PASSWORD }}
+      MIGRATION_APPROVED_TARGET: aws-0-us-east-1.pooler.supabase.com:5432/postgres
+      MIGRATION_CONFIRMATION: APPLY-PSICOGEST-MIGRATIONS
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require the rotated database password
+        shell: bash
+        run: |
+          if [ -z "$MIGRATION_DATABASE_PASSWORD" ]; then
+            echo 'Add the rotated password as repository secret PSICOGEST_SUPABASE_DB_PASSWORD before rerunning this job.' >&2
+            exit 1
+          fi
+      - name: Build reviewed migration image
+        shell: bash
+        run: |
+          docker build --tag psicogest-migration:reviewed \
+            --file backend/psicogest/psicogest/Dockerfile \
+            backend/psicogest/psicogest
+      - name: Apply and validate all versioned Flyway migrations
+        shell: bash
+        run: |
+          docker run --rm --read-only \
+            --tmpfs /tmp:rw,noexec,nosuid,size=32m \
+            --cap-drop ALL --security-opt no-new-privileges \
+            --env DATABASE_URL --env MIGRATION_DATABASE_USERNAME \
+            --env MIGRATION_DATABASE_PASSWORD --env MIGRATION_APPROVED_TARGET \
+            --env MIGRATION_CONFIRMATION \
+            --entrypoint java psicogest-migration:reviewed \
+            -Duser.home=/home/psicogest \
+            -Dloader.main=com.psicogest.psicogest.security.config.ProductionMigrationCli \
+            -cp /app/psicogest.jar \
+            org.springframework.boot.loader.launch.PropertiesLauncher

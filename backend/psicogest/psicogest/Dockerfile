@@ -12,11 +12,11 @@ WORKDIR /app
 COPY --from=build /workspace/target/psicogest-*.jar /app/psicogest.jar
 
 # pgJDBC verify-full reads ${user.home}/.postgresql/root.crt by default.
-# Ship the OS CA bundle for the unprivileged runtime user; a deployment with
-# a private CA can replace this file through a read-only secret mount.
-RUN mkdir -p /home/psicogest/.postgresql \
-    && cp /etc/ssl/certs/ca-certificates.crt /home/psicogest/.postgresql/root.crt \
-    && chown -R 10001:10001 /home/psicogest
+# This public CA certificate is the one linked by the approved Supabase project.
+# Keep the image fail-closed if the database certificate cannot be verified.
+RUN mkdir -p /home/psicogest/.postgresql
+COPY certs/supabase-prod-ca-2021.crt /home/psicogest/.postgresql/root.crt
+RUN chown -R 10001:10001 /home/psicogest
 
 ENV HOME=/home/psicogest
 ENV JAVA_OPTS="-XX:MaxRAMPercentage=75 -Djava.security.egd=file:/dev/urandom -Duser.home=/home/psicogest"

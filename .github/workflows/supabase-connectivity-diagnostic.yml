@@ -32,7 +32,7 @@ jobs:
                   response = raw.recv(1)
                   if response != b"S":
                       raise RuntimeError("PostgreSQL server did not accept TLS negotiation")
-                  with ssl.create_default_context(cafile="ops/supabase-prod-ca-2021.crt").wrap_socket(raw, server_hostname=host) as verified:
+                  with ssl.create_default_context(cafile="backend/psicogest/psicogest/certs/supabase-prod-ca-2021.crt").wrap_socket(raw, server_hostname=host) as verified:
                       if verified.version() is None:
                           raise RuntimeError("TLS session was not established")
               print("Supabase session pooler accepted PostgreSQL TLS with hostname verification")
