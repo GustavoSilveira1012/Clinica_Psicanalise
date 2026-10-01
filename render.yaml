@@ -9,7 +9,7 @@ services:
     region: ohio
     dockerfilePath: ./backend/psicogest/psicogest/Dockerfile
     dockerContext: ./backend/psicogest/psicogest
-    autoDeployTrigger: checksPass
+    autoDeployTrigger: 'off'
     healthCheckPath: /actuator/health/liveness
     envVars:
       - key: SPRING_PROFILES_ACTIVE

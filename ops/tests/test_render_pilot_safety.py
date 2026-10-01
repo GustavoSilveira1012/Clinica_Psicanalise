@@ -82,6 +82,9 @@ class RenderSyntheticPilotSafetyTest(unittest.TestCase):
     def test_render_health_check_targets_the_public_liveness_probe(self):
         self.assertIn("healthCheckPath: /actuator/health/liveness", self.manifest)
 
+    def test_synthetic_service_requires_manual_deploy(self):
+        self.assertIn("autoDeployTrigger: 'off'", self.manifest)
+
 
 if __name__ == "__main__":
     unittest.main()
