@@ -53,9 +53,9 @@ class ProductionMigrationCliTest {
         var flyway = ProductionMigrationCli.flyway(
                 DATABASE.getJdbcUrl(), DATABASE.getUsername(), DATABASE.getPassword());
 
-        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(102);
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(103);
         flyway.validate();
-        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("92");
+        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("93");
         assertThat(flyway.migrate().migrationsExecuted).isZero();
     }
 

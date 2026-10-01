@@ -18,7 +18,7 @@ class HealthControllerTest {
 
     @Test
     void packagedMigrationVersionMatchesCurrentRelease() {
-        assertThat(MigrationReadiness.latestPackagedVersion()).isEqualTo("92");
+        assertThat(MigrationReadiness.latestPackagedVersion()).isEqualTo("93");
     }
 
     @Test
@@ -29,7 +29,7 @@ class HealthControllerTest {
         when(providers.status()).thenReturn(Map.of());
         when(jdbc.queryForObject(anyString(), eq(Integer.class))).thenReturn(1);
         when(jdbc.queryForObject(anyString(), eq(Boolean.class))).thenReturn(true);
-        when(jdbc.queryForObject(anyString(), eq(Boolean.class), eq("92"))).thenReturn(false);
+        when(jdbc.queryForObject(anyString(), eq(Boolean.class), eq(MigrationReadiness.latestPackagedVersion()))).thenReturn(false);
 
         var response = new HealthController(jdbc, redisFactory, providers).ready();
 
@@ -46,7 +46,7 @@ class HealthControllerTest {
         when(providers.status()).thenReturn(Map.of());
         when(jdbc.queryForObject(anyString(), eq(Integer.class))).thenReturn(1);
         when(jdbc.queryForObject(anyString(), eq(Boolean.class))).thenReturn(true);
-        when(jdbc.queryForObject(anyString(), eq(Boolean.class), eq("92"))).thenReturn(true);
+        when(jdbc.queryForObject(anyString(), eq(Boolean.class), eq(MigrationReadiness.latestPackagedVersion()))).thenReturn(true);
         when(redisFactory.getConnection()).thenReturn(redis);
         when(redis.ping()).thenReturn("PONG");
         when(providers.isReady()).thenReturn(true);

@@ -28,7 +28,7 @@ class MigrationReadinessHealthIndicatorTest {
     void indicatorIsDownWhenSchemaIsBehind() {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
         when(jdbc.queryForObject(anyString(), eq(Boolean.class))).thenReturn(true);
-        when(jdbc.queryForObject(anyString(), eq(Boolean.class), eq("92"))).thenReturn(false);
+        when(jdbc.queryForObject(anyString(), eq(Boolean.class), eq(MigrationReadiness.latestPackagedVersion()))).thenReturn(false);
 
         assertThat(new MigrationReadinessHealthIndicator(jdbc).health().getStatus().getCode())
                 .isEqualTo("DOWN");
@@ -38,7 +38,7 @@ class MigrationReadinessHealthIndicatorTest {
     void indicatorIsUpWhenCurrentMigrationSucceeded() {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
         when(jdbc.queryForObject(anyString(), eq(Boolean.class))).thenReturn(true);
-        when(jdbc.queryForObject(anyString(), eq(Boolean.class), eq("92"))).thenReturn(true);
+        when(jdbc.queryForObject(anyString(), eq(Boolean.class), eq(MigrationReadiness.latestPackagedVersion()))).thenReturn(true);
 
         assertThat(new MigrationReadinessHealthIndicator(jdbc).health().getStatus().getCode())
                 .isEqualTo("UP");
