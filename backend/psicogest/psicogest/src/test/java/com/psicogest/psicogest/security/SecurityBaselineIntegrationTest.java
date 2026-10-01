@@ -52,6 +52,27 @@ class SecurityBaselineIntegrationTest extends PostgresIntegrationTest {
     }
 
     @Test
+    void clinicMemberCannotListUsersOrCreateSystemAdministrator() throws Exception {
+        long userId = createSyntheticTenantMember();
+        var principal = SecurityMockMvcRequestPostProcessors.user(Long.toString(userId))
+                .roles("CLINIC_ADMIN");
+        String email = "forbidden-admin-" + UUID.randomUUID() + "@example.invalid";
+
+        mockMvc.perform(get("/users").with(principal))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/users")
+                        .with(principal)
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType("application/json")
+                        .content("""
+                                {"name":"Synthetic administrator","email":"%s","password":"synthetic-only-password","role":"SYSTEM_ADMIN"}
+                                """.formatted(email)))
+                .andExpect(status().isForbidden());
+        org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM users WHERE email = ?", Integer.class, email)).isZero();
+    }
+
+    @Test
     void shouldRejectMalformedBearerToken() throws Exception {
         mockMvc.perform(get("/patients").header("Authorization", "Bearer not-a-jwt"))
                 .andExpect(status().isUnauthorized());

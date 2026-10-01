@@ -33,14 +33,17 @@ public class ClinicalPilotScopeGuard implements HandlerInterceptor {
             "/bank-transactions/**"
     );
     private static final List<String> CLINICAL_DATA_PATHS = List.of(
+            "/users/**",
             "/patients/**",
             "/psychoanalysts/*/appointments/**",
             "/psychoanalysts/*/appointment-series/**",
             "/psychoanalysts/*/availability/**",
             "/psychoanalysts/*/availability-exceptions/**",
+            "/psychoanalysts/*/therapeutic-relationships/**",
             "/medical-records/**",
             "/api/v1/medical-records/**",
             "/api/v1/medical-record-revisions/**",
+            "/api/v1/medical-record-addendums/**",
             "/api/v1/clinical-records/**",
             "/api/v1/receivables/**",
             "/api/v1/payments/**",
