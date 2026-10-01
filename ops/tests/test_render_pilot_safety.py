@@ -79,8 +79,8 @@ class RenderSyntheticPilotSafetyTest(unittest.TestCase):
         self.assertNotIn("${MIGRATION_DATABASE_USERNAME}", production_config)
         self.assertNotIn("${MIGRATION_DATABASE_PASSWORD}", production_config)
 
-    def test_render_health_check_targets_the_public_liveness_probe(self):
-        self.assertIn("healthCheckPath: /actuator/health/liveness", self.manifest)
+    def test_render_health_check_targets_the_readiness_probe(self):
+        self.assertIn("healthCheckPath: /actuator/health/readiness", self.manifest)
 
     def test_synthetic_service_requires_manual_deploy(self):
         self.assertIn("autoDeployTrigger: 'off'", self.manifest)

@@ -10,7 +10,7 @@ services:
     dockerfilePath: ./backend/psicogest/psicogest/Dockerfile
     dockerContext: ./backend/psicogest/psicogest
     autoDeployTrigger: 'off'
-    healthCheckPath: /actuator/health/liveness
+    healthCheckPath: /actuator/health/readiness
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: production
