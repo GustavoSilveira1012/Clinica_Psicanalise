@@ -96,7 +96,7 @@ public class ClinicalPilotScopeGuard implements HandlerInterceptor {
         return clinicalDataEnabled && clinicalDataReleaseApproved;
     }
 
-    private boolean isClinicalDataPath(String requestPath) {
+    boolean isClinicalDataPath(String requestPath) {
         return CLINICAL_DATA_PATHS.stream().anyMatch(pattern -> paths.match(pattern, requestPath));
     }
 
