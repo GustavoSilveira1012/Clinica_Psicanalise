@@ -3,8 +3,10 @@ package com.psicogest.psicogest.security.config;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.sql.DriverManager;
 import java.util.HashMap;
 import java.util.Map;
+import org.flywaydb.core.api.FlywayException;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -57,6 +59,59 @@ class ProductionMigrationCliTest {
         flyway.validate();
         assertThat(flyway.info().current().getVersion().toString()).isEqualTo("93");
         assertThat(flyway.migrate().migrationsExecuted).isZero();
+    }
+
+    @Test
+    void supabaseSeedFunctionBaselinesAtZeroAndAppliesEveryMigration() throws Exception {
+        String url = newDatabase("supabase_seed");
+        try (var connection = DriverManager.getConnection(
+                url, DATABASE.getUsername(), DATABASE.getPassword());
+                var statement = connection.createStatement()) {
+            statement.execute("""
+                    CREATE FUNCTION public.rls_auto_enable() RETURNS event_trigger
+                    LANGUAGE plpgsql AS $$ BEGIN RETURN; END $$
+                    """);
+        }
+
+        var flyway = ProductionMigrationCli.flyway(
+                url, DATABASE.getUsername(), DATABASE.getPassword());
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(103);
+        flyway.validate();
+        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("93");
+        try (var connection = DriverManager.getConnection(
+                url, DATABASE.getUsername(), DATABASE.getPassword());
+                var statement = connection.createStatement();
+                var rows = statement.executeQuery(
+                        "SELECT version, type FROM public.flyway_schema_history ORDER BY installed_rank LIMIT 1")) {
+            assertThat(rows.next()).isTrue();
+            assertThat(rows.getString("version")).isEqualTo("0");
+            assertThat(rows.getString("type")).isEqualTo("BASELINE");
+        }
+    }
+
+    @Test
+    void rejectsUnexpectedObjectsInPublicInsteadOfBaseliningThem() throws Exception {
+        String url = newDatabase("unexpected_public");
+        try (var connection = DriverManager.getConnection(
+                url, DATABASE.getUsername(), DATABASE.getPassword());
+                var statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE public.existing_record (id bigint PRIMARY KEY)");
+        }
+
+        var flyway = ProductionMigrationCli.flyway(
+                url, DATABASE.getUsername(), DATABASE.getPassword());
+        assertThatThrownBy(flyway::migrate)
+                .isInstanceOf(FlywayException.class)
+                .hasMessageContaining("non-empty schema");
+    }
+
+    private static String newDatabase(String databaseName) throws Exception {
+        try (var connection = DriverManager.getConnection(
+                DATABASE.getJdbcUrl(), DATABASE.getUsername(), DATABASE.getPassword());
+                var statement = connection.createStatement()) {
+            statement.execute("CREATE DATABASE " + databaseName);
+        }
+        return DATABASE.getJdbcUrl().replaceFirst("/[^/]+$", "/" + databaseName);
     }
 
     private static Map<String, String> approvedEnvironment() {

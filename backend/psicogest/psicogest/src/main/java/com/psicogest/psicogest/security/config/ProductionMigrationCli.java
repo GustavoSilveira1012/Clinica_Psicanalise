@@ -1,6 +1,11 @@
 package com.psicogest.psicogest.security.config;
 
 import java.net.URI;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Map;
 import org.flywaydb.core.Flyway;
 
@@ -39,13 +44,47 @@ public final class ProductionMigrationCli {
     }
 
     static Flyway flyway(String url, String user, String password) {
+        boolean supabaseSeedOnly = hasOnlySupabaseSeedFunction(url, user, password);
         return Flyway.configure()
                 .dataSource(url, user, password)
                 .locations("classpath:bd/migration")
-                .baselineOnMigrate(false)
+                // Supabase creates public.rls_auto_enable() in an otherwise empty
+                // project. Baseline at zero so V01 and every later migration run.
+                .baselineOnMigrate(supabaseSeedOnly)
+                .baselineVersion("0")
                 .validateOnMigrate(true)
                 .cleanDisabled(true)
                 .load();
+    }
+
+    private static boolean hasOnlySupabaseSeedFunction(String url, String user, String password) {
+        String sql = """
+                SELECT to_regclass('public.flyway_schema_history') IS NULL
+                       AND to_regnamespace('app') IS NULL
+                       AND NOT EXISTS (
+                           SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+                           WHERE n.nspname = 'public')
+                       AND NOT EXISTS (
+                           SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
+                           WHERE n.nspname = 'public')
+                       AND (SELECT count(*) = 1 AND bool_and(
+                                   p.proname = 'rls_auto_enable'
+                                   AND pg_get_function_identity_arguments(p.oid) = ''
+                                   AND pg_get_function_result(p.oid) = 'event_trigger'
+                                   AND l.lanname = 'plpgsql')
+                            FROM pg_proc p
+                            JOIN pg_namespace n ON n.oid = p.pronamespace
+                            JOIN pg_language l ON l.oid = p.prolang
+                            WHERE n.nspname = 'public')
+                """;
+        try (Connection connection = DriverManager.getConnection(url, user, password);
+                Statement statement = connection.createStatement();
+                ResultSet result = statement.executeQuery(sql)) {
+            result.next();
+            return result.getBoolean(1);
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Could not inspect migration target before Flyway", exception);
+        }
     }
 
     private static String required(Map<String, String> environment, String name) {
