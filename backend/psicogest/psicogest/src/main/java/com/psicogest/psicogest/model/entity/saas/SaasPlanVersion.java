@@ -42,6 +42,10 @@ public class SaasPlanVersion {
     @Builder.Default
     private Integer trialDays = 14;
 
+    @Column(name = "public_visible", nullable = false)
+    @Builder.Default
+    private Boolean publicVisible = false;
+
     @Column(name = "published_at")
     private Instant publishedAt;
 

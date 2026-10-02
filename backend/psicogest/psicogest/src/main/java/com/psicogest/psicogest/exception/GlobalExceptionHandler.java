@@ -15,6 +15,22 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+        @ExceptionHandler({IdempotencyConflictException.class, FinanceConflictException.class,
+                InvalidFinanceTransitionException.class})
+        public ResponseEntity<Map<String, Object>> handleFinanceConflict(RuntimeException exception) {
+                return financeError(HttpStatus.CONFLICT, "Conflict", exception);
+        }
+
+        @ExceptionHandler(FinanceValidationException.class)
+        public ResponseEntity<Map<String, Object>> handleFinanceValidation(FinanceValidationException exception) {
+                return financeError(HttpStatus.UNPROCESSABLE_ENTITY, "Unprocessable Entity", exception);
+        }
+
+        private ResponseEntity<Map<String, Object>> financeError(HttpStatus status, String error, RuntimeException exception) {
+                return ResponseEntity.status(status).body(Map.of("timestamp", LocalDateTime.now(),
+                        "status", status.value(), "error", error, "message", exception.getMessage()));
+        }
+
         @ExceptionHandler({
                         BadCredentialsException.class,
                         InvalidRefreshTokenException.class,

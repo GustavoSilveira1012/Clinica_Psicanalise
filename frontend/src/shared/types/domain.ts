@@ -113,8 +113,8 @@ export interface MedicalRecord {
   updatedAt: string;
   author: string;
   contentPreview: string;
-  revisionCount: number;
-  addendumCount: number;
+  revisionCount?: number;
+  addendumCount?: number;
 }
 
 export interface MedicalRecordRevision {
@@ -122,16 +122,19 @@ export interface MedicalRecordRevision {
   label: string;
   createdAt: string;
   author: string;
-  state: RecordState;
+  state?: RecordState;
+  kind?: "REVISION" | "ADDENDUM";
   reason: string;
 }
 
 export interface Receivable {
   id: string;
+  patientId?: string;
   patientName: string;
   description: string;
   dueDate: string;
   amount: number;
+  outstandingAmount?: number;
   status: FinanceStatus;
   origin: "APPOINTMENT" | "PACKAGE" | "SUBSCRIPTION";
 }

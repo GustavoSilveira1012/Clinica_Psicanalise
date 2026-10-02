@@ -1,0 +1,155 @@
+name: Encrypted PsicoGest production backup
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type RUN-PRODUCTION-BACKUP after reviewing the protected environment
+        type: string
+        required: true
+  schedule:
+    - cron: '2,22,42 * * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: psicogest-production-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    if: github.ref == 'refs/heads/main' && vars.ENABLE_PRODUCTION_BACKUPS == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    environment: production-backup
+    env:
+      PROJECT_REF: gdorfdcvajeczzaesjjq
+      BACKUP_DATA_CLASSIFICATION: PRODUCTION_CLINICAL
+      BACKUP_SUPABASE_PROJECT_REF: gdorfdcvajeczzaesjjq
+      BACKUP_SUPABASE_S3_ENDPOINT: https://gdorfdcvajeczzaesjjq.storage.supabase.co/storage/v1/s3
+      BACKUP_SUPABASE_S3_BUCKET: psicogest-clinical-exports
+      BACKUP_SUPABASE_S3_REGION: ${{ vars.BACKUP_SUPABASE_S3_REGION }}
+      BACKUP_AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
+      DATABASE_HOST: ${{ vars.BACKUP_SUPABASE_DATABASE_HOST }}
+      DATABASE_NAME: postgres
+      DATABASE_USERNAME: ${{ vars.BACKUP_SUPABASE_DATABASE_USERNAME }}
+      CLOUDFLARE_ACCOUNT_ID: e4dc2a91f588f8e64fbbea799baec394
+      CLOUDFLARE_KV_NAMESPACE_ID: 5a70c006ca9c4eeca83d89ec26d78031
+      AWS_EC2_METADATA_DISABLED: 'true'
+    steps:
+      - name: Checkout reviewed code
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Validate fixed production target and encryption
+        shell: bash
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          [[ "$DATABASE_HOST" == "db.${PROJECT_REF}.supabase.co" || "$DATABASE_HOST" =~ ^[a-z0-9-]+\.pooler\.supabase\.com$ ]] || exit 1
+          [[ "$DATABASE_USERNAME" == "psicogest_backup" || "$DATABASE_USERNAME" == "psicogest_backup.${PROJECT_REF}" ]] || exit 1
+          [[ "$BACKUP_AGE_RECIPIENT" =~ ^age1[023456789acdefghjklmnpqrstuvwxyz]{20,80}$ ]] || exit 1
+          [[ -n "$BACKUP_SUPABASE_S3_REGION" ]] || exit 1
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            [[ "$CONFIRMATION" == "RUN-PRODUCTION-BACKUP" ]] || exit 1
+          fi
+
+      - name: Set up Python and pinned tools
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Install encryption, PostgreSQL 17 client and S3 dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check boto3==1.40.20
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends postgresql-common ca-certificates curl age
+          sudo install -d -m 0755 /usr/share/postgresql-common/pgdg
+          sudo curl --fail --silent --show-error \
+            --output /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          . /etc/os-release
+          printf 'Types: deb\nURIs: https://apt.postgresql.org/pub/repos/apt\nSuites: %s-pgdg\nArchitectures: amd64\nComponents: main\nSigned-By: /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc\n' "$VERSION_CODENAME" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.sources >/dev/null
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends postgresql-client-17
+          /usr/lib/postgresql/17/bin/pg_dump --version | grep -Eq '^pg_dump \(PostgreSQL\) 17\.'
+
+      - name: Capture and encrypt database snapshot
+        id: snapshot
+        shell: bash
+        env:
+          PGPASSWORD: ${{ secrets.BACKUP_SUPABASE_DATABASE_PASSWORD }}
+          PGSSLMODE: verify-full
+          PGSSLROOTCERT: ${{ github.workspace }}/backend/psicogest/psicogest/certs/supabase-prod-ca-2021.crt
+        run: |
+          set -euo pipefail
+          [[ -n "$PGPASSWORD" ]] || exit 1
+          snapshot_started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "started=$snapshot_started_at" >> "$GITHUB_OUTPUT"
+          umask 077
+          /usr/lib/postgresql/17/bin/pg_dump \
+            --host="$DATABASE_HOST" --port=5432 \
+            --username="$DATABASE_USERNAME" --dbname="$DATABASE_NAME" \
+            --format=custom --no-owner --no-privileges --no-password \
+            --schema=public --schema=app \
+          | age --recipient "$BACKUP_AGE_RECIPIENT" --output "$RUNNER_TEMP/database.age"
+          test -s "$RUNNER_TEMP/database.age"
+
+      - name: Capture and encrypt every approved Storage object
+        shell: bash
+        env:
+          BACKUP_SUPABASE_S3_ACCESS_KEY_ID: ${{ secrets.BACKUP_SUPABASE_S3_ACCESS_KEY_ID }}
+          BACKUP_SUPABASE_S3_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_SUPABASE_S3_SECRET_ACCESS_KEY }}
+        run: |
+          set -euo pipefail
+          python -m ops.backup_production_objects --output "$RUNNER_TEMP/objects.age"
+          test -s "$RUNNER_TEMP/objects.age"
+
+      - name: Upload, read back and verify both encrypted archives
+        id: offsite
+        shell: bash
+        env:
+          CLOUDFLARE_KV_TOKEN: ${{ secrets.CLOUDFLARE_KV_TOKEN }}
+          SNAPSHOT_STARTED_AT: ${{ steps.snapshot.outputs.started }}
+        run: |
+          set -euo pipefail
+          manifest_key="$(python -m ops.kv_encrypted_backup upload \
+            --database-age "$RUNNER_TEMP/database.age" \
+            --objects-age "$RUNNER_TEMP/objects.age" \
+            --project-ref "$PROJECT_REF" \
+            --snapshot-started-at "$SNAPSHOT_STARTED_AT")"
+          [[ "$manifest_key" =~ ^psicogest/v1/[a-f0-9]{32}/manifest$ ]] || exit 1
+          echo "manifest_key=$manifest_key" >> "$GITHUB_OUTPUT"
+
+      - name: Confirm checkpoint only after offsite verification
+        shell: bash
+        env:
+          PGPASSWORD: ${{ secrets.BACKUP_SUPABASE_DATABASE_PASSWORD }}
+          PGSSLMODE: verify-full
+          PGSSLROOTCERT: ${{ github.workspace }}/backend/psicogest/psicogest/certs/supabase-prod-ca-2021.crt
+          SNAPSHOT_STARTED_AT: ${{ steps.snapshot.outputs.started }}
+          MANIFEST_KEY: ${{ steps.offsite.outputs.manifest_key }}
+        run: |
+          set -euo pipefail
+          [[ -n "$MANIFEST_KEY" && -n "$PGPASSWORD" ]] || exit 1
+          /usr/lib/postgresql/17/bin/psql \
+            --host="$DATABASE_HOST" --port=5432 \
+            --username="$DATABASE_USERNAME" --dbname="$DATABASE_NAME" \
+            --no-password --set=ON_ERROR_STOP=1 \
+            --set=started_at="$SNAPSHOT_STARTED_AT" \
+            --set=manifest_key="$MANIFEST_KEY" <<'SQL'
+          INSERT INTO app.clinical_backup_checkpoints
+            (id, snapshot_started_at, confirmed_at, manifest_key)
+          VALUES (1, :'started_at'::timestamptz, now(), :'manifest_key')
+          ON CONFLICT (id) DO UPDATE SET
+            snapshot_started_at = EXCLUDED.snapshot_started_at,
+            confirmed_at = EXCLUDED.confirmed_at,
+            manifest_key = EXCLUDED.manifest_key
+          WHERE app.clinical_backup_checkpoints.snapshot_started_at <= EXCLUDED.snapshot_started_at;
+          SQL

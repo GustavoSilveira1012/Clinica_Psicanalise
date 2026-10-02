@@ -2,6 +2,8 @@ package com.psicogest.psicogest.model.entity;
 
 import com.psicogest.psicogest.domain.lifecycle.DeactivatableEntity;
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import lombok.*;
 
 import java.time.DayOfWeek;
@@ -30,9 +32,11 @@ public class Availability implements DeactivatableEntity {
     private DayOfWeek dayOfWeek;
 
     @Column(name = "start_time", nullable = false)
+    @JdbcTypeCode(SqlTypes.LOCAL_TIME)
     private LocalTime startTime;
 
     @Column(name = "end_time", nullable = false)
+    @JdbcTypeCode(SqlTypes.LOCAL_TIME)
     private LocalTime endTime;
 
     @Column(nullable = false)

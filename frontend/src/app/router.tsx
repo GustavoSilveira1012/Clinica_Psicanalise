@@ -5,8 +5,10 @@ import { RequireAuth, RequirePermission } from "../shared/components/ProtectedRo
 import { LoginPage } from "../features/auth/LoginPage";
 import { MfaPage } from "../features/auth/MfaPage";
 import { AuthActionPage } from "../features/auth/AuthActionPage";
-import { DemoRequestPage } from "../features/public/DemoRequestPage";
+import { AsyncDemoPage } from "../features/public/AsyncDemoPage";
 import { LandingPage } from "../features/public/LandingPage";
+import { PublicPlansPage } from "../features/public/PublicPlansPage";
+import { PublicFaqPage } from "../features/public/PublicFaqPage";
 import { InvitePage } from "../features/saas/InvitePage";
 import { OnboardingPage } from "../features/saas/OnboardingPage";
 import { useAuth } from "../features/auth/AuthContext";
@@ -88,7 +90,10 @@ const workspaceRoutes = <>
 export function AppRouter() {
   return <Routes>
     <Route path="/" element={<PublicHome />} />
-    <Route path="/demo" element={<DemoRequestPage />} />
+    <Route path="/demo" element={<AsyncDemoPage />} />
+    <Route path="/planos" element={<PublicPlansPage />} />
+    <Route path="/faq" element={<PublicFaqPage />} />
+    <Route path="/ajuda" element={<PublicFaqPage />} />
     <Route path="/login" element={<LoginPage />} />
     <Route path="/mfa" element={<MfaPage />} />
     <Route path="/reset-password" element={<AuthActionPage />} />
