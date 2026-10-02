@@ -30,8 +30,10 @@ Assert-PostgresTargetMatches `
     -ExpectedDatabaseName $ExpectedDatabaseName `
     -ExpectedHost $ExpectedHost `
     -ExpectedPort $ExpectedPort
-if ([System.IO.Path]::GetExtension($resolvedBackup) -ne '.age' -or $resolvedBackup -notmatch '\.dump\.age$') {
-    throw 'O restore aceita somente arquivos .dump.age criptografados.'
+if ([System.IO.Path]::GetExtension($resolvedBackup) -ne '.age' -or
+    ($resolvedBackup -notmatch '\.dump\.age$' -and
+     [System.IO.Path]::GetFileName($resolvedBackup) -ne 'database.age')) {
+    throw 'O restore aceita somente .dump.age ou database.age verificados.'
 }
 if (-not (Test-Path -LiteralPath $resolvedBackup -PathType Leaf)) {
     throw "Backup não encontrado: $resolvedBackup"
