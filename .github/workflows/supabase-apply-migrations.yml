@@ -3,6 +3,7 @@ name: Apply PsicoGest schema to approved Supabase project
 # The reviewed migrator permits a version-zero baseline only when Supabase's
 # public.rls_auto_enable() is the sole object in an otherwise empty schema.
 # The next run also applies V94 to revoke direct Data API table grants.
+# Subsequent reviewed runs apply V95 with pinned application function search paths.
 
 on:
   push:

@@ -24,9 +24,9 @@ class Postgres17MigrationCompatibilityTest {
                 .cleanDisabled(true)
                 .load();
 
-        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(104);
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(105);
         flyway.validate();
-        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("94");
+        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("95");
         assertThat(flyway.migrate().migrationsExecuted).isZero();
 
         try (var connection = DriverManager.getConnection(
@@ -37,6 +37,23 @@ class Postgres17MigrationCompatibilityTest {
                      """)) {
             assertThat(result.next()).isTrue();
             assertThat(result.getInt(1)).isEqualTo(1);
+        }
+
+        try (var connection = DriverManager.getConnection(
+                DATABASE.getJdbcUrl(), DATABASE.getUsername(), DATABASE.getPassword());
+             var statement = connection.createStatement();
+             var result = statement.executeQuery("""
+                     SELECT count(*) FROM pg_proc p
+                     JOIN pg_namespace n ON n.oid = p.pronamespace
+                     WHERE n.nspname IN ('public', 'app')
+                       AND p.proconfig IS NULL
+                       AND NOT EXISTS (
+                           SELECT 1 FROM pg_depend d
+                           WHERE d.objid = p.oid AND d.deptype = 'e'
+                       )
+                     """)) {
+            assertThat(result.next()).isTrue();
+            assertThat(result.getInt(1)).isZero();
         }
     }
 }
