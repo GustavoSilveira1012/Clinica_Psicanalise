@@ -86,7 +86,7 @@ jobs:
         env:
           PGPASSWORD: ${{ secrets.BACKUP_SUPABASE_DATABASE_PASSWORD }}
           PGSSLMODE: verify-full
-          PGSSLROOTCERT: system
+          PGSSLROOTCERT: ${{ github.workspace }}/backend/psicogest/psicogest/certs/supabase-prod-ca-2021.crt
         run: |
           set -euo pipefail
           [[ -n "$PGPASSWORD" ]] || exit 1
@@ -132,7 +132,7 @@ jobs:
         env:
           PGPASSWORD: ${{ secrets.BACKUP_SUPABASE_DATABASE_PASSWORD }}
           PGSSLMODE: verify-full
-          PGSSLROOTCERT: system
+          PGSSLROOTCERT: ${{ github.workspace }}/backend/psicogest/psicogest/certs/supabase-prod-ca-2021.crt
           SNAPSHOT_STARTED_AT: ${{ steps.snapshot.outputs.started }}
           MANIFEST_KEY: ${{ steps.offsite.outputs.manifest_key }}
         run: |

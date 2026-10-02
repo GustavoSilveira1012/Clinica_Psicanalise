@@ -26,6 +26,8 @@ class ProductionBackupWorkflowTest(unittest.TestCase):
         )]
         self.assertEqual(positions, sorted(positions))
         self.assertIn("PGSSLMODE: verify-full", self.source)
+        self.assertEqual(self.source.count("PGSSLROOTCERT: ${{ github.workspace }}/backend/psicogest/psicogest/certs/supabase-prod-ca-2021.crt"), 2)
+        self.assertTrue((WORKFLOW.parents[2] / "backend/psicogest/psicogest/certs/supabase-prod-ca-2021.crt").is_file())
         self.assertIn("--schema=public --schema=app", self.source)
 
     def test_no_live_clinical_release_or_billing_configuration(self):
