@@ -55,9 +55,9 @@ class ProductionMigrationCliTest {
         var flyway = ProductionMigrationCli.flyway(
                 DATABASE.getJdbcUrl(), DATABASE.getUsername(), DATABASE.getPassword());
 
-        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(103);
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(104);
         flyway.validate();
-        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("93");
+        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("94");
         assertThat(flyway.migrate().migrationsExecuted).isZero();
     }
 
@@ -75,9 +75,9 @@ class ProductionMigrationCliTest {
 
         var flyway = ProductionMigrationCli.flyway(
                 url, DATABASE.getUsername(), DATABASE.getPassword());
-        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(103);
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(104);
         flyway.validate();
-        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("93");
+        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("94");
         try (var connection = DriverManager.getConnection(
                 url, DATABASE.getUsername(), DATABASE.getPassword());
                 var statement = connection.createStatement();
@@ -86,6 +86,46 @@ class ProductionMigrationCliTest {
             assertThat(rows.next()).isTrue();
             assertThat(rows.getString("version")).isEqualTo("0");
             assertThat(rows.getString("type")).isEqualTo("BASELINE");
+        }
+    }
+
+    @Test
+    void supabaseDataApiRolesCannotReadClinicalTablesAfterMigration() throws Exception {
+        String url = newDatabase("data_api_grants");
+        try (var connection = DriverManager.getConnection(
+                url, DATABASE.getUsername(), DATABASE.getPassword());
+                var statement = connection.createStatement()) {
+            statement.execute("CREATE ROLE anon NOLOGIN");
+            statement.execute("CREATE ROLE authenticated NOLOGIN");
+            statement.execute("CREATE ROLE service_role NOLOGIN");
+            statement.execute("""
+                    ALTER DEFAULT PRIVILEGES IN SCHEMA public
+                    GRANT ALL ON TABLES TO anon, authenticated, service_role
+                    """);
+            statement.execute("""
+                    ALTER DEFAULT PRIVILEGES IN SCHEMA public
+                    GRANT ALL ON SEQUENCES TO anon, authenticated, service_role
+                    """);
+        }
+
+        var flyway = ProductionMigrationCli.flyway(
+                url, DATABASE.getUsername(), DATABASE.getPassword());
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(104);
+        try (var connection = DriverManager.getConnection(
+                url, DATABASE.getUsername(), DATABASE.getPassword());
+                var statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE public.future_clinical_table (id bigint)");
+            try (var rows = statement.executeQuery("""
+                    SELECT has_table_privilege('anon', 'public.patients', 'SELECT'),
+                           has_table_privilege('authenticated', 'public.patients', 'SELECT'),
+                           has_table_privilege('service_role', 'public.patients', 'SELECT'),
+                           has_table_privilege('anon', 'public.future_clinical_table', 'SELECT')
+                    """)) {
+                assertThat(rows.next()).isTrue();
+                for (int column = 1; column <= 4; column++) {
+                    assertThat(rows.getBoolean(column)).isFalse();
+                }
+            }
         }
     }
 

@@ -17,6 +17,8 @@ class SupabaseRuntimeRoleScriptTest(unittest.TestCase):
         sql = SCRIPT.read_text(encoding="utf-8")
         self.assertIn("CREATE ROLE psicogest_runtime NOLOGIN NOSUPERUSER", sql)
         self.assertIn("NOREPLICATION NOBYPASSRLS", sql)
+        self.assertNotIn("ALTER ROLE psicogest_runtime", sql)
+        self.assertIn("rolcanlogin OR rolsuper OR rolcreatedb", sql)
         self.assertIn("GRANT SELECT ON TABLE app.clinical_backup_checkpoints", sql)
         self.assertIn("REVOKE INSERT, UPDATE, DELETE ON TABLE app.clinical_backup_checkpoints", sql)
         self.assertIn("REVOKE INSERT, UPDATE, DELETE ON TABLE public.flyway_schema_history", sql)

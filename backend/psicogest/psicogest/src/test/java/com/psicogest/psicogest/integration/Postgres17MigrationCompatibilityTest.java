@@ -24,9 +24,9 @@ class Postgres17MigrationCompatibilityTest {
                 .cleanDisabled(true)
                 .load();
 
-        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(103);
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(104);
         flyway.validate();
-        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("93");
+        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("94");
         assertThat(flyway.migrate().migrationsExecuted).isZero();
 
         try (var connection = DriverManager.getConnection(

@@ -15,8 +15,9 @@ BEGIN
     END IF;
 END $$;
 
-ALTER ROLE psicogest_runtime NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
-    NOREPLICATION NOBYPASSRLS;
+-- Supabase's postgres role is not a PostgreSQL SUPERUSER and cannot run
+-- ALTER ROLE ... NOSUPERUSER, even when the target was created safely above.
+-- An existing role with unsafe attributes is rejected by the check below.
 GRANT CONNECT ON DATABASE postgres TO psicogest_runtime;
 GRANT USAGE ON SCHEMA public, app TO psicogest_runtime;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO psicogest_runtime;
