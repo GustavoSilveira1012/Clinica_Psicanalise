@@ -55,9 +55,9 @@ class ProductionMigrationCliTest {
         var flyway = ProductionMigrationCli.flyway(
                 DATABASE.getJdbcUrl(), DATABASE.getUsername(), DATABASE.getPassword());
 
-        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(105);
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(106);
         flyway.validate();
-        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("95");
+        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("96");
         assertThat(flyway.migrate().migrationsExecuted).isZero();
     }
 
@@ -75,9 +75,9 @@ class ProductionMigrationCliTest {
 
         var flyway = ProductionMigrationCli.flyway(
                 url, DATABASE.getUsername(), DATABASE.getPassword());
-        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(105);
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(106);
         flyway.validate();
-        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("95");
+        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("96");
         try (var connection = DriverManager.getConnection(
                 url, DATABASE.getUsername(), DATABASE.getPassword());
                 var statement = connection.createStatement();
@@ -110,7 +110,7 @@ class ProductionMigrationCliTest {
 
         var flyway = ProductionMigrationCli.flyway(
                 url, DATABASE.getUsername(), DATABASE.getPassword());
-        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(105);
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(106);
         try (var connection = DriverManager.getConnection(
                 url, DATABASE.getUsername(), DATABASE.getPassword());
                 var statement = connection.createStatement()) {

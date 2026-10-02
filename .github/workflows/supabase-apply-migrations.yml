@@ -4,6 +4,7 @@ name: Apply PsicoGest schema to approved Supabase project
 # public.rls_auto_enable() is the sole object in an otherwise empty schema.
 # The next run also applies V94 to revoke direct Data API table grants.
 # Subsequent reviewed runs apply V95 with pinned application function search paths.
+# V96 scopes global authentication policies to the server runtime role.
 
 on:
   push:

@@ -24,9 +24,9 @@ class Postgres17MigrationCompatibilityTest {
                 .cleanDisabled(true)
                 .load();
 
-        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(105);
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(106);
         flyway.validate();
-        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("95");
+        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("96");
         assertThat(flyway.migrate().migrationsExecuted).isZero();
 
         try (var connection = DriverManager.getConnection(
@@ -54,6 +54,19 @@ class Postgres17MigrationCompatibilityTest {
                      """)) {
             assertThat(result.next()).isTrue();
             assertThat(result.getInt(1)).isZero();
+        }
+
+        try (var connection = DriverManager.getConnection(
+                DATABASE.getJdbcUrl(), DATABASE.getUsername(), DATABASE.getPassword());
+             var statement = connection.createStatement();
+             var result = statement.executeQuery("""
+                     SELECT count(*) FROM pg_policies
+                     WHERE schemaname = 'public'
+                       AND policyname = 'users_runtime_auth'
+                       AND 'psicogest_runtime' = ANY(roles)
+                     """)) {
+            assertThat(result.next()).isTrue();
+            assertThat(result.getInt(1)).isEqualTo(1);
         }
     }
 }
