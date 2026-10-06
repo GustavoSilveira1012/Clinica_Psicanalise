@@ -21,6 +21,10 @@ ROLE_ENV = {
 }
 
 
+class ConfigurationError(ValueError):
+    """A safe-to-print validation failure with no credential values."""
+
+
 def scram_verifier(password: str, salt: bytes) -> str:
     """Build PostgreSQL's SCRAM-SHA-256 verifier for an ASCII password."""
     salted = hashlib.pbkdf2_hmac("sha256", password.encode("ascii"), salt, 4096)
@@ -34,13 +38,17 @@ def scram_verifier(password: str, salt: bytes) -> str:
 def read_secrets(environ: dict[str, str]) -> tuple[str, dict[str, str]]:
     admin = environ.get("PSICOGEST_SUPABASE_DB_PASSWORD", "")
     values = {role: environ.get(name, "") for role, name in ROLE_ENV.items()}
-    if not admin or any(not value for value in values.values()):
-        raise ValueError("Required database secrets are missing")
+    missing = [
+        name for name in ("PSICOGEST_SUPABASE_DB_PASSWORD", *ROLE_ENV.values())
+        if not environ.get(name)
+    ]
+    if missing:
+        raise ConfigurationError(f"Missing repository secrets: {', '.join(missing)}")
     if len(set((admin, *values.values()))) != 3:
-        raise ValueError("Database role passwords must all be distinct")
-    for value in values.values():
+        raise ConfigurationError("The three database passwords must be different")
+    for role, value in values.items():
         if len(value) < 16 or any(ord(ch) < 33 or ord(ch) > 126 for ch in value):
-            raise ValueError("Role passwords must have 16+ printable ASCII characters")
+            raise ConfigurationError(f"{ROLE_ENV[role]} must have 16+ printable ASCII characters")
     return admin, values
 
 
@@ -71,7 +79,7 @@ def configure(psycopg, sql, admin: str, passwords: dict[str, str]) -> None:
                 "psicogest_backup": (True, False, False, False, False, True),
             }
             if found != expected:
-                raise ValueError("Database role attributes differ from the approved design")
+                raise ConfigurationError("Database role attributes differ from the approved design")
             for role, password in passwords.items():
                 verifier = scram_verifier(password, os.urandom(16))
                 cur.execute(
@@ -88,7 +96,7 @@ def configure(psycopg, sql, admin: str, passwords: dict[str, str]) -> None:
                     with conn.cursor() as cur:
                         cur.execute("SELECT current_user")
                         if cur.fetchone()[0] != role:
-                            raise ValueError("Connected with an unexpected database role")
+                            raise ConfigurationError("Connected with an unexpected database role")
                 break
             except psycopg.OperationalError:
                 if attempt == 4:
@@ -104,6 +112,9 @@ def main() -> int:
         from psycopg import sql
 
         configure(psycopg, sql, admin, passwords)
+    except ConfigurationError as exc:
+        print(f"Role configuration rejected: {exc}", file=sys.stderr)
+        return 1
     except Exception as exc:
         # Driver errors can include connection parameters or SQL. Never print
         # exception text or a traceback in a CI log containing private secrets.

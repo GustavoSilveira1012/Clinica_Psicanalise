@@ -10,6 +10,17 @@ spec.loader.exec_module(module)
 
 
 class RolePasswordTests(unittest.TestCase):
+    def test_missing_secret_error_names_only_the_missing_key(self):
+        with self.assertRaises(module.ConfigurationError) as error:
+            module.read_secrets({
+                "PSICOGEST_RUNTIME_DB_PASSWORD": "A" * 32,
+                "BACKUP_SUPABASE_DATABASE_PASSWORD": "B" * 32,
+            })
+        self.assertEqual(
+            str(error.exception),
+            "Missing repository secrets: PSICOGEST_SUPABASE_DB_PASSWORD",
+        )
+
     def test_scram_verifier_is_deterministic_for_given_salt(self):
         verifier = module.scram_verifier("A" * 32, bytes(range(16)))
         self.assertEqual(
