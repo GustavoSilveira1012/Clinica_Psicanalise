@@ -63,6 +63,11 @@ class ClinicalPilotScopeGuardTest {
         assertThat(guard.isUnavailable("GET", "/users")).isTrue();
         assertThat(guard.isUnavailable("GET", "/users/12")).isTrue();
         assertThat(guard.isUnavailable("POST", "/users")).isTrue();
+        assertThat(guard.isUnavailable("GET", "/clinics")).isTrue();
+        assertThat(guard.isUnavailable("POST", "/clinics")).isTrue();
+        assertThat(guard.isUnavailable("PATCH", "/clinic-memberships/3/periods/4/end")).isTrue();
+        assertThat(guard.isUnavailable("GET", "/psychoanalysts")).isTrue();
+        assertThat(guard.isUnavailable("POST", "/psychoanalysts")).isTrue();
         assertThat(guard.isUnavailable("GET", "/psychoanalysts/7/appointments")).isTrue();
         assertThat(guard.isUnavailable("GET", "/psychoanalysts/7/therapeutic-relationships")).isTrue();
         assertThat(guard.isUnavailable("PATCH", "/psychoanalysts/7/therapeutic-relationships/3/end")).isTrue();
