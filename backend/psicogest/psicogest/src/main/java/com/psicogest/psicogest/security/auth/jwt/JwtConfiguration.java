@@ -38,12 +38,16 @@ public class JwtConfiguration {
             JwtProperties properties
     ) {
 
+        var publicKey = keyLoader.publicKey();
+        var privateKey = keyLoader.privateKey();
+        JwtKeyPairValidator.validate(publicKey, privateKey);
+
         RSAKey rsaKey =
                 new RSAKey.Builder(
-                        keyLoader.publicKey()
+                        publicKey
                 )
                         .privateKey(
-                                keyLoader.privateKey()
+                                privateKey
                         )
                         .keyID(
                                 properties.keyId()
