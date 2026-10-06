@@ -12,9 +12,11 @@ import hmac
 import os
 import sys
 import time
+from pathlib import Path
 
 PROJECT_REF = "gdorfdcvajeczzaesjjq"
 POOLER_HOST = "aws-0-us-east-1.pooler.supabase.com"
+ROOT_CERT = Path(__file__).resolve().parents[1] / "backend/psicogest/psicogest/certs/supabase-prod-ca-2021.crt"
 ROLE_ENV = {
     "psicogest_runtime": "PSICOGEST_RUNTIME_DB_PASSWORD",
     "psicogest_backup": "BACKUP_SUPABASE_DATABASE_PASSWORD",
@@ -23,6 +25,23 @@ ROLE_ENV = {
 
 class ConfigurationError(ValueError):
     """A safe-to-print validation failure with no credential values."""
+
+
+class RoleConnectionError(ConfigurationError):
+    """A database login failure summarized without connection details."""
+
+
+def connection_failure_category(exc: Exception) -> str:
+    message = str(exc).lower()
+    if "password authentication failed" in message or "authentication failed" in message:
+        return "authentication"
+    if "certificate verify failed" in message or "ssl" in message or "certificate" in message:
+        return "tls"
+    if "timed out" in message or "timeout" in message:
+        return "timeout"
+    if "could not translate host name" in message or "name or service not known" in message:
+        return "dns"
+    return "other"
 
 
 def scram_verifier(password: str, salt: bytes) -> str:
@@ -59,15 +78,21 @@ def read_secrets(environ: dict[str, str]) -> tuple[str, dict[str, str]]:
 
 
 def connect(psycopg, username: str, password: str):
-    return psycopg.connect(
-        host=POOLER_HOST,
-        port=5432,
-        dbname="postgres",
-        user=f"{username}.{PROJECT_REF}",
-        password=password,
-        sslmode="verify-full",
-        connect_timeout=15,
-    )
+    try:
+        return psycopg.connect(
+            host=POOLER_HOST,
+            port=5432,
+            dbname="postgres",
+            user=f"{username}.{PROJECT_REF}",
+            password=password,
+            sslmode="verify-full",
+            sslrootcert=str(ROOT_CERT),
+            connect_timeout=15,
+        )
+    except psycopg.OperationalError as exc:
+        raise RoleConnectionError(
+            f"{username} connection failed: {connection_failure_category(exc)}"
+        ) from None
 
 
 def configure(psycopg, sql, admin: str, passwords: dict[str, str]) -> None:
@@ -104,7 +129,7 @@ def configure(psycopg, sql, admin: str, passwords: dict[str, str]) -> None:
                         if cur.fetchone()[0] != role:
                             raise ConfigurationError("Connected with an unexpected database role")
                 break
-            except psycopg.OperationalError:
+            except RoleConnectionError:
                 if attempt == 4:
                     raise
                 time.sleep(5)
