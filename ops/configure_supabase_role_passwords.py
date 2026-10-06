@@ -63,8 +63,17 @@ def read_secrets(environ: dict[str, str]) -> tuple[str, dict[str, str]]:
     ]
     if missing:
         raise ConfigurationError(f"Missing repository secrets: {', '.join(missing)}")
-    if len(set((admin, *values.values()))) != 3:
-        raise ConfigurationError("The three database passwords must be different")
+    named = {"PSICOGEST_SUPABASE_DB_PASSWORD": admin}
+    named.update({ROLE_ENV[role]: value for role, value in values.items()})
+    items = list(named.items())
+    duplicates = [
+        f"{first} and {second}"
+        for position, (first, first_value) in enumerate(items)
+        for second, second_value in items[position + 1:]
+        if first_value == second_value
+    ]
+    if duplicates:
+        raise ConfigurationError(f"Database secrets must be different: {', '.join(duplicates)}")
     invalid = [
         ROLE_ENV[role]
         for role, value in values.items()

@@ -37,8 +37,10 @@ class RolePasswordTests(unittest.TestCase):
             "PSICOGEST_RUNTIME_DB_PASSWORD": "A" * 32,
             "BACKUP_SUPABASE_DATABASE_PASSWORD": "A" * 32,
         }
-        with self.assertRaises(ValueError):
+        with self.assertRaises(module.ConfigurationError) as error:
             module.read_secrets(env)
+        self.assertIn("PSICOGEST_RUNTIME_DB_PASSWORD and BACKUP_SUPABASE_DATABASE_PASSWORD", str(error.exception))
+        self.assertNotIn("A" * 32, str(error.exception))
         env["BACKUP_SUPABASE_DATABASE_PASSWORD"] = "B" * 32
         _, values = module.read_secrets(env)
         self.assertEqual(set(values), set(module.ROLE_ENV))
