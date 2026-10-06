@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Chaves de aplicação do PsicoGest</title>
+  <style>
+    body { font: 16px/1.5 system-ui, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; color: #192532; }
+    h1 { line-height: 1.2; }
+    .notice { background: #e8f4ff; border-left: 4px solid #2472ac; padding: 1rem; }
+    .item { margin: 1rem 0; padding: 1rem; border: 1px solid #c8d1db; border-radius: 8px; }
+    button { cursor: pointer; padding: .65rem 1rem; margin: .25rem .5rem .25rem 0; }
+    #status { font-weight: 600; }
+  </style>
+</head>
+<body>
+  <h1>Chaves de aplicação do PsicoGest</h1>
+  <p class="notice">Esta página local gera três chaves diferentes, cada uma com 32 bytes aleatórios em Base64. O Render exige esse formato. Os valores ficam somente na memória do navegador e não aparecem na página. Guarde cada um no gerenciador de senhas e cole na variável correspondente do Render. Não envie chaves no chat.</p>
+  <p>Como o banco ainda não possui usuários nem dados clínicos, substitua as três chaves atuais juntas antes do próximo deploy. Depois que houver dados reais, a troca exigirá um procedimento de rotação próprio.</p>
+  <button id="generate" type="button">Gerar três chaves novas</button>
+  <button id="clear" type="button">Apagar desta página</button>
+  <p id="status" role="status" aria-live="polite">Nenhuma chave gerada.</p>
+  <div id="keys" hidden>
+    <div class="item"><strong>CLINICAL_KEK</strong><br><button type="button" data-copy="CLINICAL_KEK">Copiar chave clínica</button></div>
+    <div class="item"><strong>AUDIT_HMAC_KEY</strong><br><button type="button" data-copy="AUDIT_HMAC_KEY">Copiar chave de auditoria</button></div>
+    <div class="item"><strong>MFA_ENCRYPTION_KEY</strong><br><button type="button" data-copy="MFA_ENCRYPTION_KEY">Copiar chave MFA</button></div>
+  </div>
+  <script>
+    'use strict';
+    let values = null;
+    const names = ['CLINICAL_KEK', 'AUDIT_HMAC_KEY', 'MFA_ENCRYPTION_KEY'];
+    const status = message => { document.getElementById('status').textContent = message; };
+    const randomKey = () => {
+      const bytes = crypto.getRandomValues(new Uint8Array(32));
+      try {
+        let binary = '';
+        for (const byte of bytes) binary += String.fromCharCode(byte);
+        return btoa(binary);
+      } finally {
+        bytes.fill(0);
+      }
+    };
+    document.getElementById('generate').addEventListener('click', () => {
+      if (!isSecureContext || !crypto?.getRandomValues || !navigator.clipboard?.writeText) {
+        status('Abra esta página em 127.0.0.1 para gerar e copiar chaves com segurança.');
+        return;
+      }
+      values = Object.fromEntries(names.map(name => [name, randomKey()]));
+      document.getElementById('keys').hidden = false;
+      status('Três chaves diferentes geradas. Copie cada uma para o gerenciador e para o Render.');
+    });
+    document.getElementById('clear').addEventListener('click', () => {
+      values = null;
+      document.getElementById('keys').hidden = true;
+      status('Chaves apagadas desta página.');
+    });
+    document.querySelectorAll('[data-copy]').forEach(button => button.addEventListener('click', async () => {
+      if (!values) return;
+      const name = button.dataset.copy;
+      try {
+        await navigator.clipboard.writeText(values[name]);
+        status(`${name} copiada. Cole apenas no gerenciador de senhas e na variável de mesmo nome no Render.`);
+      } catch {
+        status(`Não foi possível copiar ${name}; permita o acesso à área de transferência nesta página local.`);
+      }
+    }));
+  </script>
+</body>
+</html>
