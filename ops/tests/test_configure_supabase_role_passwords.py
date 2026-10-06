@@ -54,6 +54,20 @@ class RolePasswordTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             module.read_secrets(env)
 
+    def test_all_invalid_role_secrets_are_reported_without_values(self):
+        env = {
+            "PSICOGEST_SUPABASE_DB_PASSWORD": "admin-password",
+            "PSICOGEST_RUNTIME_DB_PASSWORD": "too short",
+            "BACKUP_SUPABASE_DATABASE_PASSWORD": "é" * 32,
+        }
+        with self.assertRaises(module.ConfigurationError) as error:
+            module.read_secrets(env)
+        message = str(error.exception)
+        self.assertIn("PSICOGEST_RUNTIME_DB_PASSWORD", message)
+        self.assertIn("BACKUP_SUPABASE_DATABASE_PASSWORD", message)
+        self.assertNotIn("too short", message)
+        self.assertNotIn("é", message)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -46,9 +46,15 @@ def read_secrets(environ: dict[str, str]) -> tuple[str, dict[str, str]]:
         raise ConfigurationError(f"Missing repository secrets: {', '.join(missing)}")
     if len(set((admin, *values.values()))) != 3:
         raise ConfigurationError("The three database passwords must be different")
-    for role, value in values.items():
-        if len(value) < 16 or any(ord(ch) < 33 or ord(ch) > 126 for ch in value):
-            raise ConfigurationError(f"{ROLE_ENV[role]} must have 16+ printable ASCII characters")
+    invalid = [
+        ROLE_ENV[role]
+        for role, value in values.items()
+        if len(value) < 16 or any(ord(ch) < 33 or ord(ch) > 126 for ch in value)
+    ]
+    if invalid:
+        raise ConfigurationError(
+            f"These secrets must each have 16+ printable ASCII characters: {', '.join(invalid)}"
+        )
     return admin, values
 
 
