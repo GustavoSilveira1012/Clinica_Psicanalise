@@ -62,9 +62,7 @@ class RenderSyntheticPilotSafetyTest(unittest.TestCase):
             "MFA_ENCRYPTION_KEY",
             "CLINICAL_KEK",
             "AUDIT_HMAC_KEY",
-            "REDIS_HOST",
-            "REDIS_PORT",
-            "REDIS_PASSWORD",
+            "REDIS_URL",
         ):
             self.assert_secret_is_not_committed(key)
 
@@ -78,6 +76,14 @@ class RenderSyntheticPilotSafetyTest(unittest.TestCase):
         self.assertIn("spring.flyway.enabled=false", production_config)
         self.assertNotIn("${MIGRATION_DATABASE_USERNAME}", production_config)
         self.assertNotIn("${MIGRATION_DATABASE_PASSWORD}", production_config)
+
+    def test_private_redis_url_is_required_by_production_profile(self):
+        production_config = (
+            REPOSITORY_ROOT
+            / "backend/psicogest/psicogest/src/main/resources/application-production.properties"
+        ).read_text(encoding="utf-8")
+        self.assertIn("spring.data.redis.url=${REDIS_URL}", production_config)
+        self.assertNotIn("spring.data.redis.password=${REDIS_PASSWORD}", production_config)
 
     def test_render_health_check_targets_the_readiness_probe(self):
         self.assertIn("healthCheckPath: /actuator/health/readiness", self.manifest)

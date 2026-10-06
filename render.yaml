@@ -72,11 +72,7 @@ services:
         sync: false
       - key: AUDIT_HMAC_KEY
         sync: false
-      - key: REDIS_HOST
-        sync: false
-      - key: REDIS_PORT
-        sync: false
-      - key: REDIS_PASSWORD
+      - key: REDIS_URL
         sync: false
       # Render's same-region private Key Value URL uses redis://, not rediss://.
       # This is synthetic-only; external traffic stays blocked.
