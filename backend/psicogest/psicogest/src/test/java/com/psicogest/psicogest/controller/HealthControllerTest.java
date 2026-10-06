@@ -18,7 +18,7 @@ class HealthControllerTest {
 
     @Test
     void packagedMigrationVersionMatchesCurrentRelease() {
-        assertThat(MigrationReadiness.latestPackagedVersion()).isEqualTo("93");
+        assertThat(MigrationReadiness.latestPackagedVersion()).isEqualTo("96");
     }
 
     @Test
