@@ -16,6 +16,12 @@ class ProductionBackupWorkflowTest(unittest.TestCase):
         self.assertIn("environment: production-backup", self.source)
         self.assertIn("permissions:\n  contents: read", self.source)
 
+    def test_manual_backup_on_review_branch_requires_confirmation(self):
+        self.assertIn("github.event_name == 'workflow_dispatch'", self.source)
+        self.assertIn("github.ref == 'refs/heads/codex/render-homologacao'", self.source)
+        self.assertIn("inputs.confirmation == 'RUN-PRODUCTION-BACKUP'", self.source)
+        self.assertIn('[[ "$CONFIRMATION" == "RUN-PRODUCTION-BACKUP" ]]', self.source)
+
     def test_encrypted_database_and_objects_precede_checkpoint(self):
         positions = [self.source.index(text) for text in (
             "--format=custom --no-owner --no-privileges",

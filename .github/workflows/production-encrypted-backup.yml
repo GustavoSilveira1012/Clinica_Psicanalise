@@ -19,7 +19,12 @@ concurrency:
 
 jobs:
   backup:
-    if: github.ref == 'refs/heads/main' && vars.ENABLE_PRODUCTION_BACKUPS == 'true'
+    if: >-
+      vars.ENABLE_PRODUCTION_BACKUPS == 'true' &&
+      (github.ref == 'refs/heads/main' ||
+       (github.event_name == 'workflow_dispatch' &&
+        github.ref == 'refs/heads/codex/render-homologacao' &&
+        inputs.confirmation == 'RUN-PRODUCTION-BACKUP'))
     runs-on: ubuntu-latest
     timeout-minutes: 18
     environment: production-backup
