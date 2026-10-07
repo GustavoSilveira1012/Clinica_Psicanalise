@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - codex/render-homologacao
-    paths:
-      - .github/workflows/production-encrypted-backup.yml
   workflow_dispatch:
     inputs:
       confirmation:
