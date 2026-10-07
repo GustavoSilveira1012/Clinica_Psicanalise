@@ -140,7 +140,7 @@ test("manifest uses static assets and proxy paths with no paid resource bindings
   const manifest = JSON.parse(await readFile(new URL("../wrangler.json", import.meta.url), "utf8"));
   assert.deepEqual(manifest.assets.run_worker_first, ["/backend", "/backend/*"]);
   assert.equal(manifest.assets.not_found_handling, "single-page-application");
-  assert.equal(manifest.vars.API_ORIGIN, "");
+  assert.equal(manifest.vars.API_ORIGIN, "https://psicogest-synthetic-api.onrender.com");
   assert.equal(manifest.observability.enabled, false);
   for (const key of ["containers", "r2_buckets", "durable_objects", "d1_databases", "queues", "workflows"]) assert.equal(manifest[key], undefined);
 });
