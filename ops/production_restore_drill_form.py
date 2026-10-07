@@ -30,10 +30,49 @@ HOST = "127.0.0.1"
 PROJECT_REF = "gdorfdcvajeczzaesjjq"
 ACCOUNT_ID = "e4dc2a91f588f8e64fbbea799baec394"
 NAMESPACE_ID = "5a70c006ca9c4eeca83d89ec26d78031"
-AGE_RECIPIENT = "age10tfmjkywanqsqxpxywyv9wn96yktlyw8qfz3f422e69r4v8spvks5psxg7"
+AGE_RECIPIENT = "age1gus20cmsen65q7mqxzhkf0wtp03ng4m0g2yglpqp3265hejhjsmswnvnww"
 BUCKET = "psicogest-clinical-exports"
 CONFIRMATION = "RESTORE-ISOLATED-LOCAL"
 MANIFEST_RE = re.compile(r"^psicogest/v1/[a-f0-9]{32}/manifest$")
+AGE_SECRET_RE = re.compile(r"AGE-SECRET-KEY-[A-Z0-9]{40,100}")
+SAFE_RUNTIME_ERRORS = frozenset({
+    "Nenhum manifesto cifrado válido foi encontrado no KV aprovado",
+    "Não foi possível criar o banco local isolado",
+    "Banco local isolado não ficou pronto",
+    "Restore local excedeu dez minutos",
+    "Chave age não descriptografou o banco",
+    "pg_restore não conseguiu aplicar o dump no PostgreSQL 17 local",
+    "Não foi possível verificar o banco restaurado",
+    "O banco temporário precisa ser removido manualmente",
+    "Programa age verificado não está disponível",
+    "A chave privada age não está em formato válido",
+    "A chave age é válida, mas pertence a outro par",
+})
+
+
+def allowed_origin(origin: str | None, expected_origin: str) -> bool:
+    # The Codex in-app browser may submit a loopback form with Origin: null.
+    # Host pinning and the one-use nonce remain mandatory independently.
+    return origin in (expected_origin, "null", None)
+
+
+def safe_error_description(exc: Exception) -> str:
+    value = str(exc)
+    if type(exc) is RuntimeError and value in SAFE_RUNTIME_ERRORS:
+        return value
+    return type(exc).__name__
+
+
+def extract_age_secret_line(text: str) -> str:
+    matches = AGE_SECRET_RE.findall(text)
+    if len(matches) != 1:
+        raise RuntimeError("A chave privada age não está em formato válido")
+    # age v1.3.2 emits 74 characters. A password-manager copy can append one
+    # alphanumeric character; deriving and comparing the public recipient below
+    # authenticates the 74-character candidate before any backup is opened.
+    if len(matches[0]) not in (74, 75):
+        raise RuntimeError("A chave privada age não está em formato válido")
+    return matches[0][:74]
 
 
 def select_latest_manifest(client: CloudflareKv) -> str:
@@ -123,27 +162,35 @@ def restore_database_to_ram_container(age_exe: Path, identity: Path, archive: Pa
                     raise RuntimeError("O banco temporário precisa ser removido manualmente")
 
 
-def drill(token: str, identity_text: str, age_exe: Path, age_keygen: Path) -> dict[str, object]:
+def drill(token: str, identity_text: str, age_exe: Path, age_keygen: Path,
+          progress=lambda _phase: None) -> dict[str, object]:
+    progress("chave age")
     if not age_exe.is_file() or not age_keygen.is_file():
         raise RuntimeError("Programa age verificado não está disponível")
     with tempfile.TemporaryDirectory(prefix="psicogest-restore-") as directory:
         root = Path(directory)
         identity = root / "identity.txt"
-        identity.write_text(identity_text.strip() + "\n", encoding="ascii")
+        identity.write_text(extract_age_secret_line(identity_text) + "\n", encoding="ascii")
         try:
             recipient = checked_run([str(age_keygen), "-y", str(identity)], timeout=15)
-            if recipient.returncode != 0 or recipient.stdout.decode("ascii").strip() != AGE_RECIPIENT:
-                raise RuntimeError("A chave age não corresponde ao backup aprovado")
+            if recipient.returncode != 0:
+                raise RuntimeError("A chave privada age não está em formato válido")
+            if recipient.stdout.decode("ascii").strip() != AGE_RECIPIENT:
+                raise RuntimeError("A chave age é válida, mas pertence a outro par")
+            progress("manifesto Cloudflare KV")
             client = CloudflareKv(ACCOUNT_ID, NAMESPACE_ID, token)
             manifest_key = select_latest_manifest(client)
+            progress("download cifrado")
             archive_dir = root / "download"
             manifest = download(client, manifest_key, archive_dir,
                                 expected_project_ref=PROJECT_REF)
+            progress("arquivo de objetos")
             object_manifest = inspect_archive(
                 archive_dir / "objects.age", identity_file=str(identity),
                 expected_source_project_ref=PROJECT_REF, age_executable=str(age_exe),
                 expected_classification="PRODUCTION_CLINICAL", expected_bucket=BUCKET,
             )
+            progress("banco local")
             table_count = restore_database_to_ram_container(
                 age_exe, identity, archive_dir / "database.age")
             return {
@@ -217,7 +264,7 @@ def serve(age_exe: Path, age_keygen: Path) -> None:
         def do_POST(self):
             expected_origin = f"http://{HOST}:{server.server_port}"
             if (self.path != "/drill" or self.headers.get("Host") != f"{HOST}:{server.server_port}" or
-                    self.headers.get("Origin") not in (expected_origin, None) or
+                    not allowed_origin(self.headers.get("Origin"), expected_origin) or
                     self.headers.get("Content-Type", "").split(";", 1)[0] != "application/x-www-form-urlencoded"):
                 self.respond(403, page("Pedido recusado."))
                 return
@@ -249,15 +296,24 @@ def serve(age_exe: Path, age_keygen: Path) -> None:
             fields.clear()
 
             def work():
+                phase = "início"
+
+                def on_progress(new_phase: str):
+                    nonlocal phase
+                    phase = new_phase
+                    with lock:
+                        state["status"] = f"Verificando {phase}..."
+
                 try:
-                    result = drill(token, identity_text, age_exe, age_keygen)
+                    result = drill(token, identity_text, age_exe, age_keygen, on_progress)
                     message = ("Recuperação local concluída: "
                                f"{result['database_tables']} tabelas no banco temporário; "
                                f"{result['storage_objects_verified']} objetos conferidos; "
                                f"snapshot {result['snapshot_started_at']}.")
                 except Exception as exc:
                     # Exception text may contain provider details; show only category.
-                    message = f"Ensaio falhou ({type(exc).__name__}). Os dados de origem não foram alterados."
+                    detail = safe_error_description(exc)
+                    message = f"Ensaio falhou na etapa {phase} ({detail}). Os dados de origem não foram alterados."
                 with lock:
                     state["status"] = message
                     state["running"] = False

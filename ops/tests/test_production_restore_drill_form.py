@@ -8,6 +8,24 @@ from ops import production_restore_drill_form as form
 
 
 class RestoreDrillFormTest(unittest.TestCase):
+    def test_loopback_origin_accepts_in_app_browser_null_only_with_nonce_gate(self):
+        expected = "http://127.0.0.1:59779"
+        self.assertTrue(form.allowed_origin(expected, expected))
+        self.assertTrue(form.allowed_origin("null", expected))
+        self.assertFalse(form.allowed_origin("https://attacker.example", expected))
+
+    def test_error_description_never_echoes_unknown_provider_text(self):
+        self.assertEqual(form.safe_error_description(RuntimeError("A chave age é válida, mas pertence a outro par")),
+                         "A chave age é válida, mas pertence a outro par")
+        self.assertEqual(form.safe_error_description(RuntimeError("secret token from provider")), "RuntimeError")
+
+    def test_private_key_line_is_extracted_without_comment_or_formatting(self):
+        fake_key = "AGE-SECRET-KEY-" + "A" * 59
+        self.assertEqual(form.extract_age_secret_line("# public key: age1example\n```\n" + fake_key + "\n```"), fake_key)
+        self.assertEqual(form.extract_age_secret_line(fake_key + "Z"), fake_key)
+        with self.assertRaises(RuntimeError):
+            form.extract_age_secret_line(fake_key + "\n" + fake_key)
+
     def test_selects_latest_manifest_for_fixed_project(self):
         older = "psicogest/v1/" + "a" * 32 + "/manifest"
         newer = "psicogest/v1/" + "b" * 32 + "/manifest"

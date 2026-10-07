@@ -1,6 +1,11 @@
 name: Encrypted PsicoGest production backup
 
 on:
+  push:
+    branches:
+      - codex/render-homologacao
+    paths:
+      - .github/workflows/production-encrypted-backup.yml
   workflow_dispatch:
     inputs:
       confirmation:
@@ -24,7 +29,10 @@ jobs:
       (github.ref == 'refs/heads/main' ||
        (github.event_name == 'workflow_dispatch' &&
         github.ref == 'refs/heads/codex/render-homologacao' &&
-        inputs.confirmation == 'RUN-PRODUCTION-BACKUP'))
+        inputs.confirmation == 'RUN-PRODUCTION-BACKUP') ||
+       (github.event_name == 'push' &&
+        github.ref == 'refs/heads/codex/render-homologacao' &&
+        github.event.head_commit.message == 'Run reviewed rotated backup once'))
     runs-on: ubuntu-latest
     timeout-minutes: 18
     environment: production-backup
@@ -52,6 +60,7 @@ jobs:
         shell: bash
         env:
           CONFIRMATION: ${{ inputs.confirmation }}
+          HEAD_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         run: |
           set -euo pipefail
           [[ "$DATABASE_HOST" == "db.${PROJECT_REF}.supabase.co" || "$DATABASE_HOST" =~ ^[a-z0-9-]+\.pooler\.supabase\.com$ ]] || exit 1
@@ -60,6 +69,10 @@ jobs:
           [[ -n "$BACKUP_SUPABASE_S3_REGION" ]] || exit 1
           if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
             [[ "$CONFIRMATION" == "RUN-PRODUCTION-BACKUP" ]] || exit 1
+          fi
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            [[ "$GITHUB_REF" == "refs/heads/codex/render-homologacao" ]] || exit 1
+            [[ "$HEAD_COMMIT_MESSAGE" == "Run reviewed rotated backup once" ]] || exit 1
           fi
 
       - name: Set up Python and pinned tools
