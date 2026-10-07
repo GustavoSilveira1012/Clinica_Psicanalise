@@ -1,6 +1,7 @@
 package com.psicogest.psicogest.security.pilot;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -26,6 +27,18 @@ class ClinicalBackupFreshnessGuardTest {
 
     private ClinicalBackupFreshnessGuard guard(boolean enabled, boolean approved) {
         return new ClinicalBackupFreshnessGuard(jdbc, scope, Clock.fixed(NOW, ZoneOffset.UTC), enabled, approved, 55);
+    }
+
+    @Test
+    void productionComponentStartsWithTheConfiguredConstructor() {
+        try (var context = new AnnotationConfigApplicationContext()) {
+            context.getEnvironment().setActiveProfiles("production");
+            context.registerBean(JdbcTemplate.class, () -> jdbc);
+            context.registerBean(ClinicalPilotScopeGuard.class, () -> scope);
+            context.register(ClinicalBackupFreshnessGuard.class);
+            context.refresh();
+            assertThat(context.getBean(ClinicalBackupFreshnessGuard.class)).isNotNull();
+        }
     }
 
     @Test

@@ -2,6 +2,7 @@ package com.psicogest.psicogest.security.pilot;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
@@ -37,6 +38,7 @@ public class ClinicalBackupFreshnessGuard implements HandlerInterceptor, WebMvcC
     private final boolean clinicalDataEnabled;
     private final boolean releaseApproved;
 
+    @Autowired
     public ClinicalBackupFreshnessGuard(
             JdbcTemplate jdbc,
             ClinicalPilotScopeGuard clinicalScope,
