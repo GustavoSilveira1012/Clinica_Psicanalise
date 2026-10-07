@@ -22,6 +22,11 @@ class ProductionBackupWorkflowTest(unittest.TestCase):
         self.assertIn("inputs.confirmation == 'RUN-PRODUCTION-BACKUP'", self.source)
         self.assertIn('[[ "$CONFIRMATION" == "RUN-PRODUCTION-BACKUP" ]]', self.source)
 
+    def test_review_branch_push_requires_exact_one_time_commit_message(self):
+        self.assertIn("push:\n    branches:\n      - codex/render-homologacao", self.source)
+        self.assertIn("github.event_name == 'push'", self.source)
+        self.assertIn("github.event.head_commit.message == 'Run reviewed production backup once'", self.source)
+
     def test_encrypted_database_and_objects_precede_checkpoint(self):
         positions = [self.source.index(text) for text in (
             "--format=custom --no-owner --no-privileges",
