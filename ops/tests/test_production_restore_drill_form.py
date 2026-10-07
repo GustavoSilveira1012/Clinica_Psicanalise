@@ -1,7 +1,9 @@
 """Local restore drill must select the approved backup and avoid source writes."""
 
 import json
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 from ops import production_restore_drill_form as form
@@ -18,6 +20,13 @@ class RestoreDrillFormTest(unittest.TestCase):
         self.assertEqual(form.safe_error_description(RuntimeError("A chave age é válida, mas pertence a outro par")),
                          "A chave age é válida, mas pertence a outro par")
         self.assertEqual(form.safe_error_description(RuntimeError("secret token from provider")), "RuntimeError")
+
+    def test_restore_error_classifier_never_echoes_database_text(self):
+        self.assertEqual(form.safe_pg_restore_failure(
+            b'ERROR: role "sensitive-user" does not exist; patient secret'),
+            "pg_restore falhou por role ausente no banco local")
+        self.assertEqual(form.safe_pg_restore_failure(b'ERROR: unknown patient note'),
+                         "pg_restore não conseguiu aplicar o dump no PostgreSQL 17 local")
 
     def test_private_key_line_is_extracted_without_comment_or_formatting(self):
         fake_key = "AGE-SECRET-KEY-" + "A" * 59
@@ -49,6 +58,26 @@ class RestoreDrillFormTest(unittest.TestCase):
         self.assertIn("isolado da rede", content)
         self.assertNotIn("RESTORE_SUPABASE_S3_SECRET_ACCESS_KEY", content)
 
+    def test_local_identity_form_does_not_request_a_copied_private_key(self):
+        content = form.page("Aguardando credenciais.", "nonce", local_identity=True).decode()
+        self.assertIn("arquivo local já validado", content)
+        self.assertNotIn('name="identity"', content)
+        self.assertIn('name="token"', content)
+
+    def test_cached_replay_rejects_tampered_ciphertext_before_opening_identity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "database.age").write_bytes(b"corrupted")
+            (root / "objects.age").write_bytes(b"ciphertext")
+            (root / "manifest.json").write_text(json.dumps({
+                "format": "psicogest-encrypted-backup-v1",
+                "project_ref": form.PROJECT_REF,
+                "database": {"sha256": "0" * 64, "bytes": 9},
+                "objects": {"sha256": "0" * 64, "bytes": 10},
+            }), encoding="utf-8")
+            with self.assertRaisesRegex(RuntimeError, "verificação"):
+                form.replay_cached_restore(root, root / "missing-identity", root / "age", root / "keygen")
+
     def test_restore_container_has_no_network_or_persistent_volume(self):
         calls = []
 
@@ -66,6 +95,19 @@ class RestoreDrillFormTest(unittest.TestCase):
         self.assertEqual(command.count("--tmpfs"), 2)
         self.assertNotIn("-p", command)
         self.assertNotIn("--mount", command)
+
+    def test_restore_prepares_supabase_policy_roles_only_in_isolated_container(self):
+        source = form.Path(form.__file__).read_text(encoding="utf-8")
+        for name in ("psicogest_runtime", "psicogest_backup", "anon", "authenticated", "service_role"):
+            self.assertIn(f"CREATE ROLE {name}", source)
+        self.assertIn('"docker", "exec", name, "psql"', source)
+
+    def test_restore_installs_missing_extension_between_archive_sections(self):
+        source = form.Path(form.__file__).read_text(encoding="utf-8")
+        self.assertIn('for section in ("pre-data", "data", "post-data")', source)
+        self.assertIn('"CREATE EXTENSION IF NOT EXISTS btree_gist"', source)
+        self.assertIn('"--section=" + section', source)
+        self.assertIn('if section == "pre-data":', source)
 
 
 if __name__ == "__main__":
