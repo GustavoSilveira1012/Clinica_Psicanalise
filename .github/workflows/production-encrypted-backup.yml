@@ -1,9 +1,6 @@
 name: Encrypted PsicoGest production backup
 
 on:
-  push:
-    branches:
-      - codex/render-homologacao
   workflow_dispatch:
     inputs:
       confirmation:
@@ -27,10 +24,7 @@ jobs:
       (github.ref == 'refs/heads/main' ||
        (github.event_name == 'workflow_dispatch' &&
         github.ref == 'refs/heads/codex/render-homologacao' &&
-        inputs.confirmation == 'RUN-PRODUCTION-BACKUP') ||
-       (github.event_name == 'push' &&
-        github.ref == 'refs/heads/codex/render-homologacao' &&
-        github.event.head_commit.message == 'Run reviewed production backup once'))
+        inputs.confirmation == 'RUN-PRODUCTION-BACKUP'))
     runs-on: ubuntu-latest
     timeout-minutes: 18
     environment: production-backup
