@@ -80,6 +80,17 @@ class ClinicalBackupFreshnessGuardTest {
     }
 
     @Test
+    void blocksClinicAndPractitionerWritesWhenBackupIsMissing() throws Exception {
+        when(jdbc.queryForMap(anyString())).thenThrow(new IllegalStateException("checkpoint unavailable"));
+        for (String path : new String[]{"/clinics", "/clinic-memberships/3/periods", "/psychoanalysts"}) {
+            var response = new MockHttpServletResponse();
+            assertThat(guard(true, true).preHandle(
+                    new MockHttpServletRequest("POST", path), response, new Object())).isFalse();
+            assertThat(response.getStatus()).isEqualTo(503);
+        }
+    }
+
+    @Test
     void doesNotQueryBackupForClinicalReadsOrUnrelatedPathsOrClosedRelease() throws Exception {
         var response = new MockHttpServletResponse();
         assertThat(guard(true, true).preHandle(
