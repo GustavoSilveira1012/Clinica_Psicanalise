@@ -1,5 +1,6 @@
-# Synthetic-data pilot only. This Blueprint creates services, so review every
-# resource and fill secrets only after manually creating empty test projects.
+# Synthetic-data homologation only. The frontend stays on Cloudflare, which
+# proxies /backend/* to this API on the same browser origin. Clinical data,
+# public checkout and public trial remain disabled.
 services:
   - type: web
     name: psicogest-synthetic-api
@@ -8,8 +9,8 @@ services:
     region: ohio
     dockerfilePath: ./backend/psicogest/psicogest/Dockerfile
     dockerContext: ./backend/psicogest/psicogest
-    autoDeployTrigger: checksPass
-    healthCheckPath: /actuator/health/liveness
+    autoDeployTrigger: 'off'
+    healthCheckPath: /actuator/health/readiness
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: production
@@ -57,16 +58,12 @@ services:
         sync: false
       - key: DATABASE_PASSWORD
         sync: false
-      - key: MIGRATION_DATABASE_USERNAME
-        sync: false
-      - key: MIGRATION_DATABASE_PASSWORD
-        sync: false
       - key: SECURITY_ALLOWED_ORIGINS
         sync: false
       - key: JWT_PUBLIC_KEY_LOCATION
-        sync: false
+        value: file:/etc/secrets/jwt-public.pem
       - key: JWT_PRIVATE_KEY_LOCATION
-        sync: false
+        value: file:/etc/secrets/jwt-private.pem
       - key: JWT_KEY_ID
         sync: false
       - key: MFA_ENCRYPTION_KEY
@@ -75,50 +72,17 @@ services:
         sync: false
       - key: AUDIT_HMAC_KEY
         sync: false
-      - key: REDIS_HOST
+      - key: REDIS_URL
         sync: false
-      - key: REDIS_PORT
-        sync: false
-      - key: REDIS_PASSWORD
-        sync: false
+      # Render's same-region private Key Value URL uses redis://, not rediss://.
+      # This is synthetic-only; external traffic stays blocked.
       - key: REDIS_SSL_ENABLED
-        value: "true"
-
-  - type: web
-    name: psicogest-synthetic-web
-    runtime: static
-    rootDir: frontend
-    buildCommand: npm install --global pnpm@11.19.0 && pnpm install --frozen-lockfile && pnpm build
-    staticPublishPath: dist
-    buildFilter:
-      paths:
-        - frontend/**
-        - render.yaml
-    envVars:
-      - key: SKIP_INSTALL_DEPS
-        value: "true"
-      - key: VITE_API_URL
-        fromService:
-          type: web
-          name: psicogest-synthetic-api
-          envVarKey: RENDER_EXTERNAL_URL
-      - key: VITE_CLINICAL_ONLY_PILOT
-        value: "true"
-      - key: VITE_CLINICAL_DATA_ENABLED
         value: "false"
-      - key: VITE_CLINICAL_DATA_RELEASE_APPROVED
+      - key: PUBLIC_PLANS_ENABLED
         value: "false"
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-    headers:
-      - path: /*
-        name: X-Content-Type-Options
-        value: nosniff
-      - path: /*
-        name: Referrer-Policy
-        value: no-referrer
-      - path: /*
-        name: X-Frame-Options
-        value: DENY
+      - key: PUBLIC_PRICING_APPROVED
+        value: "false"
+      - key: PUBLIC_TRIAL_ENABLED
+        value: "false"
+      - key: PUBLIC_CHECKOUT_ENABLED
+        value: "false"

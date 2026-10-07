@@ -6,6 +6,7 @@ import com.psicogest.psicogest.dto.RefundAllocationRequestDTO;
 import com.psicogest.psicogest.dto.RefundCreateDTO;
 import com.psicogest.psicogest.exception.FinanceConflictException;
 import com.psicogest.psicogest.exception.FinanceValidationException;
+import com.psicogest.psicogest.exception.IdempotencyConflictException;
 import com.psicogest.psicogest.exception.ResourceNotFoundException;
 import com.psicogest.psicogest.infrastructure.payment.provider.PaymentProviderType;
 import com.psicogest.psicogest.model.entity.Payment;
@@ -26,8 +27,10 @@ import com.psicogest.psicogest.security.audit.AuditAction;
 import com.psicogest.psicogest.security.audit.AuditCommand;
 import com.psicogest.psicogest.security.audit.AuditOutcome;
 import com.psicogest.psicogest.security.audit.AuditService;
+import com.psicogest.psicogest.service.finance.FinanceAuthorizationService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -61,6 +64,8 @@ public class RefundService {
     private final SecurityHashService hashService;
     private final RefundStateMachine refundStateMachine;
     private final Clock clock;
+    private final FinanceAuthorizationService financeAuthorizationService;
+    private final JdbcTemplate jdbc;
 
     public RefundService(
             PaymentRepository paymentRepository,
@@ -72,7 +77,9 @@ public class RefundService {
             AuditService auditService,
             SecurityHashService hashService,
             RefundStateMachine refundStateMachine,
-            Clock clock
+            Clock clock,
+            FinanceAuthorizationService financeAuthorizationService,
+            JdbcTemplate jdbc
     ) {
         this.paymentRepository = paymentRepository;
         this.allocationRepository = allocationRepository;
@@ -84,6 +91,8 @@ public class RefundService {
         this.hashService = hashService;
         this.refundStateMachine = refundStateMachine;
         this.clock = clock;
+        this.financeAuthorizationService = financeAuthorizationService;
+        this.jdbc = jdbc;
     }
 
     /**
@@ -110,6 +119,12 @@ public class RefundService {
         String idempotencyKey =
                 normalizeIdempotencyKey(rawIdempotencyKey);
 
+        jdbc.execute((org.springframework.jdbc.core.PreparedStatementCreator) connection -> {
+            var statement = connection.prepareStatement("SELECT pg_advisory_xact_lock(hashtextextended(?,0))");
+            statement.setString(1, "refund:" + idempotencyKey);
+            return statement;
+        }, statement -> { statement.execute(); return null; });
+
         // Buscar payment com lock
         Payment payment =
                 paymentRepository
@@ -120,6 +135,26 @@ public class RefundService {
                                                 "Pagamento não encontrado"
                                         )
                         );
+
+        validateFinancialAccess(payment, actor);
+
+        var existing = refundRepository.findByIdempotencyKey(idempotencyKey);
+        if (existing.isPresent()) {
+            Refund previous = existing.get();
+            validateFinancialAccess(previous.getPayment(), actor);
+            List<String> previousLines = refundAllocationRepository.findByRefundId(previous.getId()).stream()
+                    .map(line -> line.getPaymentAllocation().getId()+"|"+MoneyRules.normalize(line.getAmount()).toPlainString())
+                    .sorted().toList();
+            List<String> requestedLines = dto.allocations().stream()
+                    .map(line -> line.paymentAllocationId()+"|"+MoneyRules.normalize(line.amount()).toPlainString())
+                    .sorted().toList();
+            if (!previous.getPayment().getId().equals(paymentId)
+                    || previous.getAmount().compareTo(MoneyRules.normalize(dto.amount())) != 0
+                    || previous.getReason() != dto.reason() || !previousLines.equals(requestedLines)) {
+                throw new IdempotencyConflictException("A chave de idempotência já foi usada para outra devolução");
+            }
+            return previous;
+        }
 
         // Validar status
         if (
@@ -321,7 +356,6 @@ public class RefundService {
 
                         .updatedAt(now)
 
-                        .version(0L)
 
                         .build();
 
@@ -413,13 +447,7 @@ public class RefundService {
                 )
         );
 
-        log.info(
-                "Refund criado: id={}, payment={}, amount={}, allocations={}, status=PENDING",
-                saved.getId(),
-                paymentId,
-                refundAmount,
-                lines.size()
-        );
+        log.info("Solicitação de reembolso registrada");
 
         return saved;
     }
@@ -458,6 +486,8 @@ public class RefundService {
                 paymentRepository
                         .findByIdForUpdate(paymentId)
                         .orElseThrow();
+
+        validateFinancialAccess(payment, actor);
 
         // Lock Refund
         Refund refund =
@@ -585,13 +615,7 @@ public class RefundService {
                 )
         );
 
-        log.info(
-                "Refund confirmado: id={}, payment={}, amount={}, newPaymentStatus={}",
-                refund.getId(),
-                paymentId,
-                refund.getAmount(),
-                payment.getStatus()
-        );
+        log.info("Reembolso confirmado");
 
         return refund;
     }
@@ -668,15 +692,17 @@ public class RefundService {
 
         Instant now = clock.instant();
 
-        Refund refund =
-                refundRepository
-                        .findByIdForUpdate(refundId)
-                        .orElseThrow(
-                                () ->
-                                        new ResourceNotFoundException(
-                                                "Devolução não encontrada"
-                                        )
-                        );
+        UUID paymentId = refundRepository
+                .findPaymentId(refundId)
+                .orElseThrow(() -> new ResourceNotFoundException("Devolução não encontrada"));
+        Payment payment = paymentRepository
+                .findByIdForUpdate(paymentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Pagamento não encontrado"));
+        validateFinancialAccess(payment, actor);
+
+        Refund refund = refundRepository
+                .findByIdForUpdate(refundId)
+                .orElseThrow(() -> new ResourceNotFoundException("Devolução não encontrada"));
 
         // 43. Validar transição
         refundStateMachine
@@ -692,11 +718,6 @@ public class RefundService {
                 refundRepository.saveAndFlush(refund);
 
         // Buscar payment para auditoria
-        Payment payment =
-                paymentRepository
-                        .findById(refund.getPayment().getId())
-                        .orElseThrow();
-
         // 42. Auditoria de falha
         auditService.recordCriticalWrite(
 
@@ -736,11 +757,7 @@ public class RefundService {
                 )
         );
 
-        log.info(
-                "Refund marcado como falho: id={}, payment={}",
-                refund.getId(),
-                payment.getId()
-        );
+        log.info("Reembolso marcado como falho");
 
         return saved;
     }
@@ -763,15 +780,17 @@ public class RefundService {
 
         Instant now = clock.instant();
 
-        Refund refund =
-                refundRepository
-                        .findByIdForUpdate(refundId)
-                        .orElseThrow(
-                                () ->
-                                        new ResourceNotFoundException(
-                                                "Devolução não encontrada"
-                                        )
-                        );
+        UUID paymentId = refundRepository
+                .findPaymentId(refundId)
+                .orElseThrow(() -> new ResourceNotFoundException("Devolução não encontrada"));
+        Payment payment = paymentRepository
+                .findByIdForUpdate(paymentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Pagamento não encontrado"));
+        validateFinancialAccess(payment, actor);
+
+        Refund refund = refundRepository
+                .findByIdForUpdate(refundId)
+                .orElseThrow(() -> new ResourceNotFoundException("Devolução não encontrada"));
 
         // 44. Validar transição
         refundStateMachine
@@ -787,11 +806,6 @@ public class RefundService {
                 refundRepository.saveAndFlush(refund);
 
         // Buscar payment para auditoria
-        Payment payment =
-                paymentRepository
-                        .findById(refund.getPayment().getId())
-                        .orElseThrow();
-
         // 42. Auditoria de cancelamento
         auditService.recordCriticalWrite(
 
@@ -831,11 +845,7 @@ public class RefundService {
                 )
         );
 
-        log.info(
-                "Refund cancelado: id={}, payment={}",
-                refund.getId(),
-                payment.getId()
-        );
+        log.info("Reembolso cancelado");
 
         return saved;
     }
@@ -882,13 +892,7 @@ public class RefundService {
         // Webhook repetido = operação idempotente
         if (refund.getStatus() == RefundStatus.CONFIRMED) {
 
-            log.info(
-                    "Reembolso já confirmado (webhook duplicado): " +
-                            "provider={}, providerRefundId={}, status={}",
-                    provider,
-                    providerRefundId,
-                    refund.getStatus()
-            );
+            log.info("Webhook de reembolso duplicado ignorado");
 
             return;
         }
@@ -945,16 +949,7 @@ public class RefundService {
                 )
         ));
 
-        log.info(
-                "Reembolso confirmado do provider: " +
-                        "id={}, provider={}, providerRefundId={}, amount={}, payment={}, occurredAt={}",
-                refund.getId(),
-                provider,
-                providerRefundId,
-                refund.getAmount(),
-                payment.getId(),
-                occurredAt
-        );
+        log.info("Reembolso confirmado pelo provider");
     }
 
     /**
@@ -999,13 +994,7 @@ public class RefundService {
                 refund.getStatus() == RefundStatus.CONFIRMED
         ) {
 
-            log.info(
-                    "Reembolso já em estado terminal (webhook descartado): " +
-                            "provider={}, providerRefundId={}, status={}",
-                    provider,
-                    providerRefundId,
-                    refund.getStatus()
-            );
+            log.info("Webhook de reembolso em estado terminal ignorado");
 
             return;
         }
@@ -1021,21 +1010,19 @@ public class RefundService {
 
         refundRepository.saveAndFlush(refund);
 
-        // Buscar Payment para logging
+        // Buscar Payment para manter o contexto de autorização e auditoria.
         Payment payment =
                 paymentRepository
                         .findById(refund.getPayment().getId())
                         .orElseThrow();
 
-        log.info(
-                "Reembolso marcado como falho do provider: " +
-                        "id={}, provider={}, providerRefundId={}, amount={}, payment={}, occurredAt={}",
-                refund.getId(),
-                provider,
-                providerRefundId,
-                refund.getAmount(),
-                payment.getId(),
-                occurredAt
-        );
+        log.info("Reembolso do provider marcado como falho");
+    }
+
+    private void validateFinancialAccess(Payment payment, SecurityActor actor) {
+        if (payment.getClinic() == null || payment.getClinic().getId() == null) {
+            throw new FinanceValidationException("Pagamento sem contexto financeiro");
+        }
+        financeAuthorizationService.validateClinicAccess(payment.getClinic().getId(), actor);
     }
 }

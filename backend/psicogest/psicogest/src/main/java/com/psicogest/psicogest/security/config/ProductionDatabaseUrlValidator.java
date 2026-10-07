@@ -5,7 +5,6 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import java.net.URI;
-import java.util.Arrays;
 
 /** Refuses production database URLs that do not verify the server certificate and hostname. */
 @Component
@@ -34,20 +33,16 @@ public class ProductionDatabaseUrlValidator {
                 || uri.getUserInfo() != null
                 || uri.getPath() == null
                 || uri.getPath().length() < 2
+                || uri.getFragment() != null
                 || !hasVerifiedTls(uri.getRawQuery())) {
             throw invalidUrl();
         }
     }
 
     private static boolean hasVerifiedTls(String query) {
-        if (query == null || query.isBlank()) {
-            return false;
-        }
-        return Arrays.stream(query.split("&"))
-                .map(parameter -> parameter.split("=", 2))
-                .anyMatch(pair -> pair.length == 2
-                        && "sslmode".equalsIgnoreCase(pair[0])
-                        && "verify-full".equalsIgnoreCase(pair[1]));
+        // Reject duplicate sslmode and JDBC connection overrides. A later option can
+        // silently undo hostname verification or redirect the connection target.
+        return "sslmode=verify-full".equals(query);
     }
 
     private static IllegalStateException invalidUrl() {

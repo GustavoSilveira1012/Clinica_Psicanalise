@@ -60,8 +60,19 @@ class ClinicalPilotScopeGuardTest {
         ClinicalPilotScopeGuard guard = new ClinicalPilotScopeGuard(true, false, true);
 
         assertThat(guard.isUnavailable("GET", "/patients")).isTrue();
+        assertThat(guard.isUnavailable("GET", "/users")).isTrue();
+        assertThat(guard.isUnavailable("GET", "/users/12")).isTrue();
+        assertThat(guard.isUnavailable("POST", "/users")).isTrue();
+        assertThat(guard.isUnavailable("GET", "/clinics")).isTrue();
+        assertThat(guard.isUnavailable("POST", "/clinics")).isTrue();
+        assertThat(guard.isUnavailable("PATCH", "/clinic-memberships/3/periods/4/end")).isTrue();
+        assertThat(guard.isUnavailable("GET", "/psychoanalysts")).isTrue();
+        assertThat(guard.isUnavailable("POST", "/psychoanalysts")).isTrue();
         assertThat(guard.isUnavailable("GET", "/psychoanalysts/7/appointments")).isTrue();
+        assertThat(guard.isUnavailable("GET", "/psychoanalysts/7/therapeutic-relationships")).isTrue();
+        assertThat(guard.isUnavailable("PATCH", "/psychoanalysts/7/therapeutic-relationships/3/end")).isTrue();
         assertThat(guard.isUnavailable("GET", "/medical-records/3")).isTrue();
+        assertThat(guard.isUnavailable("GET", "/api/v1/medical-record-addendums/3")).isTrue();
         assertThat(guard.isUnavailable("GET", "/api/v1/receivables")).isTrue();
         assertThat(guard.isUnavailable("GET", "/api/v1/payments")).isTrue();
         assertThat(guard.isUnavailable("GET", "/api/v1/compliance/privacy-requests")).isTrue();
@@ -87,6 +98,8 @@ class ClinicalPilotScopeGuardTest {
         ClinicalPilotScopeGuard guard = new ClinicalPilotScopeGuard(true, true, false);
 
         assertThat(guard.isUnavailable("GET", "/patients")).isTrue();
+        assertThat(guard.isUnavailable("GET", "/users")).isTrue();
+        assertThat(guard.isUnavailable("GET", "/psychoanalysts/7/therapeutic-relationships")).isTrue();
         assertThat(guard.isUnavailable("GET", "/medical-records/3")).isTrue();
     }
 }

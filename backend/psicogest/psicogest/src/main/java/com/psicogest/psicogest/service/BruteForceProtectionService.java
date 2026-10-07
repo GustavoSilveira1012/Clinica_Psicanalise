@@ -10,7 +10,6 @@ import com.psicogest.psicogest.repository.UserRepository;
 import com.psicogest.psicogest.security.event.SecurityEventService;
 import com.psicogest.psicogest.security.request.SecurityRequestContext;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -34,7 +33,9 @@ public class BruteForceProtectionService {
         this.hashService = hashService;
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    // Login and MFA already hold the user row lock. Join that transaction so the
+    // counter can commit on rejected credentials without self-blocking on a new connection.
+    @Transactional
     public void registerFailure(
             User knownUser,
             String normalizedEmail,
@@ -86,7 +87,7 @@ public class BruteForceProtectionService {
         );
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional
     public void registerSuccess(
             User userReference,
             SecurityRequestContext context

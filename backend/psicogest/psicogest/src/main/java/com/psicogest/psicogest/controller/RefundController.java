@@ -52,7 +52,7 @@ public class RefundController {
      */
     @PostMapping
     @PreAuthorize(
-            "hasAnyRole('ADMIN', 'FINANCE')"
+            "hasAnyRole('CLINIC_ADMIN', 'PSYCHOANALYST')"
     )
     public ResponseEntity<RefundResponseDTO> create(
             @PathVariable UUID paymentId,
@@ -65,12 +65,7 @@ public class RefundController {
             HttpServletRequest request
     ) {
 
-        log.info(
-                "POST /refunds: paymentId={}, amount={}, reason={}",
-                paymentId,
-                dto.amount(),
-                dto.reason()
-        );
+        log.info("POST /refunds: solicitação de estorno recebida");
 
         var actor =
                 securityActorFactory.from(
@@ -139,7 +134,7 @@ public class RefundController {
      */
     @PostMapping("/{refundId}/confirm")
     @PreAuthorize(
-            "hasAnyRole('ADMIN', 'FINANCE')"
+            "hasAnyRole('CLINIC_ADMIN', 'PSYCHOANALYST')"
     )
     public ResponseEntity<RefundResponseDTO> confirm(
             @PathVariable UUID paymentId,
@@ -148,11 +143,7 @@ public class RefundController {
             HttpServletRequest request
     ) {
 
-        log.info(
-                "POST /refunds/{}/confirm: paymentId={}",
-                refundId,
-                paymentId
-        );
+        log.info("POST /refunds/{}/confirm: solicitação de confirmação recebida", refundId);
 
         var actor =
                 securityActorFactory.from(
@@ -186,7 +177,7 @@ public class RefundController {
      */
     @PostMapping("/{refundId}/fail")
     @PreAuthorize(
-            "hasAnyRole('ADMIN', 'FINANCE')"
+            "hasAnyRole('CLINIC_ADMIN', 'PSYCHOANALYST')"
     )
     public ResponseEntity<RefundResponseDTO> fail(
             @PathVariable UUID paymentId,
@@ -195,11 +186,7 @@ public class RefundController {
             HttpServletRequest request
     ) {
 
-        log.info(
-                "POST /refunds/{}/fail: paymentId={}",
-                refundId,
-                paymentId
-        );
+        log.info("POST /refunds/{}/fail: solicitação de falha recebida", refundId);
 
         var actor =
                 securityActorFactory.from(
@@ -232,7 +219,7 @@ public class RefundController {
      */
     @PostMapping("/{refundId}/cancel")
     @PreAuthorize(
-            "hasAnyRole('ADMIN', 'FINANCE')"
+            "hasAnyRole('CLINIC_ADMIN', 'PSYCHOANALYST')"
     )
     public ResponseEntity<RefundResponseDTO> cancel(
             @PathVariable UUID paymentId,
@@ -241,11 +228,7 @@ public class RefundController {
             HttpServletRequest request
     ) {
 
-        log.info(
-                "POST /refunds/{}/cancel: paymentId={}",
-                refundId,
-                paymentId
-        );
+        log.info("POST /refunds/{}/cancel: solicitação de cancelamento recebida", refundId);
 
         var actor =
                 securityActorFactory.from(
