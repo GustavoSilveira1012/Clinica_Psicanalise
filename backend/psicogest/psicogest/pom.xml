@@ -24,6 +24,11 @@
     <properties>
         <java.version>25</java.version>
         <aws-sdk.version>2.31.77</aws-sdk.version>
+        <!-- CVE-2026-68497: retain Boot's Jackson 2 family with its patched BOM. -->
+        <jackson-2-bom.version>2.21.6</jackson-2-bom.version>
+        <jackson-bom.version>3.1.6</jackson-bom.version>
+        <!-- Tomcat 11 security patches, including September HTTP/2 header mix-up fixes. -->
+        <tomcat.version>11.0.26</tomcat.version>
     </properties>
 
 

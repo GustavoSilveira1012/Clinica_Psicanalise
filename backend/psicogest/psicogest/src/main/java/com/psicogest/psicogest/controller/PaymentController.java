@@ -72,13 +72,7 @@ public class PaymentController {
             HttpServletRequest request
     ) {
 
-        log.info(
-                "POST /payments: idempotencyKey={}, amount={}, method={}, patient={}",
-                idempotencyKey,
-                dto.amount(),
-                dto.paymentMethod(),
-                dto.patientId()
-        );
+        log.info("POST /payments: solicitação de criação recebida");
 
         SecurityActor actor =
                 securityActorFactory.from(
@@ -128,11 +122,7 @@ public class PaymentController {
             HttpServletRequest request
     ) {
 
-        log.info(
-                "POST /payments/{}/confirm: receivedAt={}",
-                paymentId,
-                receivedAt
-        );
+        log.info("POST /payments/{}/confirm: solicitação de confirmação recebida", paymentId);
 
         SecurityActor actor =
                 securityActorFactory.from(

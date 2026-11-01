@@ -27,12 +27,12 @@ import java.security.interfaces.RSAPublicKey;
 public class TestJwtConfiguration {
 
     @Bean
-    RSAKey testSigningKey() throws Exception {
+    RSAKey testSigningKey(JwtProperties properties) throws Exception {
         var generator = KeyPairGenerator.getInstance("RSA");
         generator.initialize(2048);
         var pair = generator.generateKeyPair();
         return new RSAKey.Builder((RSAPublicKey) pair.getPublic())
-                .privateKey((RSAPrivateKey) pair.getPrivate()).keyID("integration-test").build();
+                .privateKey((RSAPrivateKey) pair.getPrivate()).keyID(properties.keyId()).build();
     }
 
     @Bean

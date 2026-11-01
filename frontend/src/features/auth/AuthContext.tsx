@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { AuthSession, AuthUser, OrganizationOption, Permission, Tenant, UserRole } from "../../shared/types/domain";
 import { apiClient, ApiError } from "../../shared/lib/api-client";
 import { demoUser } from "../../shared/lib/permissions";
@@ -85,22 +85,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [pendingMfaEmail, setPendingMfaEmail] = useState<string | null>(null);
   const [pendingMfaChallenge, setPendingMfaChallenge] = useState<string | null>(null);
   const [pendingMfaEnrollment, setPendingMfaEnrollment] = useState(false);
+  const sessionRestore = useRef<Promise<AuthSession | null> | null>(null);
 
   useEffect(() => {
     if (DEMO_MODE) return;
     let active = true;
-    void (async () => {
-      try {
-        const response = await apiClient.request<{ accessToken: string }>("/auth/refresh", { method: "POST" });
-        apiClient.setAccessToken(response.accessToken);
-        const restored = await profileSession();
-        if (active) setSession(restored);
-      } catch {
-        apiClient.clearSession();
-      } finally {
-        if (active) setIsInitializing(false);
-      }
-    })();
+    if (!sessionRestore.current) {
+      sessionRestore.current = (async () => {
+        try {
+          const response = await apiClient.request<{ accessToken: string }>("/auth/refresh", { method: "POST" });
+          apiClient.setAccessToken(response.accessToken);
+          return await profileSession();
+        } catch {
+          apiClient.clearSession();
+          return null;
+        }
+      })();
+    }
+    void sessionRestore.current.then((restored) => {
+      if (active && restored) setSession(restored);
+    }).finally(() => {
+      if (active) setIsInitializing(false);
+    });
     return () => { active = false; };
   }, []);
 

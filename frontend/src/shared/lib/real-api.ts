@@ -13,6 +13,10 @@ type ApiRecordSummary = { id: string; authorPsychoanalystId: number; authorName:
 type ApiRecord = ApiRecordSummary & { patientId: number; content: string; updatedAt: string; version: number };
 type ApiReceivable = { id: string; patientId?: number; description: string; netAmount: number; outstandingAmount: number; overdue: boolean; status: string; dueDate: string };
 type ApiPayment = { id: string; patientId: number; amount: number; paymentMethod: string; status: string; receivedAt?: string; createdAt: string };
+type ApiPaymentCollection = {
+  payment: ApiPayment & { allocatedAmount: number; availableAmount: number; currency: string };
+  allocation: { id: string; paymentId: string; receivableId: string; amount: number; createdAt: string };
+};
 type ApiServiceInvoice = { id: string; status: string; invoiceNumber?: string; nfseId?: string; netAmount: number; createdAt: string };
 type ApiNotificationDelivery = { id: string; createdAt: string; recipientLabel: string; channel: "EMAIL" | "WHATSAPP" | "SMS" | "NONE"; eventType: string; status: string; providerMessageId?: string; suppressionReasonCode?: string };
 type ApiNotificationPreference = { id: string; notificationType: string; channel: "EMAIL" | "WHATSAPP" | "SMS"; label: string; description: string; enabled: boolean; required: boolean };
@@ -22,7 +26,13 @@ const unsupported = (capability: string): never => {
 };
 
 function localDateTime(value: string) {
-  return value.length >= 19 ? value.slice(0, 19) : value;
+  if (!/(Z|[+-]\d{2}:\d{2})$/.test(value)) return value.slice(0, 19);
+  const parts = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+  }).formatToParts(new Date(value));
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)!.value;
+  return `${part("year")}-${part("month")}-${part("day")}T${part("hour")}:${part("minute")}:${part("second")}`;
 }
 
 function money(value: number | string | undefined) {
@@ -57,6 +67,12 @@ function toPaymentMethod(method: string): Payment["method"] {
   return "CASH";
 }
 
+function toApiPaymentMethod(method: Payment["method"]): string {
+  if (method === "CARD") return "CREDIT_CARD";
+  if (method === "TRANSFER") return "BANK_TRANSFER";
+  return method;
+}
+
 function toFiscalStatus(status: string): FiscalDocument["status"] {
   if (status === "AUTHORIZED") return "AUTHORIZED";
   if (status === "REJECTED") return "REJECTED";
@@ -72,7 +88,7 @@ function toNotificationStatus(status: string): NotificationDelivery["status"] {
 }
 
 function toRecord(value: ApiRecordSummary, patientId: string): MedicalRecord {
-  return { id: value.id, patientId, title: "Acompanhamento clínico", state: value.status, updatedAt: value.finalizedAt ?? value.createdAt, author: value.authorName, contentPreview: "Conteúdo protegido. Abra o registro para visualizar com autorização.", revisionCount: 1, addendumCount: 0 };
+  return { id: value.id, patientId, title: "Acompanhamento clínico", state: value.status, updatedAt: value.finalizedAt ?? value.createdAt, author: value.authorName, contentPreview: "Conteúdo protegido. Abra o registro para visualizar com autorização.", revisionCount: undefined, addendumCount: undefined };
 }
 
 async function professionalId() {
@@ -131,17 +147,35 @@ export const realApi: DataSource = {
     const id = await professionalId();
     const startAt = new Date(input.startAt);
     const endAt = new Date(startAt.getTime() + input.durationMinutes * 60000);
-    const response = await apiClient.request<{ id: number; date: string; startTime?: string; endTime?: string; reason?: string }>(`/psychoanalysts/${id}/availability-exceptions`, { method: "POST", body: JSON.stringify({ date: input.startAt.slice(0, 10), type: "BLOCKED", startTime: input.startAt.slice(11, 16), endTime: endAt.toISOString().slice(11, 16), observation: input.reason }) });
+    const startLocal = localDateTime(input.startAt);
+    const endLocal = localDateTime(endAt.toISOString());
+    const response = await apiClient.request<{ id: number; date: string; startTime?: string; endTime?: string; reason?: string }>(`/psychoanalysts/${id}/availability-exceptions`, { method: "POST", body: JSON.stringify({ date: startLocal.slice(0, 10), type: "BLOCKED", startTime: startLocal.slice(11, 16), endTime: endLocal.slice(11, 16), observation: input.reason }) });
     return { ...input, id: String(response.id) };
   },
   async createPatient(input) { const password = crypto.randomUUID() + "Aa1!"; const response = await apiClient.request<ApiPatient>("/patients", { method: "POST", body: JSON.stringify({ ...input, password }) }); return toPatient(response); },
   getPatients,
   async getPatient(id) { try { const response = await apiClient.request<ApiPatient>(`/patients/${id}`); return toPatient(response); } catch (error) { if (error instanceof ApiError && error.status === 404) return undefined; throw error; } },
   async getRecords(patientId) { const response = await apiClient.request<ApiRecordSummary[]>(`/patients/${patientId}/medical-records`); return response.map((item) => toRecord(item, patientId)); },
+  async createRecord(patientId, content) {
+    const response = await apiClient.request<ApiRecordSummary>(`/patients/${patientId}/medical-records`, {
+      method: "POST",
+      body: JSON.stringify({ content }),
+    });
+    return toRecord(response, patientId);
+  },
   async getRecordContent(recordId) { const response = await apiClient.request<ApiRecord>(`/medical-records/${recordId}`); return response.content; },
-  async getRevisions(recordId) { const response = await apiClient.request<Array<{ id: string; revisionNumber: number; authorName: string; createdAt: string }>>(`/api/v1/medical-records/${recordId}/revisions`); return response.map((item) => ({ id: item.id, label: `Revisão ${item.revisionNumber}`, createdAt: item.createdAt, author: item.authorName, state: "FINALIZED" as const, reason: "Revisão clínica" })); },
+  async getRevisions(recordId) {
+    const [revisions, addenda] = await Promise.all([
+      apiClient.request<Array<{ id: string; revisionNumber: number; authorName: string; createdAt: string }>>(`/api/v1/medical-records/${recordId}/revisions`),
+      apiClient.request<Array<{ id: string; authorName: string; reason: string; createdAt: string }>>(`/api/v1/medical-records/${recordId}/addendums`),
+    ]);
+    return [
+      ...revisions.map((item) => ({ id: item.id, label: `Revisão ${item.revisionNumber}`, createdAt: item.createdAt, author: item.authorName, kind: "REVISION" as const, reason: "Revisão clínica" })),
+      ...addenda.map((item) => ({ id: item.id, label: "Adendo", createdAt: item.createdAt, author: item.authorName, kind: "ADDENDUM" as const, reason: "Informação complementar" })),
+    ].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  },
   async saveRecord(recordId, content, state) { const updated = await apiClient.request<ApiRecord>(`/medical-records/${recordId}`, { method: "PUT", body: JSON.stringify({ content }) }); if (state === "FINALIZED") await apiClient.request(`/medical-records/${recordId}/finalize`, { method: "PATCH" }); return toRecord(updated, String(updated.patientId)); },
-  async createAddendum(recordId, content) { const response = await apiClient.request<{ id: string; authorName: string; reason: string; createdAt: string }>(`/api/v1/medical-records/${recordId}/addendums`, { method: "POST", body: JSON.stringify({ content, reason: "COMPLEMENT" }) }); return { id: response.id, label: "Adendo", createdAt: response.createdAt, author: response.authorName, state: "FINALIZED" as const, reason: response.reason }; },
+  async createAddendum(recordId, content) { const response = await apiClient.request<{ id: string; authorName: string; reason: string; createdAt: string }>(`/api/v1/medical-records/${recordId}/addendums`, { method: "POST", body: JSON.stringify({ content, reason: "COMPLEMENT" }) }); return { id: response.id, label: "Adendo", createdAt: response.createdAt, author: response.authorName, kind: "ADDENDUM" as const, reason: response.reason }; },
   async getReceivables() {
     const [items, patients] = await Promise.all([
       apiClient.request<ApiReceivable[]>("/api/v1/receivables"),
@@ -150,10 +184,12 @@ export const realApi: DataSource = {
     const names = new Map(patients.map((patient) => [Number(patient.id), patient.name]));
     return items.map((item): Receivable => ({
       id: item.id,
+      patientId: item.patientId == null ? undefined : String(item.patientId),
       patientName: names.get(item.patientId ?? 0) ?? "Paciente não identificado",
       description: item.description,
       dueDate: item.dueDate,
       amount: money(item.netAmount),
+      outstandingAmount: money(item.outstandingAmount),
       status: toFinanceStatus(item.status, item.overdue),
       origin: "APPOINTMENT",
     }));
@@ -188,6 +224,28 @@ export const realApi: DataSource = {
       method: toPaymentMethod(item.paymentMethod),
       status: item.status === "REFUNDED" ? "REFUNDED" : item.status === "PENDING" ? "PENDING" : "CONFIRMED",
     }));
+  },
+  async collectPayment(input: { idempotencyKey: string; patientId: string; patientName: string; receivableId: string; amount: number; method: Payment["method"] }): Promise<Payment> {
+    const response = await apiClient.request<ApiPaymentCollection>("/api/v1/payments/collect", {
+      method: "POST",
+      headers: { "Idempotency-Key": input.idempotencyKey },
+      body: JSON.stringify({
+        patientId: Number(input.patientId),
+        receivableId: input.receivableId,
+        amount: input.amount,
+        paymentMethod: toApiPaymentMethod(input.method),
+        description: "Baixa de recebível",
+      }),
+    });
+    const payment = response.payment;
+    return {
+      id: payment.id,
+      patientName: input.patientName,
+      receivedAt: payment.receivedAt ?? payment.createdAt,
+      amount: money(payment.amount),
+      method: toPaymentMethod(payment.paymentMethod),
+      status: payment.status === "REFUNDED" ? "REFUNDED" : payment.status === "PENDING" ? "PENDING" : "CONFIRMED",
+    };
   },
   async getBankTransactions(): Promise<BankTransaction[]> { return unsupported("Conciliação bancária"); },
   async getSettlements(): Promise<ProviderSettlement[]> { return unsupported("Repasses de provedores"); },

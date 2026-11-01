@@ -77,19 +77,20 @@ let revisions: MedicalRecordRevision[] = [
 ];
 
 let receivables: Receivable[] = [
-  { id: "recb-1", patientName: "Rafael Nogueira", description: "Sessão · 04/09", dueDate: "2026-09-12", amount: 280, status: "OPEN", origin: "APPOINTMENT" },
-  { id: "recb-2", patientName: "Camila Sato", description: "Sessão · 28/08", dueDate: "2026-09-05", amount: 280, status: "OVERDUE", origin: "APPOINTMENT" },
-  { id: "recb-3", patientName: "Marina Duarte", description: "Pacote Essencial", dueDate: "2026-09-15", amount: 920, status: "OPEN", origin: "PACKAGE" },
-  { id: "recb-4", patientName: "Lucas Almeida", description: "Sessão · 04/09", dueDate: "2026-09-04", amount: 280, status: "PAID", origin: "APPOINTMENT" },
-  { id: "recb-5", patientName: "Joana Ribeiro", description: "Assinatura mensal", dueDate: "2026-08-25", amount: 680, status: "CANCELLED", origin: "SUBSCRIPTION" },
+  { id: "recb-1", patientId: "pat-2", patientName: "Rafael Nogueira", description: "Sessão · 04/09", dueDate: "2026-09-12", amount: 280, status: "OPEN", origin: "APPOINTMENT" },
+  { id: "recb-2", patientId: "pat-3", patientName: "Camila Sato", description: "Sessão · 28/08", dueDate: "2026-09-05", amount: 280, status: "OVERDUE", origin: "APPOINTMENT" },
+  { id: "recb-3", patientId: "pat-1", patientName: "Marina Duarte", description: "Pacote Essencial", dueDate: "2026-09-15", amount: 920, status: "OPEN", origin: "PACKAGE" },
+  { id: "recb-4", patientId: "pat-4", patientName: "Lucas Almeida", description: "Sessão · 04/09", dueDate: "2026-09-04", amount: 280, status: "PAID", origin: "APPOINTMENT" },
+  { id: "recb-5", patientId: "pat-5", patientName: "Joana Ribeiro", description: "Assinatura mensal", dueDate: "2026-08-25", amount: 680, status: "CANCELLED", origin: "SUBSCRIPTION" },
 ];
 
-const payments: Payment[] = [
+let payments: Payment[] = [
   { id: "pay-1", patientName: "Lucas Almeida", receivedAt: "2026-09-10T10:14:00-03:00", amount: 280, method: "PIX", status: "CONFIRMED" },
   { id: "pay-2", patientName: "Marina Duarte", receivedAt: "2026-09-09T09:21:00-03:00", amount: 920, method: "CARD", status: "CONFIRMED" },
   { id: "pay-3", patientName: "Rafael Nogueira", receivedAt: "2026-09-08T17:55:00-03:00", amount: 280, method: "TRANSFER", status: "PENDING" },
   { id: "pay-4", patientName: "Bruna Teixeira", receivedAt: "2026-09-07T12:03:00-03:00", amount: 280, method: "PIX", status: "REFUNDED" },
 ];
+const demoCollectionResults = new Map<string, Payment>();
 
 const bankTransactions: BankTransaction[] = [
   { id: "bank-1", occurredAt: "2026-09-10", description: "PIX recebido · L. Almeida", amount: 280, status: "PENDING" },
@@ -157,6 +158,7 @@ interface DemoState {
   records: MedicalRecord[];
   revisions: MedicalRecordRevision[];
   receivables: Receivable[];
+  payments: Payment[];
   fiscalDocuments: FiscalDocument[];
   packagePlans: PackagePlan[];
   subscriptions: Subscription[];
@@ -191,6 +193,7 @@ const initialDemoState: DemoState = {
   records: clone(records),
   revisions: clone(revisions),
   receivables: clone(receivables),
+  payments: clone(payments),
   fiscalDocuments: clone(fiscalDocuments),
   packagePlans: clone(packagePlans),
   subscriptions: clone(subscriptions),
@@ -205,6 +208,7 @@ function applyDemoState(state: DemoState) {
   records = state.records;
   revisions = state.revisions;
   receivables = state.receivables;
+  payments = state.payments;
   fiscalDocuments = state.fiscalDocuments;
   packagePlans = state.packagePlans;
   subscriptions = state.subscriptions;
@@ -222,6 +226,7 @@ function persistDemoState() {
       records,
       revisions,
       receivables,
+      payments,
       fiscalDocuments,
       packagePlans,
       subscriptions,
@@ -246,6 +251,7 @@ function hydrateDemoState() {
       records: Array.isArray(stored.records) ? stored.records : initialDemoState.records,
       revisions: Array.isArray(stored.revisions) ? stored.revisions : initialDemoState.revisions,
       receivables: Array.isArray(stored.receivables) ? stored.receivables : initialDemoState.receivables,
+      payments: Array.isArray(stored.payments) ? stored.payments : initialDemoState.payments,
       fiscalDocuments: Array.isArray(stored.fiscalDocuments) ? stored.fiscalDocuments : initialDemoState.fiscalDocuments,
       packagePlans: Array.isArray(stored.packagePlans) ? stored.packagePlans : initialDemoState.packagePlans,
       subscriptions: Array.isArray(stored.subscriptions) ? stored.subscriptions : initialDemoState.subscriptions,
@@ -264,7 +270,7 @@ export const mockApi = {
     await wait();
     const appointmentsToday = appointments.filter((appointment) => appointment.startAt.slice(0, 10) === today.slice(0, 10) && appointment.status !== "CANCELLED").length;
     const activePatientCount = patients.filter((patient) => patient.status === "ACTIVE").length;
-    const openReceivableAmount = receivables.filter((item) => item.status === "OPEN" || item.status === "OVERDUE").reduce((total, item) => total + item.amount, 0);
+    const openReceivableAmount = receivables.filter((item) => item.status === "OPEN" || item.status === "OVERDUE").reduce((total, item) => total + (item.outstandingAmount ?? item.amount), 0);
     const reviewRecordCount = records.filter((record) => record.state === "DRAFT").length;
     const upcoming = [...appointments].filter((appointment) => appointment.status !== "CANCELLED").sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime()).slice(0, 4);
     return {
@@ -353,7 +359,7 @@ export const mockApi = {
     return created;
   },
   async getPatients(): Promise<Patient[]> { await wait(); return [...patients]; },
-  async createPatient(input: Pick<Patient, "name" | "email" | "phone">): Promise<Patient> {
+  async createPatient(input: Pick<Patient, "name" | "email" | "phone"> & { linkToCurrentProfessional?: boolean }): Promise<Patient> {
     await wait();
     const created: Patient = { ...input, id: `pat-${Date.now()}`, firstName: input.name.split(" ")[0], status: "ACTIVE", lastAppointment: today, tags: ["Novo cadastro"], consentStatus: "REVIEW" };
     patients = [created, ...patients];
@@ -362,13 +368,31 @@ export const mockApi = {
   },
   async getPatient(id: string): Promise<Patient | undefined> { await wait(); return patients.find((patient) => patient.id === id); },
   async getRecords(patientId: string): Promise<MedicalRecord[]> { await wait(); return records.filter((record) => record.patientId === patientId); },
+  async createRecord(patientId: string, content: string): Promise<MedicalRecord> {
+    await wait();
+    const created: MedicalRecord = {
+      id: `rec-${Date.now()}`,
+      patientId,
+      title: "Acompanhamento clínico",
+      state: "DRAFT",
+      updatedAt: today,
+      author: "Dra. Helena Costa",
+      contentPreview: content,
+      revisionCount: 1,
+      addendumCount: 0,
+    };
+    records = [created, ...records];
+    revisions = [{ id: `rev-${Date.now()}`, label: "Revisão 1", createdAt: today, author: created.author, state: "DRAFT", reason: "Rascunho inicial" }, ...revisions];
+    persistDemoState();
+    return created;
+  },
   async getRecordContent(recordId: string): Promise<string> { await wait(); return records.find((record) => record.id === recordId)?.contentPreview ?? ""; },
   async getRevisions(_recordId: string): Promise<MedicalRecordRevision[]> { await wait(); return [...revisions]; },
   async saveRecord(recordId: string, contentPreview: string, state: RecordState): Promise<MedicalRecord> {
     await wait();
     const index = records.findIndex((record) => record.id === recordId);
     const current = records[index] ?? records[0];
-    const updated = { ...current, contentPreview, state, updatedAt: today, revisionCount: current.revisionCount + 1 };
+    const updated = { ...current, contentPreview, state, updatedAt: today, revisionCount: (current.revisionCount ?? 0) + 1 };
     if (index >= 0) records[index] = updated;
     persistDemoState();
     return updated;
@@ -376,21 +400,41 @@ export const mockApi = {
   async createAddendum(recordId: string, contentPreview: string): Promise<MedicalRecordRevision> {
     await wait();
     const record = records.find((item) => item.id === recordId) ?? records[0];
-    const revision: MedicalRecordRevision = { id: `rev-${Date.now()}`, label: `Addendum ${record.addendumCount + 1}`, createdAt: today, author: "Dra. Helena Costa", state: record.state, reason: contentPreview.slice(0, 80) };
+    const revision: MedicalRecordRevision = { id: `rev-${Date.now()}`, label: `Addendum ${(record.addendumCount ?? 0) + 1}`, createdAt: today, author: "Dra. Helena Costa", state: record.state, reason: contentPreview.slice(0, 80) };
     revisions = [revision, ...revisions];
-    records = records.map((item) => item.id === record.id ? { ...item, addendumCount: item.addendumCount + 1, revisionCount: item.revisionCount + 1, updatedAt: today } : item);
+    records = records.map((item) => item.id === record.id ? { ...item, addendumCount: (item.addendumCount ?? 0) + 1, revisionCount: (item.revisionCount ?? 0) + 1, updatedAt: today } : item);
     persistDemoState();
     return revision;
   },
   async getReceivables(): Promise<Receivable[]> { await wait(); return [...receivables]; },
   async createReceivable(input: Pick<Receivable, "patientName" | "description" | "dueDate" | "amount" | "origin">): Promise<Receivable> {
     await wait();
-    const created: Receivable = { ...input, id: `recb-${Date.now()}`, status: "OPEN" };
+    const patient = patients.find((item) => item.name.trim().toLowerCase() === input.patientName.trim().toLowerCase());
+    const created: Receivable = { ...input, id: `recb-${Date.now()}`, patientId: patient?.id, status: "OPEN" };
     receivables = [created, ...receivables];
     persistDemoState();
     return created;
   },
   async getPayments(): Promise<Payment[]> { await wait(); return [...payments]; },
+  async collectPayment(input: { idempotencyKey: string; patientId: string; patientName: string; receivableId: string; amount: number; method: Payment["method"] }): Promise<Payment> {
+    await wait();
+    const alreadyRecorded = demoCollectionResults.get(input.idempotencyKey);
+    if (alreadyRecorded) return alreadyRecorded;
+    const receivable = receivables.find((item) => item.id === input.receivableId && item.patientId === input.patientId);
+    if (!receivable || receivable.status === "PAID" || receivable.status === "CANCELLED") throw new Error("Cobrança indisponível para pagamento.");
+    const outstanding = receivable.outstandingAmount ?? receivable.amount;
+    if (input.amount > outstanding) throw new Error("O valor excede o saldo em aberto.");
+    const created: Payment = { id: `pay-${Date.now()}`, patientName: input.patientName, receivedAt: today, amount: input.amount, method: input.method, status: "CONFIRMED" };
+    payments = [created, ...payments];
+    receivables = receivables.map((item) => item.id !== receivable.id ? item : {
+      ...item,
+      outstandingAmount: outstanding - input.amount,
+      status: outstanding - input.amount <= 0 ? "PAID" : item.status,
+    });
+    demoCollectionResults.set(input.idempotencyKey, created);
+    persistDemoState();
+    return created;
+  },
   async getBankTransactions(): Promise<BankTransaction[]> { await wait(); return [...bankTransactions]; },
   async getSettlements(): Promise<ProviderSettlement[]> { await wait(); return [...settlements]; },
   async getFiscalDocuments(): Promise<FiscalDocument[]> { await wait(); return [...fiscalDocuments]; },
@@ -441,6 +485,7 @@ export const mockApi = {
   async getAuditEvents(): Promise<AuditEvent[]> { await wait(); return [...auditEvents]; },
   async getSecuritySignals(): Promise<SecuritySignal[]> { await wait(); return [...securitySignals]; },
   resetDemoData(): void {
+    demoCollectionResults.clear();
     applyDemoState(clone(initialDemoState));
     persistDemoState();
   },

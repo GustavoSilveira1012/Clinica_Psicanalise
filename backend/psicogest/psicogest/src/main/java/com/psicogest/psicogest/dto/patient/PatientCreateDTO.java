@@ -14,9 +14,15 @@ public record PatientCreateDTO(
 
         @Size(max = 30) String phone,
 
-        @Past(message = "Data de nascimento deve ser anterior à data atual") LocalDate birthDate
+        @Past(message = "Data de nascimento deve ser anterior à data atual") LocalDate birthDate,
+
+        Boolean linkToCurrentProfessional
 
 ) {
+
+    public PatientCreateDTO(String name, String email, String password, String phone, LocalDate birthDate) {
+        this(name, email, password, phone, birthDate, false);
+    }
 
     public String getEmail() {
         return email;

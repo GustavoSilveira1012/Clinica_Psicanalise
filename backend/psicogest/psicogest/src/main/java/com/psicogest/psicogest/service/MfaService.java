@@ -65,7 +65,15 @@ public class MfaService {
         if (methods.existsByUserIdAndStatus(user.getId(), MfaMethodStatus.ACTIVE)) throw new InvalidMfaException();
         var pending = methods.findByUserIdAndStatus(user.getId(), MfaMethodStatus.PENDING);
         if (pending.isPresent()) {
-            if (challenge.getId().equals(pending.get().getEnrollmentChallengeId())) throw new InvalidMfaException();
+            MfaMethod pendingMethod = pending.get();
+            if (challenge.getId().equals(pendingMethod.getEnrollmentChallengeId())) {
+                // Setup is idempotent for this short-lived enrollment challenge. React StrictMode,
+                // a retry, or a lost response must not invalidate the secret already shown to the user.
+                String secret = cipher.decrypt(
+                        pendingMethod.getSecretCiphertext(),
+                        pendingMethod.getSecretIv());
+                return setupResult(user.getEmail(), secret);
+            }
             revokeMethod(pending.get());
             methods.flush(); // Release the unique pending-method slot before inserting its replacement.
         }
@@ -75,9 +83,7 @@ public class MfaService {
                 .status(MfaMethodStatus.PENDING).label(properties.issuer()).createdAt(now())
                 .enrollmentChallengeId(challenge.getId()).secretCiphertext(encrypted.ciphertext())
                 .secretIv(encrypted.iv()).build());
-        String uri = "otpauth://totp/" + encode(properties.issuer()) + ":" + encode(user.getEmail())
-                + "?secret=" + secret + "&issuer=" + encode(properties.issuer()) + "&algorithm=SHA1&digits=6&period=30";
-        return new SetupResult(secret, uri);
+        return setupResult(user.getEmail(), secret);
     }
 
     public EnrollmentResult confirm(String raw, String code, String ip, String userAgent) {
@@ -155,6 +161,13 @@ public class MfaService {
         method.setRevokedAt(now());
         method.setSecretCiphertext(null);
         method.setSecretIv(null);
+    }
+
+    private SetupResult setupResult(String email, String secret) {
+        String uri = "otpauth://totp/" + encode(properties.issuer()) + ":" + encode(email)
+                + "?secret=" + secret + "&issuer=" + encode(properties.issuer())
+                + "&algorithm=SHA1&digits=6&period=30";
+        return new SetupResult(secret, uri);
     }
 
     private LocalDateTime now() { return LocalDateTime.now(clock); }

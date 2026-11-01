@@ -5,8 +5,10 @@ import { RequireAuth, RequirePermission } from "../shared/components/ProtectedRo
 import { LoginPage } from "../features/auth/LoginPage";
 import { MfaPage } from "../features/auth/MfaPage";
 import { AuthActionPage } from "../features/auth/AuthActionPage";
-import { DemoRequestPage } from "../features/public/DemoRequestPage";
+import { AsyncDemoPage } from "../features/public/AsyncDemoPage";
 import { LandingPage } from "../features/public/LandingPage";
+import { PublicPlansPage } from "../features/public/PublicPlansPage";
+import { PublicFaqPage } from "../features/public/PublicFaqPage";
 import { InvitePage } from "../features/saas/InvitePage";
 import { OnboardingPage } from "../features/saas/OnboardingPage";
 import { useAuth } from "../features/auth/AuthContext";
@@ -27,6 +29,7 @@ const CompliancePage = lazy(() => import("../features/compliance/CompliancePage"
 const SettingsPage = lazy(() => import("../features/settings/SettingsPage").then(({ SettingsPage }) => ({ default: SettingsPage })));
 const ProfilePage = lazy(() => import("../features/profile/ProfilePage").then(({ ProfilePage }) => ({ default: ProfilePage })));
 const BillingPage = lazy(() => import("../features/saas/BillingPage").then(({ BillingPage }) => ({ default: BillingPage })));
+const SaasMarketPricesPage = lazy(() => import("../features/saas/SaasMarketPricesPage").then(({ SaasMarketPricesPage }) => ({ default: SaasMarketPricesPage })));
 const NotFoundPage = lazy(() => import("../features/not-found/NotFoundPage").then(({ NotFoundPage }) => ({ default: NotFoundPage })));
 
 function PublicHome() {
@@ -80,6 +83,7 @@ const workspaceRoutes = <>
     <Route element={<RequirePermission permission="privacy:read" />}><Route path="compliance" element={<ClinicalDataModule path="/compliance" title="LGPD & compliance"><CompliancePage /></ClinicalDataModule>} /></Route>
     <Route element={<RequirePermission permission="settings:manage" />}><Route path="settings" element={<SettingsPage />} /></Route>
     <Route element={<RequirePermission permission="billing:read" />}><Route path="billing" element={<PilotModule path="/billing" title="Faturamento da plataforma"><BillingPage /></PilotModule>} /></Route>
+    <Route element={<RequirePermission permission="billing:read" />}><Route path="market-prices" element={<SaasMarketPricesPage />} /></Route>
     <Route path="onboarding" element={<OnboardingPage />} />
     <Route path="profile" element={<ProfilePage />} />
     <Route path="*" element={<NotFoundPage />} />
@@ -88,7 +92,10 @@ const workspaceRoutes = <>
 export function AppRouter() {
   return <Routes>
     <Route path="/" element={<PublicHome />} />
-    <Route path="/demo" element={<DemoRequestPage />} />
+    <Route path="/demo" element={<AsyncDemoPage />} />
+    <Route path="/planos" element={<PublicPlansPage />} />
+    <Route path="/faq" element={<PublicFaqPage />} />
+    <Route path="/ajuda" element={<PublicFaqPage />} />
     <Route path="/login" element={<LoginPage />} />
     <Route path="/mfa" element={<MfaPage />} />
     <Route path="/reset-password" element={<AuthActionPage />} />

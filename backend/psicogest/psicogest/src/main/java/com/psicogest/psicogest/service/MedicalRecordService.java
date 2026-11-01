@@ -138,7 +138,6 @@ public class MedicalRecordService {
                 .cryptoVersion(encrypted.cryptoVersion())
                 .cryptoAlgorithm(encrypted.algorithm())
                 .keyId(encrypted.keyId())
-                .version(0L)
                 .currentRevisionNumber(1L)
                 .createdAt(now)
                 .updatedAt(now)

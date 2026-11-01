@@ -11,8 +11,26 @@ class ProductionDatabaseUrlValidatorTest {
     @Test
     void acceptsPostgresUrlWithFullTlsVerificationAndSeparateCredentials() {
         assertThatCode(() -> ProductionDatabaseUrlValidator.validate(
-                "jdbc:postgresql://db.synthetic-ref.supabase.co:5432/postgres?sslmode=verify-full&connectTimeout=5"))
+                "jdbc:postgresql://db.synthetic-ref.supabase.co:5432/postgres?sslmode=verify-full"))
                 .doesNotThrowAnyException();
+    }
+
+    @Test
+    void rejectsAdditionalParametersThatCanOverrideTlsOrConnectionTarget() {
+        for (String suffix : new String[]{
+                "&sslmode=disable",
+                "&ssl=true",
+                "&sslfactory=org.postgresql.ssl.NonValidatingFactory",
+                "&host=other.example.invalid",
+                "&port=5433",
+                "&connectTimeout=5",
+                "#fragment"
+        }) {
+            assertThatThrownBy(() -> ProductionDatabaseUrlValidator.validate(
+                    "jdbc:postgresql://db.synthetic-ref.supabase.co:5432/postgres?sslmode=verify-full" + suffix))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("sslmode=verify-full");
+        }
     }
 
     @Test

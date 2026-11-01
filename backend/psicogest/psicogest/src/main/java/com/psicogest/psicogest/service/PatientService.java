@@ -14,6 +14,9 @@ import com.psicogest.psicogest.model.enums.UserRole;
 import com.psicogest.psicogest.repository.PatientRepository;
 import com.psicogest.psicogest.repository.AppointmentRepository;
 import com.psicogest.psicogest.repository.UserRepository;
+import com.psicogest.psicogest.repository.PsychoanalystRepository;
+import com.psicogest.psicogest.dto.relationship.TherapeuticRelationshipCreateDTO;
+import org.springframework.security.access.AccessDeniedException;
 import com.psicogest.psicogest.model.enums.AppointmentStatus;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -34,22 +37,42 @@ public class PatientService {
         private final PasswordEncoder passwordEncoder;
         private final LifecycleManager lifecycleManager;
         private final AppointmentRepository appointmentRepository;
+        private final PsychoanalystRepository psychoanalystRepository;
+        private final TherapeuticRelationshipService relationshipService;
 
         public PatientService(
                         PatientRepository patientRepository,
                         UserRepository userRepository,
                         PasswordEncoder passwordEncoder,
                         LifecycleManager lifecycleManager,
-                        AppointmentRepository appointmentRepository) {
+                        AppointmentRepository appointmentRepository,
+                        PsychoanalystRepository psychoanalystRepository,
+                        TherapeuticRelationshipService relationshipService) {
                 this.patientRepository = patientRepository;
                 this.userRepository = userRepository;
                 this.passwordEncoder = passwordEncoder;
                 this.lifecycleManager = lifecycleManager;
                 this.appointmentRepository = appointmentRepository;
+                this.psychoanalystRepository = psychoanalystRepository;
+                this.relationshipService = relationshipService;
         }
 
         @Transactional
         public PatientResponseDTO create(PatientCreateDTO dto) {
+
+                Long responsibleProfessionalId = null;
+                if (Boolean.TRUE.equals(dto.linkToCurrentProfessional())) {
+                        TenantContext tenant = TenantContextHolder.get();
+                        var actor = tenant == null ? null : userRepository.findById(tenant.userId()).orElse(null);
+                        if (actor == null || actor.getRole() != UserRole.PSYCHOANALYST) {
+                                throw new AccessDeniedException("Somente o profissional pode iniciar seu próprio vínculo clínico");
+                        }
+                        var professional = psychoanalystRepository.findByUserId(actor.getId())
+                                        .filter(item -> Boolean.TRUE.equals(item.getActive())
+                                                        && organizationId().equals(item.getOrganizationId()))
+                                        .orElseThrow(() -> new AccessDeniedException("Profissional não disponível nesta organização"));
+                        responsibleProfessionalId = professional.getId();
+                }
 
                 String email = dto.email().trim().toLowerCase(java.util.Locale.ROOT);
                 if (userRepository.existsByEmailIgnoreCase(email)) {
@@ -77,6 +100,11 @@ public class PatientService {
                                 .build();
 
                 Patient savedPatient = patientRepository.save(patient);
+
+                if (responsibleProfessionalId != null) {
+                        relationshipService.create(responsibleProfessionalId,
+                                        new TherapeuticRelationshipCreateDTO(savedPatient.getId(), true, null));
+                }
 
                 return toResponseDTO(savedPatient);
         }
@@ -168,6 +196,6 @@ public class PatientService {
                                 user.getEmail(),
                                 patient.getPhone(),
                                 patient.getBirthDate(),
-                                user.getActive());
+                                patient.getActive());
         }
 }

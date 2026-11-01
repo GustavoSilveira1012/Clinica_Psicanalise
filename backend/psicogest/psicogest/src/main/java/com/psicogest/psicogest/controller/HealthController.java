@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.Instant;
 import java.util.Map;
 
+import com.psicogest.psicogest.infrastructure.health.MigrationReadiness;
 import com.psicogest.psicogest.infrastructure.health.ProviderReadinessService;
 
 @RestController
@@ -21,6 +22,7 @@ public class HealthController {
     private final JdbcTemplate jdbcTemplate;
     private final RedisConnectionFactory redisConnectionFactory;
     private final ProviderReadinessService providerReadinessService;
+    private final String expectedMigrationVersion;
 
     public HealthController(
             JdbcTemplate jdbcTemplate,
@@ -30,6 +32,7 @@ public class HealthController {
         this.jdbcTemplate = jdbcTemplate;
         this.redisConnectionFactory = redisConnectionFactory;
         this.providerReadinessService = providerReadinessService;
+        this.expectedMigrationVersion = MigrationReadiness.latestPackagedVersion();
     }
 
     @GetMapping({"/live", "/liveness"})
@@ -41,17 +44,8 @@ public class HealthController {
     public ResponseEntity<Map<String, Object>> ready() {
         try {
             jdbcTemplate.queryForObject("select 1", Integer.class);
-            boolean migrationTableExists = Boolean.TRUE.equals(jdbcTemplate.queryForObject(
-                    """
-                    SELECT EXISTS (
-                        SELECT 1 FROM information_schema.tables
-                        WHERE table_schema = 'public'
-                          AND table_name = 'flyway_schema_history'
-                    )
-                    """,
-                    Boolean.class));
-            if (!migrationTableExists) {
-                throw new IllegalStateException("Migration state unavailable");
+            if (!MigrationReadiness.isCurrent(jdbcTemplate, expectedMigrationVersion)) {
+                throw new IllegalStateException("Migration state is incomplete or differs from this release");
             }
             try (RedisConnection connection = redisConnectionFactory.getConnection()) {
                 if (!"PONG".equalsIgnoreCase(connection.ping())) {
@@ -85,4 +79,5 @@ public class HealthController {
                     "timestamp", Instant.now()));
         }
     }
+
 }

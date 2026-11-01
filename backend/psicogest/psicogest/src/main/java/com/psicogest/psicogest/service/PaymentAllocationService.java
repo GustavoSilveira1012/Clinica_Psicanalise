@@ -8,6 +8,7 @@ import com.psicogest.psicogest.dto.PaymentAllocationResponseDTO;
 import com.psicogest.psicogest.exception.FinanceConflictException;
 import com.psicogest.psicogest.exception.FinanceValidationException;
 import com.psicogest.psicogest.exception.ResourceNotFoundException;
+import com.psicogest.psicogest.model.entity.Clinic;
 import com.psicogest.psicogest.model.entity.Payment;
 import com.psicogest.psicogest.model.entity.Payment.PaymentStatus;
 import com.psicogest.psicogest.model.entity.PaymentAllocation;
@@ -24,6 +25,7 @@ import com.psicogest.psicogest.security.audit.AuditAction;
 import com.psicogest.psicogest.security.audit.AuditCommand;
 import com.psicogest.psicogest.security.audit.AuditOutcome;
 import com.psicogest.psicogest.security.audit.AuditService;
+import com.psicogest.psicogest.service.finance.FinanceAuthorizationService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -59,6 +61,7 @@ public class PaymentAllocationService {
     private final FinanceBalanceService balanceService;
     private final ReceivableStateMachine receivableStateMachine;
     private final AuditService auditService;
+    private final FinanceAuthorizationService financeAuthorizationService;
 
     public PaymentAllocationService(
             PaymentAllocationRepository allocationRepository,
@@ -67,7 +70,8 @@ public class PaymentAllocationService {
             ReceivableRepository receivableRepository,
             FinanceBalanceService balanceService,
             ReceivableStateMachine receivableStateMachine,
-            AuditService auditService
+            AuditService auditService,
+            FinanceAuthorizationService financeAuthorizationService
     ) {
         this.allocationRepository = allocationRepository;
         this.paymentRepository = paymentRepository;
@@ -76,6 +80,7 @@ public class PaymentAllocationService {
         this.balanceService = balanceService;
         this.receivableStateMachine = receivableStateMachine;
         this.auditService = auditService;
+        this.financeAuthorizationService = financeAuthorizationService;
     }
 
     @Autowired
@@ -126,6 +131,8 @@ public class PaymentAllocationService {
                                         )
                         );
 
+        validateFinancialAccess(payment.getClinic(), actor);
+
         // 20. Validar que payment está confirmado
         if (
                 payment.getStatus()
@@ -168,6 +175,8 @@ public class PaymentAllocationService {
                                                 "Cobrança não encontrada"
                                         )
                         );
+
+        validateFinancialAccess(receivable.getClinic(), actor);
 
         // 21. Validar que receivable não está cancelada
         if (
@@ -295,12 +304,7 @@ public class PaymentAllocationService {
                         allocation
                 );
 
-        log.info(
-                "Alocação criada: pagamento={}, conta={}, valor={}",
-                paymentId,
-                dto.receivableId(),
-                requested
-        );
+        log.info("Alocação financeira criada com sucesso");
 
         // 28. Atualizar status da conta baseado em novo alocado
         BigDecimal newAllocated =
@@ -435,6 +439,16 @@ public class PaymentAllocationService {
         return payment.getClinic() != null
                 ? payment.getClinic().getId()
                 : null;
+    }
+
+    private void validateFinancialAccess(
+            Clinic clinic,
+            SecurityActor actor
+    ) {
+        if (clinic == null || clinic.getId() == null) {
+            throw new FinanceValidationException("Operação financeira sem clínica vinculada");
+        }
+        financeAuthorizationService.validateClinicAccess(clinic.getId(), actor);
     }
 
     /**

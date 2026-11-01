@@ -6,6 +6,7 @@ import com.psicogest.psicogest.repository.OrganizationMembershipRepository;
 import com.psicogest.psicogest.repository.UserRepository;
 import com.psicogest.psicogest.repository.PsychoanalystRepository;
 import com.psicogest.psicogest.security.authorization.AuthenticatedUserContext;
+import com.psicogest.psicogest.security.tenant.TenantDatabaseContext;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
@@ -24,15 +25,18 @@ public class AuthProfileController {
     private final OrganizationMembershipRepository memberships;
     private final AuthenticatedUserContext context;
     private final PsychoanalystRepository psychoanalysts;
+    private final TenantDatabaseContext databaseContext;
 
     public AuthProfileController(UserRepository users,
                                  OrganizationMembershipRepository memberships,
                                  AuthenticatedUserContext context,
-                                 PsychoanalystRepository psychoanalysts) {
+                                 PsychoanalystRepository psychoanalysts,
+                                 TenantDatabaseContext databaseContext) {
         this.users = users;
         this.memberships = memberships;
         this.context = context;
         this.psychoanalysts = psychoanalysts;
+        this.databaseContext = databaseContext;
     }
 
     @GetMapping("/me")
@@ -40,6 +44,9 @@ public class AuthProfileController {
     public AuthProfileResponse me(Authentication authentication) {
         Long userId = context.userId(authentication)
                 .orElseThrow(() -> new AccessDeniedException("Usuário não identificado"));
+        // /auth is outside TenantContextFilter. Establish transaction-local RLS
+        // scope before discovering the user's memberships and clinical identity.
+        databaseContext.applyUser(userId);
         var user = users.findById(userId)
                 .orElseThrow(() -> new AccessDeniedException("Usuário não encontrado"));
         UUID sessionId = null;
@@ -49,10 +56,16 @@ public class AuthProfileController {
                 try { sessionId = UUID.fromString(raw); } catch (IllegalArgumentException ignored) { }
             }
         }
-        Long psychoanalystId = psychoanalysts.findByUserId(userId).map(item -> item.getId()).orElse(null);
+        var activeMemberships = memberships.findAllByUserIdAndStatusOrderByCreatedAtAsc(
+                userId, OrganizationMembershipStatus.ACTIVE);
+        Long psychoanalystId = null;
+        if (!activeMemberships.isEmpty()) {
+            databaseContext.applyOrganization(activeMemberships.getFirst().getOrganization().getId());
+            psychoanalystId = psychoanalysts.findByUserId(userId).map(item -> item.getId()).orElse(null);
+        }
         return new AuthProfileResponse(user.getId(), user.getName(), user.getEmail(), user.getRole().name(), psychoanalystId,
                 sessionId,
-                memberships.findAllByUserIdAndStatusOrderByCreatedAtAsc(userId, OrganizationMembershipStatus.ACTIVE)
+                activeMemberships
                         .stream()
                         .map(m -> new AuthProfileResponse.OrganizationProfile(
                                 m.getOrganization().getId(), m.getOrganization().getName(), m.getOrganization().getSlug(),

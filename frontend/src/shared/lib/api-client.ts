@@ -12,6 +12,8 @@ export class ApiError extends Error {
 export class ApiClient {
   private accessToken: string | null = null;
   private csrfToken: string | null = null;
+  private csrfPromise: Promise<void> | null = null;
+  private csrfRequestId = 0;
   private organizationId: string | null = null;
   private professionalId: number | null = null;
   private refreshPromise: Promise<string | null> | null = null;
@@ -40,6 +42,8 @@ export class ApiClient {
     this.sessionVersion += 1;
     this.accessToken = null;
     this.csrfToken = null;
+    this.csrfPromise = null;
+    this.csrfRequestId += 1;
     this.organizationId = null;
     this.professionalId = null;
   }
@@ -93,13 +97,25 @@ export class ApiClient {
   }
 
   private async ensureCsrf() {
+    if (this.csrfToken) return;
+    if (this.csrfPromise) return this.csrfPromise;
+
     const version = this.sessionVersion;
-    const response = await fetch(`${this.baseUrl}/auth/csrf`, { credentials: "include" });
-    if (!response.ok) throw new ApiError("Não foi possível iniciar a sessão segura.", response.status);
-    const payload = await response.json() as { token?: string };
-    this.assertSessionUnchanged(version);
-    if (!payload.token) throw new ApiError("Token CSRF ausente na resposta do servidor.", 500);
-    this.csrfToken = payload.token;
+    const requestId = ++this.csrfRequestId;
+    const csrfRequest = (async () => {
+      try {
+        const response = await fetch(`${this.baseUrl}/auth/csrf`, { credentials: "include" });
+        if (!response.ok) throw new ApiError("Não foi possível iniciar a sessão segura.", response.status);
+        const payload = await response.json() as { token?: string };
+        this.assertSessionUnchanged(version);
+        if (!payload.token) throw new ApiError("Token CSRF ausente na resposta do servidor.", 500);
+        this.csrfToken = payload.token;
+      } finally {
+        if (this.csrfRequestId === requestId) this.csrfPromise = null;
+      }
+    })();
+    this.csrfPromise = csrfRequest;
+    return csrfRequest;
   }
 
   private async refresh(): Promise<string | null> {

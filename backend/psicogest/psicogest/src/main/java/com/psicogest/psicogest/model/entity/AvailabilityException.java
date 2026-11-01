@@ -2,6 +2,8 @@ package com.psicogest.psicogest.model.entity;
 
 import com.psicogest.psicogest.model.enums.AvailabilityExceptionType;
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import lombok.*;
 
 import java.time.LocalDate;
@@ -34,9 +36,11 @@ public class AvailabilityException {
         private AvailabilityExceptionType type;
 
         @Column(name = "start_time")
+        @JdbcTypeCode(SqlTypes.LOCAL_TIME)
         private LocalTime startTime;
 
         @Column(name = "end_time")
+        @JdbcTypeCode(SqlTypes.LOCAL_TIME)
         private LocalTime endTime;
 
         @Column(length = 255)

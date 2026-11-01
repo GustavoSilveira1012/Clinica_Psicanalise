@@ -3,6 +3,8 @@ package com.psicogest.psicogest.model.entity;
 import com.psicogest.psicogest.model.enums.AppointmentSeriesStatus;
 import com.psicogest.psicogest.model.enums.RecurrenceFrequency;
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import lombok.*;
 
 import java.time.DayOfWeek;
@@ -60,6 +62,7 @@ public class AppointmentSeries {
     private DayOfWeek dayOfWeek;
 
     @Column(name = "start_time", nullable = false)
+    @JdbcTypeCode(SqlTypes.LOCAL_TIME)
     private LocalTime startTime;
 
     @Column(name = "duration_minutes", nullable = false)

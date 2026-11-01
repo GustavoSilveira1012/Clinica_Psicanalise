@@ -40,12 +40,13 @@ public interface TherapeuticRelationshipRepository
                         TherapeuticRelationshipStatus status);
 
         @Query("""
-                SELECT DISTINCT tr.patient
+                SELECT DISTINCT patient
                 FROM TherapeuticRelationship tr
+                JOIN tr.patient patient
                 WHERE tr.psychoanalyst.id = :psychoanalystId
                   AND tr.status IN :statuses
-                  AND tr.patient.active = true
-                ORDER BY tr.patient.id
+                  AND patient.active = true
+                ORDER BY patient.id
                 """)
         List<Patient> findAccessiblePatients(
                         @Param("psychoanalystId") Long psychoanalystId,
@@ -53,16 +54,17 @@ public interface TherapeuticRelationshipRepository
         );
 
         @Query("""
-                SELECT DISTINCT tr.patient
+                SELECT DISTINCT patient
                 FROM TherapeuticRelationship tr
+                JOIN tr.patient patient
                 WHERE tr.psychoanalyst.id = :psychoanalystId
-                  AND tr.patient.organizationId = :organizationId
+                  AND patient.organizationId = :organizationId
                   AND tr.status IN :statuses
-                  AND (:active IS NULL OR tr.patient.active = :active)
+                  AND (:active IS NULL OR patient.active = :active)
                   AND (:query IS NULL OR :query = ''
-                       OR lower(tr.patient.user.name) LIKE lower(concat('%', :query, '%'))
-                       OR lower(tr.patient.user.email) LIKE lower(concat('%', :query, '%')))
-                ORDER BY tr.patient.id
+                       OR lower(patient.user.name) LIKE lower(concat('%', :query, '%'))
+                       OR lower(patient.user.email) LIKE lower(concat('%', :query, '%')))
+                ORDER BY patient.id
                 """)
         List<Patient> searchAccessiblePatients(
                         @Param("psychoanalystId") Long psychoanalystId,

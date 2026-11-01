@@ -80,6 +80,6 @@ public class AuditLog {
     private User actorUser;
 
     @ManyToOne( fetch = FetchType.LAZY )
-    @JoinColumn( name = "session_id", insertable = false, updatable = false )
+    @JoinColumn( name = "session_id", updatable = false )
     private UserSession session;
 }

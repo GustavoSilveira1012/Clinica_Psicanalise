@@ -14,6 +14,8 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.Clock;
+import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import java.util.UUID;
 
@@ -35,6 +37,7 @@ public class AuditService {
     private final AuditKeyProvider keyProvider;
 
     private final TenantDatabaseContext tenantDatabaseContext;
+    private final Clock clock;
 
     public AuditService(
             AuditChainStateRepository chainRepository,
@@ -43,7 +46,8 @@ public class AuditService {
             UserSessionRepository sessionRepository,
             AuditIntegrityService integrityService,
             AuditKeyProvider keyProvider,
-            TenantDatabaseContext tenantDatabaseContext
+            TenantDatabaseContext tenantDatabaseContext,
+            Clock clock
     ) {
 
         this.chainRepository = chainRepository;
@@ -53,6 +57,7 @@ public class AuditService {
         this.integrityService = integrityService;
         this.keyProvider = keyProvider;
         this.tenantDatabaseContext = tenantDatabaseContext;
+        this.clock = clock;
     }
 
     @Transactional
@@ -203,7 +208,7 @@ public class AuditService {
                         )
 
                         .occurredAt(
-                                Instant.now()
+                                clock.instant().truncatedTo(ChronoUnit.MICROS)
                         )
 
                         .correlationId(
@@ -240,7 +245,7 @@ public class AuditService {
 
         state.setLastMac(entryMac);
 
-        state.setUpdatedAt(Instant.now());
+        state.setUpdatedAt(clock.instant().truncatedTo(ChronoUnit.MICROS));
 
         chainRepository.save(state);
 

@@ -29,6 +29,7 @@ import com.psicogest.psicogest.domain.finance.PaymentStateMachine;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -64,6 +65,7 @@ public class PaymentService {
     private final PaymentStateMachine paymentStateMachine;
     private final ClinicUserMembershipRepository membershipRepository;
     private final com.psicogest.psicogest.service.finance.FinanceAuthorizationService financeAuthorizationService;
+    private final JdbcTemplate jdbc;
 
     public PaymentService(
             PaymentRepository paymentRepository,
@@ -74,7 +76,8 @@ public class PaymentService {
             AuditService auditService,
             PaymentStateMachine paymentStateMachine,
             ClinicUserMembershipRepository membershipRepository,
-            com.psicogest.psicogest.service.finance.FinanceAuthorizationService financeAuthorizationService
+            com.psicogest.psicogest.service.finance.FinanceAuthorizationService financeAuthorizationService,
+            JdbcTemplate jdbc
     ) {
         this.paymentRepository = paymentRepository;
         this.patientRepository = patientRepository;
@@ -85,6 +88,7 @@ public class PaymentService {
         this.paymentStateMachine = paymentStateMachine;
         this.membershipRepository = membershipRepository;
         this.financeAuthorizationService = financeAuthorizationService;
+        this.jdbc = jdbc;
     }
 
     @Transactional(readOnly = true)
@@ -129,6 +133,11 @@ public class PaymentService {
         String validatedKey =
                 normalizeIdempotencyKey(idempotencyKey);
 
+        // The row may not exist yet. Serialize matching keys for the full
+        // transaction so concurrent collection observes the committed replay.
+        jdbc.query("select pg_advisory_xact_lock(hashtextextended(?, 0))",
+                resultSet -> null, "psicogest:payment:" + validatedKey);
+
         // 12. Calcular fingerprint
         String fingerprint =
                 createFingerprint(dto);
@@ -172,11 +181,7 @@ public class PaymentService {
                 );
             }
 
-            log.info(
-                    "Retornando pagamento existente (idempotência): id={}, key={}",
-                    payment.getId(),
-                    validatedKey
-            );
+            log.info("Retornando pagamento existente por operação idempotente");
 
             return toResponseDTO(payment);
         }
@@ -244,7 +249,6 @@ public class PaymentService {
 
                         .updatedAt(now)
 
-                        .version(0L)
 
                         .build();
 
@@ -254,14 +258,7 @@ public class PaymentService {
                         payment
                 );
 
-        log.info(
-                "Pagamento criado: id={}, amount={}, method={}, patient={}, key={}",
-                saved.getId(),
-                amount,
-                dto.paymentMethod(),
-                patient.getId(),
-                validatedKey
-        );
+        log.info("Pagamento criado com sucesso");
 
         // 16. Auditar criação
         auditService.recordCriticalWrite(
@@ -379,12 +376,7 @@ public class PaymentService {
                 actor
         );
 
-        log.info(
-                "Pagamento confirmado: id={}, patient={}, amount={}",
-                saved.getId(),
-                saved.getPatient().getId(),
-                saved.getAmount()
-        );
+        log.info("Pagamento confirmado com sucesso");
 
         return toResponseDTO(saved);
     }
@@ -665,13 +657,7 @@ public class PaymentService {
                 payment.getStatus() == PaymentStatus.REFUNDED
         ) {
 
-            log.info(
-                    "Pagamento já confirmado (webhook duplicado): " +
-                            "provider={}, providerTransactionId={}, status={}",
-                    provider,
-                    providerTransactionId,
-                    payment.getStatus()
-            );
+            log.info("Webhook duplicado de pagamento ignorado");
 
             return;
         }
@@ -687,15 +673,7 @@ public class PaymentService {
 
         paymentRepository.saveAndFlush(payment);
 
-        log.info(
-                "Pagamento confirmado do provider: " +
-                        "id={}, provider={}, providerTransactionId={}, amount={}, occurredAt={}",
-                payment.getId(),
-                provider,
-                providerTransactionId,
-                payment.getAmount(),
-                occurredAt
-        );
+        log.info("Pagamento confirmado por provider");
     }
 
     /**
@@ -744,13 +722,7 @@ public class PaymentService {
                 payment.getStatus() == PaymentStatus.REFUNDED
         ) {
 
-            log.info(
-                    "Pagamento já em estado terminal (webhook descartado): " +
-                            "provider={}, providerTransactionId={}, status={}",
-                    provider,
-                    providerTransactionId,
-                    payment.getStatus()
-            );
+            log.info("Webhook de pagamento em estado terminal ignorado");
 
             return;
         }
@@ -766,14 +738,6 @@ public class PaymentService {
 
         paymentRepository.saveAndFlush(payment);
 
-        log.info(
-                "Pagamento marcado como falho do provider: " +
-                        "id={}, provider={}, providerTransactionId={}, amount={}, occurredAt={}",
-                payment.getId(),
-                provider,
-                providerTransactionId,
-                payment.getAmount(),
-                occurredAt
-        );
+        log.info("Pagamento marcado como falho por provider");
     }
 }

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
-import { Bell, CalendarDays, ChevronDown, CircleDollarSign, ClipboardList, FileText, LayoutDashboard, LogOut, Menu, Moon, Settings, ShieldCheck, Sparkles, Sun, Users, WalletCards, X, CreditCard } from "lucide-react";
+import { BarChart3, Bell, CalendarDays, ChevronDown, CircleDollarSign, ClipboardList, FileText, LayoutDashboard, LogOut, Menu, Moon, Settings, ShieldCheck, Sparkles, Sun, Users, WalletCards, X, CreditCard } from "lucide-react";
 import { useAuth } from "../../features/auth/AuthContext";
 import type { Permission } from "../types/domain";
 import { can, roleLabels } from "../lib/permissions";
@@ -29,7 +29,7 @@ const groups: NavGroup[] = [
   { label: "Operação", items: [{ label: "Pacotes", to: "/packages", icon: Sparkles, permission: "packages:read" }, { label: "Assinaturas", to: "/subscriptions", icon: WalletCards, permission: "packages:read" }] },
   { label: "Financeiro", items: [{ label: "Financeiro", to: "/finance", icon: CircleDollarSign, permission: "finance:read" }, { label: "Fiscal / NFS-e", to: "/fiscal", icon: FileText, permission: "fiscal:read" }] },
   { label: "Governança", items: [{ label: "Notificações", to: "/notifications", icon: Bell, permission: "notifications:read" }, { label: "LGPD & compliance", to: "/compliance", icon: ShieldCheck, permission: "privacy:read" }, { label: "Configurações", to: "/settings", icon: Settings, permission: "settings:manage" }] },
-  { label: "Conta SaaS", items: [{ label: "Plano e cobrança", to: "/billing", icon: CreditCard, permission: "billing:read" }] },
+  { label: "Conta SaaS", items: [{ label: "Plano e cobrança", to: "/billing", icon: CreditCard, permission: "billing:read" }, { label: "Comparar SaaS", to: "/market-prices", icon: BarChart3, permission: "billing:read" }] },
 ];
 
 const commandDescriptions: Record<string, string> = {
@@ -45,6 +45,7 @@ const commandDescriptions: Record<string, string> = {
   "LGPD & compliance": "Privacidade e auditoria",
   Configurações: "Preferências do tenant",
   "Plano e cobrança": "Assinatura SaaS e limites",
+  "Comparar SaaS": "Preços públicos de outros softwares",
 };
 
 export function AppShell({ children }: { children: ReactNode }) {

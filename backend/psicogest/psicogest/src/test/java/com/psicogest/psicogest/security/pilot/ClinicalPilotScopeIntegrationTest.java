@@ -59,5 +59,20 @@ class ClinicalPilotScopeIntegrationTest extends PostgresIntegrationTest {
                 .andExpect(content().json("""
                         {"code":"CLINICAL_DATA_DISABLED","message":"Acesso a dados clínicos está desabilitado neste ambiente."}
                         """));
+
+        mockMvc.perform(get("/users")
+                        .with(SecurityMockMvcRequestPostProcessors.user("synthetic-pilot-user")
+                                .roles("CLINIC_ADMIN")))
+                .andExpect(status().isLocked());
+
+        mockMvc.perform(get("/psychoanalysts/7/therapeutic-relationships")
+                        .with(SecurityMockMvcRequestPostProcessors.user("synthetic-pilot-user")
+                                .roles("CLINIC_ADMIN")))
+                .andExpect(status().isLocked());
+
+        mockMvc.perform(get("/api/v1/medical-record-addendums/00000000-0000-0000-0000-000000000003")
+                        .with(SecurityMockMvcRequestPostProcessors.user("synthetic-pilot-user")
+                                .roles("CLINIC_ADMIN")))
+                .andExpect(status().isLocked());
     }
 }

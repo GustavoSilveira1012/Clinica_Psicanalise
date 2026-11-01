@@ -129,7 +129,6 @@ public class ReceivableService {
                 .status(ReceivableStatus.OPEN)
                 .createdAt(now)
                 .updatedAt(now)
-                .version(0L)
                 .build());
         return toResponse(saved);
     }

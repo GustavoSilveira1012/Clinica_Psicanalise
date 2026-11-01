@@ -70,12 +70,7 @@ public class PaymentAllocationController {
             HttpServletRequest request
     ) {
 
-        log.info(
-                "POST /payments/{}/allocations: receivableId={}, amount={}",
-                paymentId,
-                dto.receivableId(),
-                dto.amount()
-        );
+        log.info("POST /payments/{}/allocations: solicitação de alocação recebida", paymentId);
 
         SecurityActor actor =
                 securityActorFactory.from(

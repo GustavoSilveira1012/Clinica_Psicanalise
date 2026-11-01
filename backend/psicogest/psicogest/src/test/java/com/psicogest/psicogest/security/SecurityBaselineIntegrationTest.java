@@ -31,6 +31,16 @@ class SecurityBaselineIntegrationTest extends PostgresIntegrationTest {
     private JdbcTemplate jdbc;
 
     @Test
+    void anonymousCatalogDoesNotExposeUnapprovedSeedPricesOrOpenCheckout() throws Exception {
+        mockMvc.perform(get("/public/plans"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.available").value(false))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.plans.length()").value(0));
+        mockMvc.perform(post("/public/plans")).andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/saas/checkout")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void shouldRejectAnonymousPatientAccess() throws Exception {
 
         mockMvc.perform(
@@ -39,6 +49,27 @@ class SecurityBaselineIntegrationTest extends PostgresIntegrationTest {
         .andExpect(
                 status().isUnauthorized()
         );
+    }
+
+    @Test
+    void clinicMemberCannotListUsersOrCreateSystemAdministrator() throws Exception {
+        long userId = createSyntheticTenantMember();
+        var principal = SecurityMockMvcRequestPostProcessors.user(Long.toString(userId))
+                .roles("CLINIC_ADMIN");
+        String email = "forbidden-admin-" + UUID.randomUUID() + "@example.invalid";
+
+        mockMvc.perform(get("/users").with(principal))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/users")
+                        .with(principal)
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType("application/json")
+                        .content("""
+                                {"name":"Synthetic administrator","email":"%s","password":"synthetic-only-password","role":"SYSTEM_ADMIN"}
+                                """.formatted(email)))
+                .andExpect(status().isForbidden());
+        org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM users WHERE email = ?", Integer.class, email)).isZero();
     }
 
     @Test
@@ -133,7 +164,12 @@ class SecurityBaselineIntegrationTest extends PostgresIntegrationTest {
                 post("/api/v1/payments").contentType("application/json").content("{}"),
                 post("/api/v1/payments/95000000-0000-0000-0000-000000000004/refunds")
                         .contentType("application/json").content("{}"),
+                post("/api/v1/payments/95000000-0000-0000-0000-000000000004/refunds/95000000-0000-0000-0000-000000000010/confirm"),
+                post("/api/v1/payments/95000000-0000-0000-0000-000000000004/refunds/95000000-0000-0000-0000-000000000010/fail"),
+                post("/api/v1/payments/95000000-0000-0000-0000-000000000004/refunds/95000000-0000-0000-0000-000000000010/cancel"),
                 post("/api/v1/payments/95000000-0000-0000-0000-000000000004/allocations")
+                        .contentType("application/json").content("{}"),
+                post("/api/v1/payments/collect")
                         .contentType("application/json").content("{}"),
                 post("/api/v1/payments/95000000-0000-0000-0000-000000000004/confirm"),
                 post("/patients/999999/subscriptions").contentType("application/json").content("{}"),
